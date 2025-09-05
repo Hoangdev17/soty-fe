@@ -22,12 +22,15 @@ const authStore = useAuthStore();
 const toast = useToast();
 
 async function onSubmit() {
+  isLoading.value = true;
   try {
     const res = await authStore.register(
       state.email,
       state.username,
       state.password
     );
+
+    isLoading.value = false;
 
     toast.add({
       title: "Register successfully",
@@ -158,12 +161,13 @@ definePageMeta({
 
               <!-- Submit Button -->
               <UButton
+                color="secondary"
                 type="submit"
                 size="lg"
                 :loading="isLoading"
                 class="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg py-3 transition-colors duration-300 flex items-center justify-center"
               >
-                Đăng nhập
+                Đăng ký
               </UButton>
 
               <!-- Extra Actions -->
@@ -176,13 +180,13 @@ definePageMeta({
                   Quên mật khẩu?
                 </UButton>
                 <div>
-                  <span class="text-gray-400">Chưa có tài khoản? </span>
+                  <span class="text-gray-400">Đã có tài khoản? </span>
                   <UButton
                     to="auth/login"
                     variant="link"
                     class="text-indigo-400 hover:text-indigo-300 p-0"
                   >
-                    Đăng ký
+                    Đăng nhập
                   </UButton>
                 </div>
               </div>
