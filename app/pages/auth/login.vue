@@ -25,11 +25,15 @@ const authStore = useAuthStore();
 const toast = useToast();
 const isLoading = ref(false);
 
+const { setUser } = useUserClientStore();
+
 async function onSubmit() {
   try {
     isLoading.value = true;
 
     const res = await authStore.login(state.email, state.password);
+    console.log(res.user);
+    setUser(res.user, res.accessToken);
 
     isLoading.value = false;
 
