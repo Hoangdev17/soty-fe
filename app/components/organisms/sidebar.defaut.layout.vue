@@ -106,7 +106,7 @@ const isActiveNav = (nav: (typeof NAV_ITEMS)[0]) =>
     </div>
 
     <!-- Add / Explore buttons -->
-    <div class="mt-auto flex flex-col gap-2 w-full items-center">
+    <div class="mt-auto flex flex-col gap-2 w-full items-center pb-15">
       <button
         class="w-12 h-12 rounded-full bg-gray-700 hover:bg-green-500 flex items-center justify-center transition-all duration-200"
       >

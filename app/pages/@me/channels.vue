@@ -5,8 +5,11 @@ definePageMeta({
 </script>
 
 <template>
-  <div class="p-6">
-    <h1 class="text-2xl font-bold mb-4">Channels Page</h1>
-    <p>Đây là trang test route <strong>/@me/channels</strong>.</p>
+  <div class="flex h-screen">
+    <!-- Cột 3 phần -->
+    <div class="flex-[3] bg-blue-200 p-4">Sidebar hoặc cột nhỏ</div>
+
+    <!-- Cột 6 phần -->
+    <div class="flex-[7] bg-green-200 p-4">Nội dung chính</div>
   </div>
 </template>

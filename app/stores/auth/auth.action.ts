@@ -3,6 +3,13 @@ import { useAuthStore } from "./auth.store";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
 
 export const authActions = {
+  async setUser(user: User | null, token: string | null) {
+    const store = useAuthStore();
+
+    store.user = user;
+    store.token = token;
+  },
+
   async login(email: string, password: string) {
     const store = useAuthStore();
     const { fetchWithAuth } = useFetchWithAuth();
