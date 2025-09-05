@@ -23,10 +23,15 @@ definePageMeta({
 
 const authStore = useAuthStore();
 const toast = useToast();
+const isLoading = ref(false);
 
 async function onSubmit() {
   try {
+    isLoading.value = true;
+
     const res = await authStore.login(state.email, state.password);
+
+    isLoading.value = false;
 
     toast.add({
       title: "Login successfully",
@@ -42,8 +47,6 @@ async function onSubmit() {
     console.error("Login failed:", err);
   }
 }
-
-const isLoading = ref(false);
 
 const handleForgotPassword = () => {
   console.log("Forgot password clicked");
@@ -129,6 +132,7 @@ const handleRegister = () => {
                   v-model="state.email"
                   type="email"
                   placeholder="Nhập email của bạn"
+                  autocomplete="email"
                   class="w-full rounded-lg bg-gray-900/50 text-white border-gray-600 focus:border-indigo-500"
                 />
               </UFormField>
@@ -139,16 +143,19 @@ const handleRegister = () => {
                   v-model="state.password"
                   type="password"
                   placeholder="Nhập mật khẩu"
+                  autocomplete="password"
                   class="w-full rounded-lg bg-gray-900/50 text-white border-gray-600 focus:border-indigo-500"
                 />
               </UFormField>
 
               <!-- Submit Button -->
               <UButton
+                color="secondary"
                 type="submit"
                 size="lg"
                 :loading="isLoading"
-                class="w-full bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg py-3 transition-colors duration-300 flex items-center justify-center"
+                :disabled="isLoading"
+                class="w-full rounded-lg py-3 bg-indigo-600 hover:bg-indigo-700 text-white transition-colors duration-300 flex items-center justify-center cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed"
               >
                 Đăng nhập
               </UButton>
