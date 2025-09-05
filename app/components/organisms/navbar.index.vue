@@ -1,3 +1,14 @@
+<script setup lang="ts">
+import { useAuthStore } from "~/stores/auth/auth.store";
+
+// danh sách links
+const links = ["Download", "Nitro", "Discover", "Safety", "Support"];
+
+const authStore = useAuthStore();
+
+const user = authStore.user;
+</script>
+
 <template>
   <UContainer class="relative z-10">
     <nav class="flex items-center justify-between py-6">
@@ -27,12 +38,26 @@
 
       <!-- Desktop Button -->
       <UButton
+        v-if="!user"
         variant="solid"
         color="neutral"
         size="xl"
         class="hidden md:block rounded-xl"
       >
         Open Soty
+      </UButton>
+
+      <UButton
+        v-else
+        variant="ghost"
+        size="xl"
+        class="hidden md:block rounded-full p-0"
+      >
+        <UAvatar
+          :src="user.avatar"
+          :alt="user.username"
+          class="w-10 h-10 rounded-full object-cover"
+        />
       </UButton>
 
       <!-- Mobile Menu Button -->
@@ -42,8 +67,3 @@
     </nav>
   </UContainer>
 </template>
-
-<script setup lang="ts">
-// danh sách links
-const links = ["Download", "Nitro", "Discover", "Safety", "Support"];
-</script>
