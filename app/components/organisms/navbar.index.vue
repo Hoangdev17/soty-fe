@@ -6,7 +6,12 @@ const links = ["Download", "Nitro", "Discover", "Safety", "Support"];
 
 const authStore = useAuthStore();
 
-const user = authStore.user;
+// Reactive user state
+const user = computed(() => authStore.userInfo);
+const isLoggedIn = computed(() => authStore.isLoggedIn);
+
+// Mobile menu state
+const isMobileMenuOpen = ref(false);
 </script>
 
 <template>
@@ -36,34 +41,106 @@ const user = authStore.user;
         </ULink>
       </div>
 
-      <!-- Desktop Button -->
+      <!-- Desktop Buttons -->
+      <div v-if="!isLoggedIn" class="hidden md:flex items-center gap-4">
+        <UButton
+          variant="ghost"
+          color="white"
+          size="lg"
+          class="rounded-xl"
+          to="/auth/login"
+        >
+          Login
+        </UButton>
+        <UButton
+          variant="solid"
+          color="primary"
+          size="lg"
+          class="rounded-xl"
+          to="/auth/register"
+        >
+          Register
+        </UButton>
+      </div>
+
       <UButton
-        v-if="!user"
+        v-else
         variant="solid"
-        color="neutral"
-        size="xl"
+        color="primary"
+        size="lg"
         class="hidden md:block rounded-xl"
+        to="/@me/channels"
       >
         Open Soty
       </UButton>
 
-      <UButton
-        v-else
-        variant="ghost"
-        size="xl"
-        class="hidden md:block rounded-full p-0"
-      >
-        <UAvatar
-          :src="user.avatar"
-          :alt="user.username"
-          class="w-10 h-10 rounded-full object-cover"
-        />
-      </UButton>
-
       <!-- Mobile Menu Button -->
-      <UButton variant="ghost" color="white" size="sm" class="md:hidden">
+      <UButton
+        variant="ghost"
+        color="white"
+        size="sm"
+        class="md:hidden"
+        @click="isMobileMenuOpen = !isMobileMenuOpen"
+      >
         <Icon name="i-heroicons-bars-3" class="w-6 h-6" />
       </UButton>
     </nav>
+
+    <!-- Mobile Menu -->
+    <div
+      v-if="isMobileMenuOpen"
+      class="md:hidden bg-gray-900/95 backdrop-blur-sm border-t border-gray-700"
+    >
+      <div class="px-4 py-6 space-y-4">
+        <!-- Mobile Menu Links -->
+        <div class="space-y-3">
+          <ULink
+            v-for="link in links"
+            :key="link"
+            class="block text-white hover:text-purple-200 transition-colors font-medium py-2"
+          >
+            {{ link }}
+          </ULink>
+        </div>
+
+        <!-- Mobile Auth Buttons -->
+        <div class="pt-4 border-t border-gray-700">
+          <div v-if="!isLoggedIn" class="space-y-3">
+            <UButton
+              variant="ghost"
+              color="white"
+              size="lg"
+              class="w-full rounded-xl"
+              to="/auth/login"
+              @click="isMobileMenuOpen = false"
+            >
+              Login
+            </UButton>
+            <UButton
+              variant="solid"
+              color="primary"
+              size="lg"
+              class="w-full rounded-xl"
+              to="/auth/register"
+              @click="isMobileMenuOpen = false"
+            >
+              Register
+            </UButton>
+          </div>
+
+          <UButton
+            v-else
+            variant="solid"
+            color="primary"
+            size="lg"
+            class="w-full rounded-xl"
+            to="/@me/channels"
+            @click="isMobileMenuOpen = false"
+          >
+            Open Soty
+          </UButton>
+        </div>
+      </div>
+    </div>
   </UContainer>
 </template>

@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { computed } from "vue";
-import { useRoute, useRouter } from "vue-router";
+import { useRoute } from "vue-router";
 
 const NAV_ITEMS = [
   {
@@ -46,7 +45,7 @@ const isActiveNav = (nav: (typeof NAV_ITEMS)[0]) =>
 
 <template>
   <aside
-    class="fixed top-0 left-0 h-screen w-20 bg-gray-900 flex flex-col items-center py-3 gap-3 overflow-y-auto scrollbar-hide"
+    class="fixed top-0 left-0 h-screen w-16 bg-gray-900 flex flex-col items-center py-3 gap-2 overflow-y-auto scrollbar-hide"
   >
     <!-- Nav items -->
     <div
@@ -57,14 +56,14 @@ const isActiveNav = (nav: (typeof NAV_ITEMS)[0]) =>
       <NuxtLink :to="nav.to" class="relative">
         <div
           :class="[
-            'w-12 h-12 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer overflow-hidden',
+            'w-10 h-10 rounded-full flex items-center justify-center transition-all duration-200 cursor-pointer overflow-hidden',
             isActiveNav(nav)
               ? 'rounded-2xl bg-indigo-600'
               : 'bg-gray-700 hover:bg-indigo-600 hover:rounded-2xl',
           ]"
         >
           <template v-if="nav.avatar">
-            <img
+            <UAvatar
               :src="nav.avatar"
               :alt="nav.label"
               class="w-full h-full object-cover"
@@ -73,7 +72,7 @@ const isActiveNav = (nav: (typeof NAV_ITEMS)[0]) =>
           <template v-else>
             <div
               :class="[
-                'w-full h-full flex items-center justify-center text-white font-bold',
+                'w-full h-full flex items-center justify-center text-white font-bold text-sm',
                 nav.customBg || 'bg-gray-700',
               ]"
             >
@@ -85,44 +84,38 @@ const isActiveNav = (nav: (typeof NAV_ITEMS)[0]) =>
         <!-- Notification badge -->
         <div
           v-if="nav.notifications"
-          class="absolute -top-1 -right-1 min-w-[20px] h-5 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold px-1"
+          class="absolute -top-1 -right-1 min-w-[18px] h-4 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold px-1"
         >
           {{ nav.notifications }}
         </div>
 
-        <!-- Active indicator -->
+        <!-- Active indicator: thanh trắng bên trái icon server đang active -->
         <div
           v-if="isActiveNav(nav)"
-          class="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-8 bg-white rounded-r-full -ml-3"
+          class="absolute left-0 top-1/2 transform -translate-y-1/2 w-1 h-6 bg-white rounded-r-full -ml-2"
         />
       </NuxtLink>
-
-      <!-- Tooltip -->
-      <div
-        class="absolute left-20 top-1/2 transform -translate-y-1/2 bg-black text-white px-3 py-1 rounded-md text-sm font-medium opacity-0 pointer-events-none group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap z-50"
-      >
-        {{ nav.label }}
-      </div>
     </div>
 
     <!-- Add / Explore buttons -->
     <div class="mt-auto flex flex-col gap-2 w-full items-center pb-15">
       <button
-        class="w-12 h-12 rounded-full bg-gray-700 hover:bg-green-500 flex items-center justify-center transition-all duration-200"
+        class="w-10 h-10 rounded-full bg-gray-700 hover:bg-green-500 flex items-center justify-center transition-all duration-200"
       >
         <UIcon
           name="i-lucide-plus"
-          class="w-6 h-6 text-green-500 group-hover:text-white"
+          class="w-5 h-5 text-green-500 group-hover:text-white"
         />
       </button>
-      <button
-        class="w-12 h-12 rounded-full bg-gray-700 hover:bg-green-500 flex items-center justify-center transition-all duration-200"
+      <UButton
+        to="/community/discover"
+        class="w-10 h-10 rounded-full bg-gray-700 hover:bg-green-500 flex items-center justify-center transition-all duration-200"
       >
         <UIcon
           name="i-lucide-compass"
-          class="w-6 h-6 text-green-500 group-hover:text-white"
+          class="w-5 h-5 text-green-500 group-hover:text-white"
         />
-      </button>
+      </UButton>
     </div>
   </aside>
 </template>
