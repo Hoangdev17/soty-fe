@@ -6,26 +6,16 @@ import HomeDefautLayout from "~/components/organisms/sidebar.defaut.layout.vue";
 <template>
   <div class="min-h-screen flex bg-[var(--ui-bg)]">
     <!-- Sidebar -->
-    <aside
-      class="w-[80px] border-r border-white h-screen flex flex-col relative"
-    >
-      <div class="flex-1 overflow-y-auto pb-24">
+    <aside class="w-[80px] h-screen flex flex-col relative">
+      <div class="flex-1 overflow-y-auto">
         <HomeDefautLayout />
       </div>
 
       <!-- Floating card nằm ở bottom, không chiếm space main content -->
-      <FloatingUserCard
-        :user="{
-          username: 'Hoàng Lưu',
-          avatar: 'https://i.pravatar.cc/150?img=3',
-          isOnline: true,
-          status: 'Online',
-        }"
-        class="absolute bottom-2 left-2 right-2"
-      />
+      <FloatingUserCard class="absolute bottom-2 left-2 right-2" />
     </aside>
 
-    <main class="flex-1 p-6 overflow-y-auto">
+    <main class="flex-1">
       <slot />
     </main>
   </div>
