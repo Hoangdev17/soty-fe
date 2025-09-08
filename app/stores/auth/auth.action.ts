@@ -3,6 +3,12 @@ import { useAuthStore } from "./auth.store";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
 
 export const authActions = {
+  // Legacy method - giữ để backward compatibility
+  async initAuth() {
+    const store = useAuthStore();
+    await store.initializeAuth();
+  },
+
   async setUser(user: User | null, token: string | null) {
     const store = useAuthStore();
 
@@ -28,9 +34,15 @@ export const authActions = {
       store.user = res.user;
       store.token = res.accessToken;
 
-      // Lưu token và refresh token vào localStorage
-      localStorage.setItem("accessToken", res.accessToken);
-      localStorage.setItem("refreshToken", res.refreshToken);
+      // Lưu token và user data vào localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem("accessToken", res.accessToken);
+        localStorage.setItem("refreshToken", res.refreshToken);
+        localStorage.setItem("userData", JSON.stringify(res.user));
+      }
+
+      // Đánh dấu đã khởi tạo
+      store.isInitialized = true;
 
       return res;
     } catch (err: any) {
@@ -56,9 +68,15 @@ export const authActions = {
       store.user = res.user;
       store.token = res.accessToken;
 
-      // Lưu token và refresh token vào localStorage
-      localStorage.setItem("accessToken", res.accessToken);
-      localStorage.setItem("refreshToken", res.refreshToken);
+      // Lưu token và user data vào localStorage
+      if (typeof window !== "undefined") {
+        localStorage.setItem("accessToken", res.accessToken);
+        localStorage.setItem("refreshToken", res.refreshToken);
+        localStorage.setItem("userData", JSON.stringify(res.user));
+      }
+
+      // Đánh dấu đã khởi tạo
+      store.isInitialized = true;
 
       return res;
     } catch (err: any) {
@@ -68,11 +86,8 @@ export const authActions = {
 
   async logout() {
     const store = useAuthStore();
-    store.user = null;
-    store.token = null;
-
-    // Xóa token khỏi localStorage
-    localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
+    store.clearAuthData();
+    store.isInitialized = false;
+    store.isLoading = false;
   },
 };

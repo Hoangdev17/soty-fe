@@ -1,11 +1,11 @@
 <script setup lang="ts">
 import { useAuthStore } from "~/stores/auth/auth.store";
 
-const { user, token } = useUserClientStore();
 const authStore = useAuthStore();
-onMounted(async () => {
-  await authStore.setUser(user.value, token.value);
-});
+
+// Sử dụng reactive user từ auth store thay vì useUserClientStore
+const user = computed(() => authStore.userInfo);
+const isLoggedIn = computed(() => authStore.isLoggedIn);
 
 const onClickMute = () => {
   console.log("Toggle mute");
@@ -16,12 +16,15 @@ const onClickDeafen = () => {
 };
 
 const onClickSettings = () => {
-  console.log("Open user settings modal");
+  if (user.value?.username) {
+    navigateTo("/settings/@" + user.value.username);
+  }
 };
 </script>
 
 <template>
   <div
+    v-if="isLoggedIn && user"
     class="backdrop-blur-md bg-gray-900/90 text-white shadow-lg rounded-xl p-3 fixed bottom-0 left-0 w-72 flex items-center justify-between z-50"
   >
     <!-- Avatar + Info -->
@@ -29,7 +32,7 @@ const onClickSettings = () => {
       <div class="relative">
         <UAvatar
           :src="user?.avatar"
-          alt="avatar"
+          :alt="user?.username || 'avatar'"
           class="w-10 h-10 rounded-full border-2 border-gray-700"
         />
       </div>

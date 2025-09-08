@@ -1,2 +1,12 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
+
+.slide-enter-active,
+.slide-leave-active {
+  transition: all 0.3s ease;
+}
+.slide-enter-from,
+.slide-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
+}
