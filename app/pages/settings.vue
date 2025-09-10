@@ -1,5 +1,10 @@
 <script setup lang="ts">
+import requiredAuth from "~/middleware/required.auth";
 import { useAuthStore } from "~/stores/auth/auth.store";
+
+definePageMeta({
+  middleware: [requiredAuth],
+});
 
 const route = useRoute();
 const section = ref("");

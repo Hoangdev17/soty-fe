@@ -11,6 +11,8 @@
 </template>
 
 <script setup lang="ts">
+import AppLoading from "./components/atoms/AppLoading.vue";
+
 const { isLoading, isInitialized } = useAuthGuard();
 
 // Chỉ show loading khi chưa init hoặc đang loading và không có cached data

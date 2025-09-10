@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import NavbarIndex from "~/components/organisms/navbar.index.vue";
 import Herosection from "~/components/organisms/herosection.vue";
+import requiredAuth from "~/middleware/required.auth";
 
 // SEO Meta
 useSeoMeta({

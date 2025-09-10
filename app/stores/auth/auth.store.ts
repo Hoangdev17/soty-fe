@@ -20,7 +20,7 @@ export const useAuthStore = defineStore("auth", {
   actions: {
     ...authActions,
 
-    // Khởi tạo auth state từ localStorage (Fast mode)
+    // Khởi tạo auth state từ localStorage (Fast mode) - Tối ưu performance
     async initializeAuth() {
       if (this.isInitialized) {
         console.log("🔐 Auth already initialized, skipping...");
@@ -48,8 +48,12 @@ export const useAuthStore = defineStore("auth", {
             this.token = token;
             console.log("🔐 User restored from cache:", userData.username);
 
-            // Verify token trong background (không block UI)
-            this.verifyTokenInBackground();
+            // ⚡ TỐI ƯU: Chỉ verify token sau 5 phút hoặc khi cần thiết
+            const lastVerified = localStorage.getItem("lastTokenVerify");
+            const now = Date.now();
+            if (!lastVerified || now - parseInt(lastVerified) > 5 * 60 * 1000) {
+              this.verifyTokenInBackground();
+            }
           } catch (e) {
             console.log("🔐 Invalid cached data, clearing...");
             localStorage.removeItem("userData");
