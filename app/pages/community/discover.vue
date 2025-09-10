@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import requiredAuth from "~/middleware/required.auth";
+
 definePageMeta({
   layout: "main",
+  middleware: [requiredAuth],
 });
 </script>
 
