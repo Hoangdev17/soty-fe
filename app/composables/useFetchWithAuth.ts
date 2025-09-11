@@ -6,7 +6,9 @@ interface FetchOptions extends RequestInit {
 
 export function useFetchWithAuth() {
   const authStore = useAuthStore();
-  const baseUrl = process.env.API_BASE_URL;
+  const config = useRuntimeConfig();
+  const baseUrl =
+    config.public.NUXT_PUBLIC_API_BASE_URL || config.public.apiBase;
 
   async function fetchWithAuth<T>(
     url: string,
