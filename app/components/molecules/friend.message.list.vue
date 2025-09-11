@@ -33,7 +33,7 @@ const state = ref({
             :key="user.id"
             class="flex items-center justify-between cursor-pointer gap-2"
           >
-            <MeiText>{{ user.label }}</MeiText>
+            <span>{{ user.label }}</span>
           </div>
         </div>
       </template>
