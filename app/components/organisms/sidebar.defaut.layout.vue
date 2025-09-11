@@ -17,6 +17,42 @@ onMounted(async () => {
   }
 });
 
+watch(
+  () => route.path,
+  async (newPath) => {
+    // Kiểm tra nếu path là community route
+    if (newPath.startsWith("/community/")) {
+      // Format: /community/@name-id hoặc /community/name-id
+      const pathParts = newPath.split("/");
+      const communitySlug = pathParts[pathParts.length - 1];
+
+      if (communitySlug) {
+        // Tách name và ID từ slug
+        const lastDashIndex = communitySlug.lastIndexOf("-");
+        if (lastDashIndex !== -1) {
+          const communityId = communitySlug.substring(lastDashIndex + 1);
+
+          // Tìm community trong list và set current
+          const community = userCommunity.value.find(
+            (c: any) => c.id == communityId
+          );
+          if (community) {
+            communityStore.currentCommunity = community;
+          } else {
+            // Nếu không tìm thấy, fetch từ API
+            try {
+              await communityStore.fetchCommunityById(communityId);
+            } catch (error) {
+              console.error("Error fetching community:", error);
+            }
+          }
+        }
+      }
+    }
+  },
+  { immediate: true } // Chạy ngay khi component mount
+);
+
 // Static nav items (Discord home, etc.)
 const STATIC_NAV_ITEMS = [
   {
@@ -37,9 +73,9 @@ const NAV_ITEMS = computed(() => {
   const communityNavItems = userCommunity.value.map((community: any) => ({
     label: community.name,
     avatar: community.avatar,
-    to: `/community/${community.id}`,
-    metadata: { prefix: `/community/${community.id}` },
-    notifications: 0, // Có thể thêm logic notifications sau
+    to: `/community/@${community.name}-${community.id}`,
+    metadata: { prefix: `/community/@${community.id}` },
+    notifications: 0,
     customBg: null,
     customText: community.name.charAt(0).toUpperCase(),
   }));
@@ -47,7 +83,13 @@ const NAV_ITEMS = computed(() => {
   return [...STATIC_NAV_ITEMS, ...communityNavItems];
 });
 
-const isActiveNav = (nav: any) => route.path.includes(nav.metadata.prefix);
+const isActiveNav = (nav: any) => {
+  if (nav.isHome) {
+    return route.path === nav.metadata.prefix;
+  } else {
+    return route.path.startsWith(nav.to);
+  }
+};
 
 const createState = ref({
   name: "",

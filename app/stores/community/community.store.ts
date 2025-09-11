@@ -2,8 +2,6 @@ import { defineStore } from "pinia";
 import type {
   Community,
   CommunityMember,
-  CreateCommunityData,
-  CommunityFilters,
 } from "./community.type";
 import { communityActions } from "./community.action";
 
@@ -12,10 +10,6 @@ export const useCommunityStore = defineStore("community", {
     communities: [] as Community[],
     currentCommunity: null as Community | null,
     currentCommunityMembers: [] as CommunityMember[],
-
-    // Track joined communities (vì BE không trả về isJoined)
-    joinedCommunityIds: [] as string[],
-
     // Loading states
     isLoading: false,
     isLoadingCommunities: false,

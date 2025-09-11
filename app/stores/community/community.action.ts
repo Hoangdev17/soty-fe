@@ -45,6 +45,21 @@ export const communityActions = {
     return newCommunity;
   },
 
+  async fetchCommunityById(communityId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const communityStore = useCommunityStore();
+
+    const community = await fetchWithAuth<Community>(
+      `/community/${communityId}`,
+      {
+        method: "GET",
+      }
+    );
+
+    communityStore.currentCommunity = community;
+    return community;
+  },
+
   // Update community
   async updateCommunity(
     communityId: string,

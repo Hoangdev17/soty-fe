@@ -19,7 +19,7 @@ const isOpenModal = ref(false);
       />
     </template>
     <template #footer>
-      <MeiBox class="flex items-center gap-x-2">
+      <div class="flex items-center gap-x-2">
         <UButton
           label="Search"
           color="primary"
@@ -28,13 +28,13 @@ const isOpenModal = ref(false);
             label: 'font-bold text-xs uppercase text',
           }"
         />
-        <MeiText class="text-xs">Search</MeiText>
+        <span class="text-xs">Search</span>
         <UKbd variant="subtle" color="neutral">@</UKbd>
         <UKbd variant="subtle" color="neutral">#</UKbd>
         <UKbd variant="subtle" color="neutral">!</UKbd>
         <UKbd variant="subtle" color="neutral">*</UKbd>
-        <MeiText class="text-xs">Search</MeiText>
-      </MeiBox>
+        <span class="text-xs">Search</span>
+      </div>
     </template>
   </UModal>
 </template>
