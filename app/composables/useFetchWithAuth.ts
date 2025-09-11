@@ -6,7 +6,7 @@ interface FetchOptions extends RequestInit {
 
 export function useFetchWithAuth() {
   const authStore = useAuthStore();
-  const baseUrl = process.env.API_BASE_URL || "http://localhost:3000";
+  const baseUrl = process.env.API_BASE_URL;
 
   async function fetchWithAuth<T>(
     url: string,
