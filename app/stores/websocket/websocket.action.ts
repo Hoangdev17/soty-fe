@@ -2,9 +2,12 @@
 import { useWebSocketStore } from "./websocket.store";
 
 export const connectToSocketIO = (token?: string) => {
-  const url = "http://localhost:3000";
+  const config = useRuntimeConfig();
+  const baseUrl: string = config.public.apiBase || "http://localhost:3000";
+
+  // Chỉ gọi store trong composable/setup
   const wsStore = useWebSocketStore();
-  wsStore.connect(url, token);
+  wsStore.connect(baseUrl, token);
 };
 
 export const initializeSocketIO = () => {
