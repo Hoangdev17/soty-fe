@@ -4,12 +4,15 @@ import SidebarCommunity from "~/components/organisms/sidebar.community.vue";
 import FloatingUserCard from "~/components/organisms/floating.user.card.vue";
 import { initializeWebSocket } from "../stores/websocket/websocket.action";
 import { disconnectWebSocket } from "../stores/websocket/websocket.action";
-// Khởi tạo WebSocket khi vào community
+
+definePageMeta({
+  middleware: "required-auth",
+});
+
 onMounted(() => {
   initializeWebSocket();
 });
 
-// Ngắt kết nối khi rời khỏi community
 onUnmounted(() => {
   disconnectWebSocket();
 });

@@ -3,12 +3,22 @@ import type {
   Community,
   CommunityMember,
   CreateCommunityData,
-  CommunityFilters,
 } from "./community.type";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
-import { joinRoom } from "~/stores/websocket/websocket.action";
 
 export const communityActions = {
+  async fetchAllCommunity() {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const commnityStore = useCommunityStore();
+
+    const response = await fetchWithAuth<Community[]>(`/community`, {
+      method: "GET",
+    });
+
+    commnityStore.communitiesAll = response;
+    return response;
+  },
+
   // Lấy danh sách communities
   async fetchCommunities() {
     const { fetchWithAuth } = useFetchWithAuth();
@@ -84,12 +94,36 @@ export const communityActions = {
   // Join community
   async joinCommunity(communityId: string) {
     const { fetchWithAuth } = useFetchWithAuth();
-    return await fetchWithAuth<{ message: string }>(
-      `/communities/${communityId}/join`,
-      {
-        method: "POST",
-      }
+    const communityStore = useCommunityStore();
+    const toast = useToast();
+
+    const existingMember = communityStore.currentCommunityMembers.find(
+      (member) => member.communityId === communityId
     );
+
+    if (existingMember) {
+      throw new Error("You are already a member of this community.");
+    }
+
+    try {
+      const response = await fetchWithAuth<CommunityMember>(
+        `/community/${communityId}/join`,
+        {
+          method: "POST",
+        }
+      );
+
+      communityStore.currentCommunityMembers.push(response);
+
+      return response;
+    } catch (error) {
+      toast.add({
+        title: "Failed to join",
+        description: "You are already a member of this community.",
+        color: "error",
+        duration: 5000,
+      });
+    }
   },
 
   // Leave community

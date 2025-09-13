@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import FloatingUserCard from "~/components/organisms/floating.user.card.vue";
 import HomeDefautLayout from "~/components/organisms/sidebar.defaut.layout.vue";
+
+definePageMeta({
+  middleware: "required-auth",
+});
 </script>
 
 <template>

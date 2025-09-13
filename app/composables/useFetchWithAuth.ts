@@ -25,6 +25,7 @@ export function useFetchWithAuth() {
         (headers as any)["Authorization"] = `Bearer ${authStore.token}`;
       }
 
+      // build query string nếu có
       let fullUrl = `${baseUrl}${url}`;
       if (options.query) {
         const params = new URLSearchParams(
@@ -34,18 +35,26 @@ export function useFetchWithAuth() {
       }
 
       const res = await fetch(fullUrl, { ...options, headers });
+      const data = await res.json().catch(() => ({}));
+
       if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        // Nếu 401, thử refresh token
+        // Nếu 401 → refresh token rồi thử lại
         if (res.status === 401) {
           const refreshed = await handleRefreshToken();
           if (refreshed) {
-            return makeRequest(); // retry request sau khi refresh token
+            return makeRequest(); // retry sau khi refresh
           }
         }
-        throw new Error(data.message || `Error ${res.status}`);
+
+        // Ném lỗi chi tiết (status, body)
+        throw {
+          status: res.status,
+          statusText: res.statusText,
+          body: data,
+        };
       }
-      return res.json();
+
+      return data as T;
     };
 
     return makeRequest();

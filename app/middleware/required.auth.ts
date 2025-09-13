@@ -1,24 +1,18 @@
 import { navigateTo } from "#app";
 import { useAuthStore } from "~/stores/auth/auth.store";
 
-export default defineNuxtRouteMiddleware(async (to, from) => {
-  // ⚡ TỐI ƯU: Chỉ chạy ở client-side
-  if (import.meta.server) return;
+export default defineNuxtRouteMiddleware(async (to) => {
+  if (import.meta.server) return; // chỉ chạy client
 
   const authStore = useAuthStore();
 
-  // ⚡ TỐI ƯU: Không block render, chỉ khởi tạo nếu chưa có data
+  // Đợi initializeAuth xong
   if (!authStore.isInitialized) {
-    // Khởi tạo không đồng bộ, không block
-    authStore.initializeAuth().catch(console.error);
+    await authStore.initializeAuth();
   }
 
-  // ⚡ TỐI ƯU: Kiểm tra nhanh từ cache trước
-  if (!authStore.isLoggedIn) {
-    // Nếu chưa login và đã initialized, redirect ngay
-    if (authStore.isInitialized) {
-      return navigateTo("/auth/login");
-    }
-    // Nếu chưa initialized, cho phép render và kiểm tra sau
+  // Nếu chưa login → chặn navigation ngay lập tức
+  if (!authStore.isLoggedIn && to.path !== "/auth/login") {
+    return navigateTo("/auth/login");
   }
 });

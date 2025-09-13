@@ -8,6 +8,7 @@ export const useAuthStore = defineStore("auth", {
   state: () => ({
     user: null as User | null,
     token: null as string | null,
+    isAuthenticated: false,
     isInitialized: false,
     isLoading: false,
   }),

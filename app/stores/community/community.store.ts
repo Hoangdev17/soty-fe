@@ -1,13 +1,11 @@
 import { defineStore } from "pinia";
-import type {
-  Community,
-  CommunityMember,
-} from "./community.type";
+import type { Community, CommunityMember } from "./community.type";
 import { communityActions } from "./community.action";
 
 export const useCommunityStore = defineStore("community", {
   state: () => ({
-    communities: [] as Community[],
+    communities: [] as Community[], //communitys of the user
+    communitiesAll: [] as Community[], //all communitys
     currentCommunity: null as Community | null,
     currentCommunityMembers: [] as CommunityMember[],
     // Loading states
