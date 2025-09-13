@@ -7,11 +7,14 @@ const props = defineProps<{
   roomId: string;
 }>();
 
-const { getMessages } = useMessage();
+const { getMessages, fetchMessages } = useMessage();
 const messages = computed(() => getMessages(props.roomId));
 
-const isLoading = ref(true);
-const hasLoadedOnce = ref(false);
+// Track pagination
+const offset = ref(0);
+const limit = 50;
+const hasMore = ref(true);
+const loadingMore = ref(false);
 
 // Container ref for scrolling
 const listContainer = ref<HTMLElement | null>(null);
@@ -24,20 +27,42 @@ const scrollToBottom = async () => {
   }
 };
 
+const handleScroll = async () => {
+  const el = listContainer.value;
+  if (!el || loadingMore.value || !hasMore.value) return;
+
+  // If scrolled to top (within 50px), load more
+  if (el.scrollTop <= 50) {
+    loadingMore.value = true;
+    offset.value += limit;
+
+    try {
+      await fetchMessages(props.roomId, limit, offset.value);
+      // If less than limit messages returned, no more
+      const newMessages = getMessages(props.roomId);
+      if (newMessages.length < offset.value + limit) {
+        hasMore.value = false;
+      }
+    } catch (error) {
+      console.error("Error loading more messages:", error);
+    } finally {
+      loadingMore.value = false;
+    }
+  }
+};
+
 // Scroll when messages change and on mount
 watch(
   messages,
   async () => {
     scrollToBottom();
-    // Ensure minimum loading time before hiding
-    if (messages.value.length > 0) {
-    }
   },
   { deep: true }
 );
 
 onMounted(async () => {
-  scrollToBottom();
+  await fetchMessages(props.roomId, limit, offset.value);
+  // Don't scroll to bottom initially for pagination
 });
 
 const formatTime = (timestamp: Date) => {
@@ -50,10 +75,13 @@ const formatTime = (timestamp: Date) => {
   <div
     ref="listContainer"
     class="message-list flex flex-col hide-scrollbar overflow-y-auto p-2 h-full flex-1 min-h-0"
+    @scroll="handleScroll"
   >
-    <!-- Loading state - Show multiple loading skeletons -->
-    <div v-if="isLoading" class="space-y-2">
-      <AtomsMessageLoading />
+    <!-- Loading more indicator -->
+    <div v-if="loadingMore" class="flex justify-center py-2">
+      <div
+        class="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500"
+      ></div>
     </div>
 
     <!-- Messages -->

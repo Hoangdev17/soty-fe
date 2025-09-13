@@ -16,7 +16,11 @@ export const getMessagesForRoom = (channelId: string) => {
   return messageStore.getMessagesByRoom(channelId);
 };
 
-export const fetchMessagesForRoom = (roomId: string) => {
+export const fetchMessagesForRoom = (
+  roomId: string,
+  limit = 50,
+  offset = 0
+) => {
   const messageStore = useMessageStore();
-  return messageStore.fetchMessages(roomId);
+  return messageStore.fetchMessages(roomId, limit, offset);
 };

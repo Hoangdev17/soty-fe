@@ -1,3 +1,5 @@
+import { useMemberStore } from "../member/member.store";
+import type { Member } from "../member/member.type";
 import { useCommunityStore } from "./community.store";
 import type {
   Community,
@@ -95,6 +97,7 @@ export const communityActions = {
   async joinCommunity(communityId: string) {
     const { fetchWithAuth } = useFetchWithAuth();
     const communityStore = useCommunityStore();
+    const memberStore = useMemberStore();
     const toast = useToast();
 
     const existingMember = communityStore.currentCommunityMembers.find(
@@ -106,14 +109,14 @@ export const communityActions = {
     }
 
     try {
-      const response = await fetchWithAuth<CommunityMember>(
+      const response = await fetchWithAuth<Member>(
         `/community/${communityId}/join`,
         {
           method: "POST",
         }
       );
 
-      communityStore.currentCommunityMembers.push(response);
+      memberStore.addMember(communityId, response);
 
       return response;
     } catch (error) {
@@ -133,17 +136,6 @@ export const communityActions = {
       `/communities/${communityId}/leave`,
       {
         method: "POST",
-      }
-    );
-  },
-
-  // Lấy danh sách members
-  async fetchCommunityMembers(communityId: string) {
-    const { fetchWithAuth } = useFetchWithAuth();
-    return await fetchWithAuth<CommunityMember[]>(
-      `/communities/${communityId}/members`,
-      {
-        method: "GET",
       }
     );
   },

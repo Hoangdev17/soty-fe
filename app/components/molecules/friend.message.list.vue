@@ -1,5 +1,4 @@
 <script lang="ts" setup>
-import type { TabsItem } from "@nuxt/ui";
 import { ref } from "vue";
 
 const state = ref({

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TabsItem } from "@nuxt/ui";
-import { ref, watch } from "vue";
+import { ref } from "vue";
+import { useCommunityStore } from "~/stores/community/community.store";
 
 definePageMeta({
   layout: "main",

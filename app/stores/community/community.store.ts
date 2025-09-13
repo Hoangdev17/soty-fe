@@ -25,5 +25,15 @@ export const useCommunityStore = defineStore("community", {
 
   actions: {
     ...communityActions,
+
+    async removeCommunity(communityId: string) {
+      this.communities = this.communities.filter(
+        (community) => community.id !== communityId
+      );
+      if (this.currentCommunity?.id === communityId) {
+        this.currentCommunity = null;
+        this.currentCommunityMembers = [];
+      }
+    },
   },
 });

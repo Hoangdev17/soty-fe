@@ -3,6 +3,8 @@ import { useRoute } from "vue-router";
 import { useChannelStore } from "~/stores/channels/channel.store";
 import { useCommunityStore } from "~/stores/community/community.store";
 import { useMessage } from "~/composables/useMessage";
+import { useMemberStore } from "~/stores/member/member.store";
+import ChannelLoading from "~/components/organisms/ChannelLoading.vue";
 
 definePageMeta({
   layout: "community-layout",
@@ -10,6 +12,7 @@ definePageMeta({
 
 const channelStore = useChannelStore();
 const guildStore = useCommunityStore();
+const memberStore = useMemberStore();
 const { joinRoom, leaveRoom, fetchMessages, getMessages } = useMessage();
 
 const route = useRoute();
@@ -17,25 +20,35 @@ const channelId = route.params.channel_id as string | undefined;
 const guildId = route.params.guild_id as string | undefined;
 const { currentChannel } = storeToRefs(channelStore);
 
+const isPageLoading = ref(true);
+
+const messageLoading = ref(false);
+
 // Check if there are messages to conditionally show welcome
 const hasMessages = computed(() => {
   if (!channelId) return false;
   return getMessages(channelId).length > 0;
 });
 
-// MessageList component now handles its own scrolling
-
 onMounted(async () => {
   if (!guildId || !channelId) return;
 
-  // Fetch community data và join Socket.IO room
   await guildStore.fetchCommunityById(guildId);
 
-  // Fetch channel data
-  await channelStore.fetchChannelById(guildId, channelId);
+  // Fetch channel data only if not already loaded
+  if (channelStore.currentChannel?.id !== channelId) {
+    await channelStore.fetchChannelById(guildId, channelId);
+  }
+
+  //Fetch members of the guild only if not already loaded
+  if (memberStore.getMembersByGuild(guildId).length === 0) {
+    await memberStore.fetchMembers(guildId);
+  }
 
   // Fetch existing messages for this channel
   await fetchMessages(channelId);
+  messageLoading.value = false;
+  isPageLoading.value = false;
 });
 
 onUnmounted(() => {
@@ -51,8 +64,12 @@ watch(
     try {
       if (!newChannel) return;
 
-      // If channel id changed, fetch messages for the new channel
-      if (newChannel.id && newChannel.id !== oldChannel?.id) {
+      // If channel id changed and it's not the initial load, fetch messages for the new channel
+      if (
+        newChannel.id &&
+        newChannel.id !== oldChannel?.id &&
+        oldChannel !== undefined
+      ) {
         await fetchMessages(newChannel.id);
       }
     } catch (err) {
@@ -66,7 +83,8 @@ const isOpenSlideoverMember = ref(false);
 </script>
 
 <template>
-  <div class="channel-page flex h-full bg-dark-800">
+  <ChannelLoading v-if="isPageLoading" />
+  <div v-else class="channel-page flex h-full bg-dark-800">
     <!-- Main Chat Area -->
     <div
       class="flex-1 flex flex-col transition-all duration-300"
@@ -106,6 +124,7 @@ const isOpenSlideoverMember = ref(false);
       <!-- Messages Container -->
       <div class="flex-1 flex flex-col justify-end min-h-0 bg-dark-800">
         <!-- Welcome message -->
+        <AtomsMessageLoading v-if="messageLoading" />
         <div
           v-if="!hasMessages"
           class="flex flex-col items-start text-left p-4"

@@ -70,22 +70,37 @@ export const useMessageStore = defineStore("message", {
       }
     },
 
-    async fetchMessages(channelId: string) {
+    async fetchMessages(channelId: string, limit = 50, offset = 0) {
       const { fetchWithAuth } = useFetchWithAuth();
       try {
         this.loading = true;
         this.error = null;
 
-        // Fetch messages for the room from API
+        // Fetch messages for the room from API with pagination
         const messages = await fetchWithAuth<Message[]>(
-          `/messages/${channelId}`
+          `/messages/${channelId}?limit=${limit}&offset=${offset}`
         );
 
-        // Replace existing messages for this room
-        this.messages[channelId] = messages.map((msg) => ({
-          ...msg,
-          createdAt: new Date(msg.createdAt),
-        }));
+        // If offset > 0, append to existing messages, else replace
+        if (offset > 0) {
+          if (!this.messages[channelId]) {
+            this.messages[channelId] = [];
+          }
+          // Prepend older messages (since offset increases for older messages)
+          this.messages[channelId] = [
+            ...messages.map((msg) => ({
+              ...msg,
+              createdAt: new Date(msg.createdAt),
+            })),
+            ...this.messages[channelId],
+          ];
+        } else {
+          // Replace existing messages for this room
+          this.messages[channelId] = messages.map((msg) => ({
+            ...msg,
+            createdAt: new Date(msg.createdAt),
+          }));
+        }
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to fetch messages";

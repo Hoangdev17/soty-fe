@@ -59,8 +59,8 @@ export const useMessage = () => {
     leaveChatRoom(roomName);
   };
 
-  const fetchMessages = (roomId: string) => {
-    return fetchMessagesForRoom(roomId);
+  const fetchMessages = (roomId: string, limit = 50, offset = 0) => {
+    return fetchMessagesForRoom(roomId, limit, offset);
   };
 
   const sendMessage = (channelId: string, message: string) => {

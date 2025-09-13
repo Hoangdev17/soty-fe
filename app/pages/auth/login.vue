@@ -17,13 +17,20 @@ const state = reactive({
   password: "",
 });
 
-definePageMeta({
-  layout: false,
-});
-
 const authStore = useAuthStore();
 const toast = useToast();
 const isLoading = ref(false);
+
+onMounted(async () => {
+  if (!authStore.isInitialized) {
+    await authStore.initializeAuth();
+  }
+
+  // Nếu đã login, redirect ra trang chính
+  if (authStore.isLoggedIn) {
+    return navigateTo("/");
+  }
+});
 
 async function onSubmit() {
   try {

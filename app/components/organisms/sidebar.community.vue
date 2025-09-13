@@ -8,6 +8,7 @@ import type {
 } from "@nuxt/ui";
 import { useCommunityStore } from "~/stores/community/community.store";
 import { useChannelStore } from "~/stores/channels/channel.store";
+import InviteModal from "~/components/molecules/invite.modal.vue";
 
 const route = useRoute();
 const communityStore = useCommunityStore();
@@ -16,6 +17,9 @@ const guildId = route.params.guild_id as string | undefined;
 const channelId = route.params.channel_id as string | undefined;
 
 const isCreating = ref(false);
+
+// Invite modal state
+const isInviteModalOpen = ref(false);
 
 // Ref for the form
 const channelForm = ref<HTMLFormElement>();
@@ -98,6 +102,9 @@ const items = ref<DropdownMenuItem[][]>([
     {
       label: "Mời mọi người",
       icon: "i-lucide-user-plus",
+      onSelect: () => {
+        isInviteModalOpen.value = true;
+      },
     },
     {
       label: "Cài đặt máy chủ",
@@ -151,6 +158,11 @@ const itemsNavigates = ref<NavigationMenuItem[][]>([
       icon: "i-lucide-store",
       to: "/community",
     },
+    {
+      label: "Giới thiệu về community",
+      icon: "i-lucide-store",
+      to: "/community/introduce/" + guildId,
+    },
   ],
 ]);
 
@@ -181,10 +193,6 @@ const itemsChannel = computed<NavigationMenuItem[][]>(() => {
       icon:
         channel.type === "GUILD_TEXT" ? "i-lucide-hash" : "i-lucide-volume-2", // Icon dựa trên type
       to: `/community/@${communityStore.currentCommunity?.name}-${communityStore.currentCommunity?.id}/${channel.id}`,
-      onSelect: async () => {
-        if (!guildId || !channelId) return;
-        await channelStore.fetchChannelById(guildId, channelId);
-      },
     })
   );
 
@@ -363,4 +371,10 @@ const createChannel = async () => {
       </div>
     </template>
   </UModal>
+  <!-- Invite Modal -->
+  <InviteModal
+    v-model:open="isInviteModalOpen"
+    :guild-id="communityStore.currentCommunity?.id"
+    :guild-username="communityStore.currentCommunity?.name"
+  />
 </template>

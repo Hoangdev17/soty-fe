@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import NavigateMenuDiscover from "~/components/molecules/navigate.menu.discover.vue";
+import SidebarDiscover from "~/components/organisms/sidebar.discover.vue";
 import requiredAuth from "~/middleware/required.auth";
 import { useCommunityStore } from "~/stores/community/community.store";
 
@@ -73,7 +75,7 @@ const navigateToIntroduce = async (communityId: string) => {
       <div
         class="flex flex-col sticky top-0 h-screen min-w-[210px] md:p-4 gap-4"
       >
-        <OrganismsSidebarDmMessage class="flex-1 w-full" />
+        <SidebarDiscover class="flex-1 w-full" />
       </div>
 
       <div class="flex-1 px-6 py-8 max-w-none">

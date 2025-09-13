@@ -1,27 +1,3 @@
-<template>
-  <div class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50">
-    <div class="text-center">
-      <div
-        class="w-16 h-16 bg-gradient-to-br from-purple-500 to-blue-500 rounded-xl flex items-center justify-center mb-4 mx-auto animate-pulse"
-      >
-        <Icon
-          name="i-heroicons-chat-bubble-left-ellipsis"
-          class="w-8 h-8 text-white"
-        />
-      </div>
-      <h2 class="text-xl font-bold text-white mb-2">Soty</h2>
-      <p class="text-gray-400">{{ message }}</p>
-      <div class="mt-4">
-        <div class="w-32 h-1 bg-gray-700 rounded-full mx-auto overflow-hidden">
-          <div
-            class="h-full bg-gradient-to-r from-purple-500 to-blue-500 rounded-full animate-loading-bar"
-          ></div>
-        </div>
-      </div>
-    </div>
-  </div>
-</template>
-
 <script setup lang="ts">
 interface Props {
   message?: string;
@@ -30,17 +6,27 @@ interface Props {
 const { message = "Đang khởi tạo..." } = defineProps<Props>();
 </script>
 
-<style scoped>
-@keyframes loading-bar {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(100%);
-  }
-}
+<template>
+  <div
+    class="fixed inset-0 bg-gray-900 flex items-center justify-center z-50 p-4"
+  >
+    <div class="flex flex-col items-center">
+      <!-- Spinner vòng tròn -->
+      <div class="relative w-24 h-24 mb-4">
+        <!-- Vòng tròn animation -->
+        <div
+          class="absolute inset-0 border-4 border-t-purple-500 border-r-blue-500 border-b-transparent border-l-transparent rounded-full animate-spin"
+        ></div>
+        <!-- Logo ở giữa -->
+        <img
+          src="/logo.png"
+          alt="Logo"
+          class="w-12 h-12 absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full"
+        />
+      </div>
 
-.animate-loading-bar {
-  animation: loading-bar 1.5s ease-in-out infinite;
-}
-</style>
+      <!-- Message -->
+      <p class="text-white text-center text-lg">{{ message }}</p>
+    </div>
+  </div>
+</template>

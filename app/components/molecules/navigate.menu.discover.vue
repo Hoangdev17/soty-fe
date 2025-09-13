@@ -4,14 +4,20 @@ import type { NavigationMenuItem } from "@nuxt/ui";
 const items = ref<NavigationMenuItem[][]>([
   [
     {
+      label: "Community",
+      icon: "i-lucide-store",
+      to: "/community/discover",
+    },
+    {
       label: "Friend",
       icon: "i-lucide-users",
       to: "/@me/channels",
     },
+
     {
-      label: "Community",
+      label: "Shop",
       icon: "i-lucide-store",
-      to: "/community/discover",
+      to: "/shop",
     },
   ],
 ]);

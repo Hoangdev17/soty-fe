@@ -17,7 +17,3 @@
     </div>
   </div>
 </template>
-
-<style scoped>
-/* Using Tailwind's animate-pulse instead of custom animation */
-</style>
