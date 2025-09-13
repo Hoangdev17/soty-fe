@@ -2,6 +2,17 @@
 import SidebarDefaultLayout from "~/components/organisms/sidebar.defaut.layout.vue";
 import SidebarCommunity from "~/components/organisms/sidebar.community.vue";
 import FloatingUserCard from "~/components/organisms/floating.user.card.vue";
+import { initializeWebSocket } from "../stores/websocket/websocket.action";
+import { disconnectWebSocket } from "../stores/websocket/websocket.action";
+// Khởi tạo WebSocket khi vào community
+onMounted(() => {
+  initializeWebSocket();
+});
+
+// Ngắt kết nối khi rời khỏi community
+onUnmounted(() => {
+  disconnectWebSocket();
+});
 </script>
 
 <template>

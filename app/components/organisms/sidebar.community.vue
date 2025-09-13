@@ -12,6 +12,8 @@ import { useChannelStore } from "~/stores/channels/channel.store";
 const route = useRoute();
 const communityStore = useCommunityStore();
 const channelStore = useChannelStore();
+const guildId = route.params.guild_id as string | undefined;
+const channelId = route.params.channel_id as string | undefined;
 
 const isCreating = ref(false);
 
@@ -179,6 +181,10 @@ const itemsChannel = computed<NavigationMenuItem[][]>(() => {
       icon:
         channel.type === "GUILD_TEXT" ? "i-lucide-hash" : "i-lucide-volume-2", // Icon dựa trên type
       to: `/community/@${communityStore.currentCommunity?.name}-${communityStore.currentCommunity?.id}/${channel.id}`,
+      onSelect: async () => {
+        if (!guildId || !channelId) return;
+        await channelStore.fetchChannelById(guildId, channelId);
+      },
     })
   );
 

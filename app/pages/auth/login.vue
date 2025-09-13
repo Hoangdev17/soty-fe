@@ -30,7 +30,6 @@ async function onSubmit() {
     isLoading.value = true;
 
     const res = await authStore.login(state.email, state.password);
-    console.log(res.user);
 
     isLoading.value = false;
 

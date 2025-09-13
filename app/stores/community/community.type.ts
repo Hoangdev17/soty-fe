@@ -55,7 +55,7 @@ export interface CommunityMember {
 export interface CreateCommunityData {
   name: string;
   description: string;
-  avatar?: File;
+  avatar?: string | File;
   banner?: File;
   isPrivate?: boolean;
 }

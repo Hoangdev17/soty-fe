@@ -6,6 +6,7 @@ import type {
   CommunityFilters,
 } from "./community.type";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
+import { joinRoom } from "~/stores/websocket/websocket.action";
 
 export const communityActions = {
   // Lấy danh sách communities
@@ -57,6 +58,7 @@ export const communityActions = {
     );
 
     communityStore.currentCommunity = community;
+
     return community;
   },
 

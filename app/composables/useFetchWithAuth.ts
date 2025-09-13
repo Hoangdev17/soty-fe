@@ -2,6 +2,7 @@ import { useAuthStore } from "~/stores/auth/auth.store";
 
 interface FetchOptions extends RequestInit {
   query?: Record<string, string | number>;
+  isFormData?: boolean;
 }
 
 export function useFetchWithAuth() {
@@ -16,7 +17,7 @@ export function useFetchWithAuth() {
   ): Promise<T> {
     const makeRequest = async (): Promise<T> => {
       const headers: HeadersInit = {
-        "Content-Type": "application/json",
+        ...(options.isFormData ? {} : { "Content-Type": "application/json" }),
         ...options.headers,
       };
 
