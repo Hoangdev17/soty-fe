@@ -54,8 +54,6 @@ const formatTime = (timestamp: Date) => {
     <!-- Loading state - Show multiple loading skeletons -->
     <div v-if="isLoading" class="space-y-2">
       <AtomsMessageLoading />
-      <AtomsMessageLoading />
-      <AtomsMessageLoading />
     </div>
 
     <!-- Messages -->

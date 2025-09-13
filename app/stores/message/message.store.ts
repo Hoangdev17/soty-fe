@@ -35,30 +35,21 @@ export const useMessageStore = defineStore("message", {
 
     async sendMessage(channelId: string, content: string) {
       try {
+        const socketStore = useWebSocketStore();
+        const messageStore = useMessageStore();
         const { fetchWithAuth } = useFetchWithAuth();
 
         this.loading = true;
         this.error = null;
 
-        // Ensure we're joined to the channel room before sending
-        this.joinChannelRoom(channelId);
-
-        // Call API to send message (server will handle Socket.IO emission)
-        const response = await fetchWithAuth<Message>("/messages", {
+        const res = await fetchWithAuth<Message>(`/messages`, {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            channelId,
-            content,
-          }),
+          body: JSON.stringify({ channelId, content }),
         });
 
-        // API response should include the saved message
-        if (response) {
-          this.addMessage(channelId, response);
-        }
+        messageStore.addMessage(channelId, res);
+
+        socketStore.sendChatMessage(`channel_${channelId}`, content);
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to send message";
