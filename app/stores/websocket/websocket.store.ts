@@ -68,7 +68,10 @@ export const useWebSocketStore = defineStore("websocket", {
               avatar: data.author?.avatar,
             },
           };
-          messageStore.receiveMessage(message.room || "", message);
+          messageStore.receiveMessage(
+            message.metadata?.channelId || "",
+            message
+          );
 
           // Also keep in websocket messages for debugging/logging
           const wsMessage: WebSocketMessage = {

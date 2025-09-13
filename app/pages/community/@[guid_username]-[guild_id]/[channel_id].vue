@@ -3,8 +3,6 @@ import { useRoute } from "vue-router";
 import { useChannelStore } from "~/stores/channels/channel.store";
 import { useCommunityStore } from "~/stores/community/community.store";
 import { useMessage } from "~/composables/useMessage";
-import MessageList from "~/components/MessageList.vue";
-import MessageInput from "~/components/MessageInput.vue";
 
 definePageMeta({
   layout: "community-layout",
@@ -106,42 +104,39 @@ const isOpenSlideoverMember = ref(false);
       </div>
 
       <!-- Messages Container -->
-      <div class="flex-1 flex flex-col min-h-0 bg-dark-800">
-        <!-- Scrollable message list only -->
-        <div class="flex-1 p-4 flex flex-col min-h-0">
-          <!-- If no messages show welcome block above the list -->
-          <div
-            v-if="!hasMessages"
-            class="flex flex-col items-start text-left mb-4"
-          >
-            <div class="flex items-center mb-4">
-              <UIcon name="i-lucide-hash" class="w-8 h-8 text-[#72767d] mr-3" />
-            </div>
-            <h2 class="text-white text-xl font-bold">
-              Chào mừng đến với kênh #{{ currentChannel?.name }}!
-            </h2>
-            <p class="text-[#72767d] text-base mb-4">
-              Đây là nơi bắt đầu của kênh #{{ currentChannel?.name }}.
-            </p>
-            <UButton icon="i-lucide-pencil" variant="ghost" color="info">
-              Chỉnh sửa kênh
-            </UButton>
+      <div class="flex-1 flex flex-col justify-end min-h-0 bg-dark-800">
+        <!-- Welcome message -->
+        <div
+          v-if="!hasMessages"
+          class="flex flex-col items-start text-left p-4"
+        >
+          <div class="flex items-center mb-4">
+            <UIcon name="i-lucide-hash" class="w-8 h-8 text-[#72767d] mr-3" />
           </div>
-
-          <!-- MessageList is the only scrollable element -->
-          <div class="flex-1 min-h-0">
-            <MessageList v-if="hasMessages" :roomId="channelId || ''" />
-          </div>
+          <h2 class="text-white text-xl font-bold">
+            Chào mừng đến với kênh #{{ currentChannel?.name }}!
+          </h2>
+          <p class="text-[#72767d] text-base mb-4">
+            Đây là nơi bắt đầu của kênh #{{ currentChannel?.name }}.
+          </p>
+          <UButton icon="i-lucide-pencil" variant="ghost" color="info">
+            Chỉnh sửa kênh
+          </UButton>
         </div>
 
-        <!-- Input stays fixed at bottom of this column -->
-        <div class="message-input-area p-2">
-          <div class="max-w-full">
-            <MessageInput :channelId="channelId || ''" />
-          </div>
-        </div>
+        <!-- Message list - takes remaining space and handles its own scrolling -->
+        <MoleculesMessageList
+          v-if="hasMessages"
+          :roomId="channelId || ''"
+          class="flex-1 min-h-0"
+        />
       </div>
 
+      <div class="message-input-area p-2">
+        <div class="max-w-full">
+          <MoleculesMessageInput :channelId="channelId || ''" />
+        </div>
+      </div>
       <!-- Message Input -->
     </div>
 
