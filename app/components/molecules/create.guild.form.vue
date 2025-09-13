@@ -1,9 +1,11 @@
 <script setup lang="ts">
 import { ref } from "vue";
 import { useCommunityStore } from "~/stores/community/community.store";
+import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
 
 const communityStore = useCommunityStore();
 const toast = useToast();
+const { fetchWithAuth } = useFetchWithAuth();
 
 interface Props {
   modelValue?: File | null;
@@ -26,6 +28,7 @@ const emit = defineEmits<{
   "file-selected": [file: File];
   "file-removed": [];
   created: [];
+  uploaded: [url: string];
 }>();
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
@@ -54,18 +57,35 @@ const handleFileSelect = () => {
   }
 };
 
-const handleFileChange = (event: Event) => {
+const handleFileChange = async (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (file) {
-    emit("update:modelValue", file);
-    emit("file-selected", file);
+    // Upload file
+    const formData = new FormData();
+    formData.append("file", file);
 
-    // Create preview
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      previewUrl.value = e.target?.result as string;
-    };
-    reader.readAsDataURL(file);
+    try {
+      const data = await fetchWithAuth<{ url: string }>("/uploads/image", {
+        method: "POST",
+        body: formData,
+        isFormData: true,
+      });
+      emit("uploaded", data.url);
+
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        previewUrl.value = e.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Upload error:", error);
+      toast.add({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Unknown error",
+        color: "error",
+      });
+    }
   }
 };
 

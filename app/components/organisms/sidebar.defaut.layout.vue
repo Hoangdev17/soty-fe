@@ -94,7 +94,7 @@ const isActiveNav = (nav: any) => {
 const createState = ref({
   name: "",
   description: "",
-  avatar: undefined as File | undefined,
+  avatar: undefined as string | undefined,
   banner: undefined as File | undefined,
   isPrivate: false,
 });
@@ -126,8 +126,6 @@ async function createGuild() {
     };
 
     isOpen.value = false;
-
-    console.log("Tạo máy chủ thành công!");
   } catch (error) {
     console.error("Lỗi khi tạo máy chủ:", error);
   } finally {
@@ -211,7 +209,10 @@ async function createGuild() {
 
         <template #body>
           <div class="flex flex-col items-center justify-center">
-            <CreateGuildForm placeholder-icon="i-lucide-user" />
+            <CreateGuildForm
+              placeholder-icon="i-lucide-user"
+              @uploaded="createState.avatar = $event"
+            />
           </div>
 
           <UFormField label="Tên máy chủ">

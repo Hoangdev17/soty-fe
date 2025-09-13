@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import type { User } from "./auth.type";
 import { authActions } from "./auth.action";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
+import { initializeSocketIO } from "~/stores/websocket/websocket.action";
 
 export const useAuthStore = defineStore("auth", {
   state: () => ({
@@ -23,30 +24,25 @@ export const useAuthStore = defineStore("auth", {
     // Khởi tạo auth state từ localStorage (Fast mode) - Tối ưu performance
     async initializeAuth() {
       if (this.isInitialized) {
-        console.log("🔐 Auth already initialized, skipping...");
         return;
       }
 
       // Chỉ chạy ở client side
       if (typeof window === "undefined") {
-        console.log("🔐 Server side, skipping auth init...");
         return;
       }
 
       this.isLoading = true;
-      console.log("🔐 Starting auth initialization...");
 
       try {
         const token = localStorage.getItem("accessToken");
         const userDataString = localStorage.getItem("userData");
 
         if (token && userDataString) {
-          console.log("🔐 Found cached user data, restoring...");
           try {
             const userData = JSON.parse(userDataString);
             this.user = userData;
             this.token = token;
-            console.log("🔐 User restored from cache:", userData.username);
 
             // ⚡ TỐI ƯU: Chỉ verify token sau 5 phút hoặc khi cần thiết
             const lastVerified = localStorage.getItem("lastTokenVerify");
@@ -55,13 +51,11 @@ export const useAuthStore = defineStore("auth", {
               this.verifyTokenInBackground();
             }
           } catch (e) {
-            console.log("🔐 Invalid cached data, clearing...");
             localStorage.removeItem("userData");
             localStorage.removeItem("accessToken");
             localStorage.removeItem("refreshToken");
           }
         } else if (token) {
-          console.log("🔐 Found token but no cached user, verifying...");
           await this.verifyToken(token);
         } else {
           console.log("🔐 No token found in localStorage");
@@ -72,7 +66,11 @@ export const useAuthStore = defineStore("auth", {
       } finally {
         this.isLoading = false;
         this.isInitialized = true;
-        console.log("🔐 Auth initialization completed");
+
+        // Initialize WebSocket if user is logged in
+        if (this.user && this.token) {
+          initializeSocketIO();
+        }
       }
     },
 
@@ -114,7 +112,6 @@ export const useAuthStore = defineStore("auth", {
 
       // Cache user data
       localStorage.setItem("userData", JSON.stringify(user));
-      console.log("🔐 Token verified, user:", user.username);
     },
 
     // Clear all auth data

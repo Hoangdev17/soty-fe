@@ -58,9 +58,6 @@ watch(
 // Save changes function
 const saveChanges = async () => {
   try {
-    // TODO: API call to save changes
-    console.log("Saving changes:", state);
-
     // Update original state after successful save
     originalState.globalName = state.globalName;
     originalState.username = state.username;

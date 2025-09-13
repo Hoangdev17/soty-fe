@@ -1,6 +1,10 @@
 import type { User } from "./auth.type";
 import { useAuthStore } from "./auth.store";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
+import {
+  initializeSocketIO,
+  disconnectSocketIO,
+} from "~/stores/websocket/websocket.action";
 
 export const authActions = {
   // Legacy method - giữ để backward compatibility
@@ -44,6 +48,9 @@ export const authActions = {
       // Đánh dấu đã khởi tạo
       store.isInitialized = true;
 
+      // Initialize WebSocket connection
+      initializeSocketIO();
+
       return res;
     } catch (err: any) {
       throw new Error(err.message || "Login failed");
@@ -78,6 +85,9 @@ export const authActions = {
       // Đánh dấu đã khởi tạo
       store.isInitialized = true;
 
+      // Initialize WebSocket connection
+      initializeSocketIO();
+
       return res;
     } catch (err: any) {
       throw new Error(err.message || "Login failed");
@@ -89,5 +99,8 @@ export const authActions = {
     store.clearAuthData();
     store.isInitialized = false;
     store.isLoading = false;
+
+    // Disconnect WebSocket
+    disconnectSocketIO();
   },
 };

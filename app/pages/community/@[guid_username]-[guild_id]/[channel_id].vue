@@ -2,6 +2,9 @@
 import { useRoute } from "vue-router";
 import { useChannelStore } from "~/stores/channels/channel.store";
 import { useCommunityStore } from "~/stores/community/community.store";
+import { useMessage } from "~/composables/useMessage";
+import MessageList from "~/components/MessageList.vue";
+import MessageInput from "~/components/MessageInput.vue";
 
 definePageMeta({
   layout: "community-layout",
@@ -9,17 +12,57 @@ definePageMeta({
 
 const channelStore = useChannelStore();
 const guildStore = useCommunityStore();
+const { joinRoom, leaveRoom, fetchMessages, getMessages } = useMessage();
 
 const route = useRoute();
 const channelId = route.params.channel_id as string | undefined;
-const guildId = guildStore.currentCommunity?.id;
-const guildName = guildStore.currentCommunity?.name || "unknown";
-const currentChannel = channelStore.currentChannel;
+const guildId = route.params.guild_id as string | undefined;
+const { currentChannel } = storeToRefs(channelStore);
+
+// Check if there are messages to conditionally show welcome
+const hasMessages = computed(() => {
+  if (!channelId) return false;
+  return getMessages(channelId).length > 0;
+});
+
+// MessageList component now handles its own scrolling
 
 onMounted(async () => {
   if (!guildId || !channelId) return;
+
+  // Fetch community data và join Socket.IO room
+  await guildStore.fetchCommunityById(guildId);
+
+  // Fetch channel data
   await channelStore.fetchChannelById(guildId, channelId);
+
+  // Fetch existing messages for this channel
+  await fetchMessages(channelId);
 });
+
+onUnmounted(() => {
+  if (channelId) {
+    leaveRoom(channelId);
+  }
+});
+
+// Watch for changes to the currentChannel in the store so the page can react
+watch(
+  () => channelStore.currentChannel,
+  async (newChannel, oldChannel) => {
+    try {
+      if (!newChannel) return;
+
+      // If channel id changed, fetch messages for the new channel
+      if (newChannel.id && newChannel.id !== oldChannel?.id) {
+        await fetchMessages(newChannel.id);
+      }
+    } catch (err) {
+      console.error("Error fetching messages for new channel:", err);
+    }
+  },
+  { immediate: false }
+);
 
 const isOpenSlideoverMember = ref(false);
 </script>
@@ -33,7 +76,7 @@ const isOpenSlideoverMember = ref(false);
     >
       <!-- Channel Header -->
       <div
-        class="channel-header flex items-center px-4 py-3 bg-dark-800 border-b border-[#202225]"
+        class="channel-header flex items-center px-4 py-3 bg-dark-800 border-b border-[#202225] sticky top-0 z-10"
       >
         <div class="flex items-center space-x-2">
           <UIcon name="i-lucide-hash" class="w-5 h-5 text-[#b9bbbe]" />
@@ -63,14 +106,13 @@ const isOpenSlideoverMember = ref(false);
       </div>
 
       <!-- Messages Container -->
-      <div class="flex flex-1 bg-dark-800">
-        <div
-          ref="messagesContainer"
-          class="messages-container flex-1 overflow-y-auto p-4 flex flex-col-reverse relative"
-        >
-          <!-- Welcome message for empty channel -->
+      <div class="flex-1 flex flex-col min-h-0 bg-dark-800">
+        <!-- Scrollable message list only -->
+        <div class="flex-1 p-4 flex flex-col min-h-0">
+          <!-- If no messages show welcome block above the list -->
           <div
-            class="flex flex-col items-start justify-start text-left mt-auto p-4"
+            v-if="!hasMessages"
+            class="flex flex-col items-start text-left mb-4"
           >
             <div class="flex items-center mb-4">
               <UIcon name="i-lucide-hash" class="w-8 h-8 text-[#72767d] mr-3" />
@@ -86,62 +128,21 @@ const isOpenSlideoverMember = ref(false);
             </UButton>
           </div>
 
-          <!-- Messages -->
+          <!-- MessageList is the only scrollable element -->
+          <div class="flex-1 min-h-0">
+            <MessageList v-if="hasMessages" :roomId="channelId || ''" />
+          </div>
+        </div>
+
+        <!-- Input stays fixed at bottom of this column -->
+        <div class="message-input-area p-2">
+          <div class="max-w-full">
+            <MessageInput :channelId="channelId || ''" />
+          </div>
         </div>
       </div>
 
       <!-- Message Input -->
-      <div class="message-input-area p-2">
-        <div class="message-input-container bg-[#40444b] rounded-lg">
-          <div class="input-wrapper flex items-end p-2">
-            <!-- Nút thêm (+) -->
-            <UButton
-              color="transparent"
-              size="sm"
-              class="mr-3 text-[#b9bbbe] hover:text-white"
-            >
-              <UIcon name="i-lucide-plus" class="w-5 h-5" />
-            </UButton>
-
-            <!-- Input chat -->
-            <UInput
-              type="text"
-              :placeholder="`Nhắn #${currentChannel?.name}`"
-              color="neutral"
-              variant="none"
-              size="lg"
-              class="flex-1 !bg-transparent !ring-0 text-[#dcddde] placeholder-[#72767d]"
-            />
-
-            <!-- Action buttons -->
-            <div class="input-actions flex items-center space-x-2 ml-3">
-              <UButton
-                color="transparent"
-                size="sm"
-                class="text-[#b9bbbe] hover:text-white"
-              >
-                <UIcon name="i-lucide-check-circle" class="w-5 h-5" />
-              </UButton>
-
-              <UButton
-                color="transparent"
-                size="sm"
-                class="text-[#b9bbbe] hover:text-white"
-              >
-                <UIcon name="i-lucide-user" class="w-5 h-5" />
-              </UButton>
-
-              <UButton
-                color="transparent"
-                size="sm"
-                class="text-[#b9bbbe] hover:text-white"
-              >
-                <UIcon name="i-lucide-send" class="w-5 h-5" />
-              </UButton>
-            </div>
-          </div>
-        </div>
-      </div>
     </div>
 
     <!-- Members Panel - Fixed position on the right -->
@@ -171,6 +172,9 @@ const isOpenSlideoverMember = ref(false);
 <style scoped>
 .channel-page {
   color: #dcddde;
+  /* Make the chat page fill the viewport and prevent the page itself from scrolling */
+  height: 100vh;
+  overflow: hidden;
 }
 
 .mention {
@@ -212,5 +216,10 @@ const isOpenSlideoverMember = ref(false);
 .slide-leave-to {
   transform: translateX(100%);
   opacity: 0;
+}
+
+/* Ensure the immediate flex child can shrink so inner flex children can scroll */
+.channel-page > .flex-1 {
+  min-height: 0;
 }
 </style>

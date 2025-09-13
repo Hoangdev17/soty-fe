@@ -1,5 +1,6 @@
 import { useChannelStore } from "./channel.store";
 import type { Channel } from "./channel.type";
+import { joinRoom, leaveRoom } from "../websocket/websocket.action";
 
 export const channelActions = {
   async fetchAllChannelsByGuildId(guildId: string) {
@@ -36,6 +37,11 @@ export const channelActions = {
     const { fetchWithAuth } = useFetchWithAuth();
     const channelStore = useChannelStore();
 
+    // Leave previous channel room if exists
+    if (channelStore.currentChannel) {
+      leaveRoom(`channel_${channelStore.currentChannel.id}`);
+    }
+
     const channel = await fetchWithAuth<Channel>(
       `/channels/${guildId}/${channelId}`,
       {
@@ -44,6 +50,9 @@ export const channelActions = {
     );
 
     channelStore.currentChannel = channel;
+
+    // Join WebSocket room for this channel
+    joinRoom(`channel_${channelId}`);
 
     return channel;
   },

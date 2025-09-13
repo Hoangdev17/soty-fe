@@ -19,8 +19,6 @@ watchEffect(() => {
   } else {
     section.value = "account";
   }
-
-  console.log("Current route:", route.path, "Section:", section.value);
 });
 
 const { user } = useAuthStore();
