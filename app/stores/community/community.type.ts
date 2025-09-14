@@ -1,3 +1,5 @@
+import type { Channel } from "../channels/channel.type";
+
 // Community types
 export interface Community {
   id: string;
@@ -6,6 +8,7 @@ export interface Community {
   avatar?: string;
   banner?: string; // Thay cho coverImage
   memberCount: number;
+  channels: Channel[];
   createdAt: string;
   updatedAt?: string; // Optional vì BE không có
   deletedAt?: string | null;

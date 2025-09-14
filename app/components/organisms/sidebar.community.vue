@@ -229,18 +229,6 @@ onUnmounted(() => {
   }
 });
 
-// Watcher để navigate đến kênh mới khi currentChannel thay đổi
-watch(
-  () => channelStore.currentChannel,
-  (newChannel) => {
-    if (newChannel?.id && communityStore.currentCommunity?.id) {
-      navigateTo(
-        `/community/@${communityStore.currentCommunity.name}-${communityStore.currentCommunity.id}/${newChannel.id}`
-      );
-    }
-  }
-);
-
 const isCreateChannelModalOpen = ref(false);
 
 // Reactive data cho form
@@ -266,13 +254,22 @@ const createChannel = async () => {
     return;
   isCreating.value = true;
   try {
-    await channelStore.createChannel({
+    const createdChannel = await channelStore.createChannel({
       name: newChannel.value.name,
       type: newChannel.value.type,
       guildId: communityStore.currentCommunity.id,
     });
 
-    // Navigation sẽ được xử lý qua watcher của currentChannel
+    const currentChannel =
+      communityStore.communities[communityStore.communities.length - 1];
+
+    // Navigate trực tiếp đến kênh mới chỉ trên client tạo
+    if (currentChannel?.id !== communityStore.currentCommunity?.id) {
+      navigateTo(
+        `/community/@${communityStore.currentCommunity.name}-${communityStore.currentCommunity.id}/${currentChannel?.id}`
+      );
+    }
+
     closeCreateChannelModal();
   } catch (error) {
     console.error("Error creating channel:", error);

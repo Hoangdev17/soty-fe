@@ -44,6 +44,8 @@ onMounted(async () => {
   // Always fetch members for the current guild
   await memberStore.fetchMembersViaWebSocket(guildId);
 
+  await fetchMessages(channelId);
+
   messageLoading.value = false;
   isPageLoading.value = false;
 });

@@ -20,7 +20,7 @@ export const channelActions = {
   async createChannel(data: { guildId: string; name: string; type: string }) {
     const { createChannel } = useWebSocket();
 
-    createChannel({
+    return createChannel({
       guildId: data.guildId,
       name: data.name,
       type: data.type as any,

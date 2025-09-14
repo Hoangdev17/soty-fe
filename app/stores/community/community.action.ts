@@ -99,6 +99,7 @@ export const communityActions = {
   async fetchCommunityById(communityId: string) {
     const { fetchWithAuth } = useFetchWithAuth();
     const communityStore = useCommunityStore();
+    const channelStore = useChannelStore();
 
     // Leave previous community room if exists
     if (communityStore.currentCommunity) {
@@ -113,6 +114,7 @@ export const communityActions = {
     );
 
     communityStore.currentCommunity = community;
+    channelStore.channels = community.channels;
 
     joinRoom(`community_${communityId}`);
 
