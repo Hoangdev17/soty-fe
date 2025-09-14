@@ -2,10 +2,12 @@
 interface Props {
   banner?: string;
   name: string;
+  heightClass?: string;
 }
 
 const props = withDefaults(defineProps<Props>(), {
   banner: undefined,
+  heightClass: "h-48 md:h-64",
 });
 
 const defaultColors = [
@@ -33,12 +35,13 @@ const randomColor = computed(() => {
 <template>
   <div
     v-if="banner"
-    class="w-full h-48 md:h-64 bg-cover bg-center rounded-lg"
+    class="w-full bg-cover bg-center rounded-lg"
+    :class="heightClass"
     :style="{ backgroundImage: `url(${banner})` }"
   />
   <div
     v-else
-    class="w-full h-48 md:h-64 rounded-lg flex items-center justify-center text-white text-4xl font-bold"
-    :class="randomColor"
+    class="w-full rounded-lg flex items-center justify-center text-white text-4xl font-bold"
+    :class="[randomColor, heightClass]"
   ></div>
 </template>

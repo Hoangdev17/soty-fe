@@ -1,0 +1,670 @@
+<script setup lang="ts">
+import { useCommunityStore } from "~/stores/community/community.store";
+import { useChannelStore } from "~/stores/channels/channel.store";
+import CommunityBanner from "~/components/organisms/community.banner.vue";
+import UploadButton from "~/components/molecules/upload.button.vue";
+import { useMemberStore } from "~/stores/member/member.store";
+import type { Community } from "~/stores/community/community.type";
+import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
+
+const route = useRoute();
+const router = useRouter();
+const communityStore = useCommunityStore();
+const channelStore = useChannelStore();
+
+const currentCommunity = computed(() => communityStore.currentCommunity);
+const { memberCount } = storeToRefs(useMemberStore());
+
+const guildId = ref(route.params.guild_id as string | undefined);
+
+// Watcher để cập nhật guildId khi route thay đổi
+watch(
+  () => route.params.guild_id,
+  (newGuildId) => {
+    guildId.value = newGuildId as string | undefined;
+  },
+  { immediate: true }
+);
+
+const section = ref("");
+
+watchEffect(() => {
+  const pathSegments = route.path.split("/").filter(Boolean);
+  if (pathSegments.length > 4) {
+    // /community/@name-id/settings/section
+    section.value = pathSegments[pathSegments.length - 1] || "overview";
+  } else {
+    section.value = "overview";
+  }
+});
+
+const closeSettings = () => {
+  // Simply go back to previous page
+  router.back();
+};
+
+// Keyboard shortcut ESC to close
+onMounted(() => {
+  const handleKeyDown = (event: KeyboardEvent) => {
+    if (event.key === "Escape") {
+      closeSettings();
+    }
+  };
+
+  document.addEventListener("keydown", handleKeyDown);
+
+  onUnmounted(() => {
+    document.removeEventListener("keydown", handleKeyDown);
+  });
+});
+
+type MenuItem = {
+  label: string;
+  icon?: string;
+  to?: string;
+  active?: boolean;
+  disabled?: boolean;
+  class?: string;
+  type?: string;
+  onSelect?: () => void;
+};
+
+const menuItems = computed<MenuItem[][]>(() => [
+  [
+    {
+      label: "SERVER SETTINGS",
+      class: "font-bold text-sm",
+      type: "label",
+    },
+    {
+      label: "Overview",
+      icon: "i-lucide-home",
+      to: `/community/@${currentCommunity.value?.name}-${currentCommunity.value?.id}/settings`,
+      active: section.value === "overview" || !section.value,
+    },
+    {
+      label: "General",
+      icon: "i-lucide-settings",
+      to: `/community/@${currentCommunity.value?.name}-${currentCommunity.value?.id}/settings/general`,
+      active: section.value === "general",
+    },
+    {
+      label: "Channels",
+      icon: "i-lucide-hash",
+      to: `/community/@${currentCommunity.value?.name}-${currentCommunity.value?.id}/settings/channels`,
+      active: section.value === "channels",
+    },
+  ],
+  [
+    {
+      label: "USER MANAGEMENT",
+      class: "font-bold text-sm",
+      type: "label",
+    },
+    {
+      label: "Roles",
+      icon: "i-lucide-shield",
+      to: `/community/@${currentCommunity.value?.name}-${currentCommunity.value?.id}/settings/roles`,
+      active: section.value === "roles",
+    },
+    {
+      label: "Members",
+      icon: "i-lucide-users",
+      to: `/community/@${currentCommunity.value?.name}-${currentCommunity.value?.id}/settings/members`,
+      active: section.value === "members",
+    },
+  ],
+  [
+    {
+      label: "MODERATION",
+      class: "font-bold text-sm",
+      type: "label",
+    },
+    {
+      label: "Moderation",
+      icon: "i-lucide-gavel",
+      to: `/community/@${currentCommunity.value?.name}-${currentCommunity.value?.id}/settings/moderation`,
+      active: section.value === "moderation",
+      disabled: true,
+    },
+    {
+      label: "Audit Log",
+      icon: "i-lucide-file-text",
+      to: `/community/@${currentCommunity.value?.name}-${currentCommunity.value?.id}/settings/audit-log`,
+      active: section.value === "audit-log",
+      disabled: true,
+    },
+  ],
+  [
+    {
+      label: "INTEGRATIONS",
+      class: "font-bold text-sm",
+      type: "label",
+    },
+    {
+      label: "Integrations",
+      icon: "i-lucide-plug",
+      to: `/community/@${currentCommunity.value?.name}-${currentCommunity.value?.id}/settings/integrations`,
+      active: section.value === "integrations",
+      disabled: true,
+    },
+  ],
+]);
+
+const formatDate = (dateString?: string) => {
+  if (!dateString) return "N/A";
+  const date = new Date(dateString);
+  return date.toLocaleDateString("vi-VN", {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+};
+
+const openInviteModal = () => {
+  // TODO: Implement invite modal
+  console.log("Open invite modal");
+};
+
+const openCreateChannelModal = () => {
+  // TODO: Implement create channel modal
+  console.log("Open create channel modal");
+};
+
+const handleAvatarUploadSuccess = async (url: string) => {
+  try {
+    await communityStore.updateCommunity(currentCommunity.value?.id as string, {
+      avatar: url,
+    });
+  } catch (error) {
+    console.error("Failed to update avatar:", error);
+  }
+};
+
+const handleBannerUploadSuccess = async (url: string) => {
+  try {
+    await communityStore.updateCommunity(currentCommunity.value?.id as string, {
+      banner: url,
+    });
+  } catch (error) {
+    console.error("Failed to update banner:", error);
+  }
+};
+
+const handleUploadError = (error: string) => {
+  console.error("Upload failed:", error);
+  // You can add toast notification here
+};
+
+onMounted(async () => {
+  const guildId = route.params.guild_id as string;
+  if (guildId && !currentCommunity.value) {
+    await communityStore.fetchCommunityById(guildId);
+  }
+});
+</script>
+
+<template>
+  <div class="flex items-start size-full bg-dark-900">
+    <!-- Sidebar -->
+    <div
+      class="sticky top-0 flex flex-col min-h-screen h-screen w-[200px] border-r border-dark-700 p-4 gap-4 bg-dark-800"
+    >
+      <!-- Server Info -->
+      <div class="flex items-center gap-3 p-3 rounded-lg bg-dark-700">
+        <div class="min-w-0 flex">
+          <UAvatar
+            v-if="currentCommunity?.avatar"
+            :src="currentCommunity?.avatar"
+            :alt="currentCommunity?.name || 'Server Icon'"
+            size="sm"
+            class="rounded-full"
+          />
+          <h3 class="font-semibold text-white truncate ml-2">
+            {{ currentCommunity?.name || "Máy chủ" }}
+          </h3>
+        </div>
+      </div>
+
+      <!-- Menu Items -->
+      <div class="flex flex-col gap-4">
+        <div
+          v-for="(group, groupIdx) in menuItems"
+          :key="groupIdx"
+          class="flex flex-col gap-1"
+        >
+          <div
+            v-for="(item, itemIdx) in group"
+            :key="itemIdx"
+            class="flex items-center gap-2"
+          >
+            <!-- Label -->
+            <template v-if="item.type === 'label'">
+              <div class="uppercase font-bold text-xs text-gray-400 py-2 px-2">
+                {{ item.label }}
+              </div>
+            </template>
+
+            <!-- Normal item -->
+            <template v-else>
+              <UButton
+                v-if="item.to"
+                :to="item.to"
+                :color="item.active ? 'primary' : 'gray'"
+                variant="ghost"
+                class="flex items-center gap-2 px-2 py-2 rounded-md w-full text-sm justify-start"
+                :class="{
+                  'text-primary bg-primary-50 dark:bg-primary-950': item.active,
+                  'hover:bg-dark-700 text-gray-300': !item.active,
+                }"
+              >
+                <UIcon :name="item.icon" class="w-4 h-4" />
+                <span>{{ item.label }}</span>
+              </UButton>
+              <!-- Action item -->
+              <UButton
+                v-else-if="item.onSelect"
+                color="error"
+                variant="ghost"
+                class="flex items-center gap-2 px-2 py-2 rounded-md w-full text-sm"
+                @click="item.onSelect"
+              >
+                <UIcon :name="item.icon ?? ''" class="w-4 h-4" />
+                <span>{{ item.label }}</span>
+              </UButton>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Main Content -->
+    <div
+      class="w-full max-w-4xl mx-auto p-6 overflow-y-auto overflow-x-hidden relative bg-dark-900"
+    >
+      <!-- Close button -->
+      <div class="fixed top-4 right-4 z-10 flex flex-col items-center gap-1">
+        <UButton
+          @click="closeSettings"
+          class="w-9 h-9 rounded-full bg-dark-800 hover:bg-dark-700 transition-colors flex items-center justify-center border border-dark-600"
+          title="Đóng Settings"
+        >
+          <UIcon name="i-lucide-x" class="w-4 h-4 text-white" />
+        </UButton>
+        <span class="text-xs text-gray-400 font-medium">ESC</span>
+      </div>
+
+      <!-- Content -->
+      <div
+        v-if="!$route.params.section || $route.params.section === 'overview'"
+        class="space-y-6"
+      >
+        <!-- Main Layout with Preview Sidebar -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <!-- Left Content -->
+          <div class="lg:col-span-2 space-y-6">
+            <div class="mb-8">
+              <h2 class="text-xl font-semibold mb-2 text-white">
+                Chào mừng đến với cài đặt máy chủ
+              </h2>
+              <p class="text-gray-400">
+                Quản lý và tùy chỉnh máy chủ của bạn. Thay đổi cài đặt, quản lý
+                thành viên, và nhiều hơn nữa.
+              </p>
+            </div>
+
+            <!-- Quick Stats -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <UCard class="bg-dark-800 border-dark-700">
+                <div class="flex items-center gap-3">
+                  <div
+                    class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center"
+                  >
+                    <UIcon name="i-lucide-users" class="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p class="text-2xl font-bold text-white">
+                      {{ memberCount || 0 }}
+                    </p>
+                    <p class="text-sm text-gray-400">Thành viên</p>
+                  </div>
+                </div>
+              </UCard>
+
+              <UCard class="bg-dark-800 border-dark-700">
+                <div class="flex items-center gap-3">
+                  <div
+                    class="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center"
+                  >
+                    <UIcon name="i-lucide-hash" class="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p class="text-2xl font-bold text-white">
+                      {{ channelStore.channels?.length || 0 }}
+                    </p>
+                    <p class="text-sm text-gray-400">Kênh</p>
+                  </div>
+                </div>
+              </UCard>
+
+              <UCard class="bg-dark-800 border-dark-700">
+                <div class="flex items-center gap-3">
+                  <div
+                    class="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center"
+                  >
+                    <UIcon name="i-lucide-shield" class="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <p class="text-2xl font-bold text-white">
+                      {{ currentCommunity?.premiumTier || 0 }}
+                    </p>
+                    <p class="text-sm text-gray-400">Cấp độ Premium</p>
+                  </div>
+                </div>
+              </UCard>
+            </div>
+
+            <!-- Settings Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <!-- General Settings -->
+              <UCard
+                class="cursor-pointer hover:bg-dark-800 transition-colors bg-dark-800 border-dark-700"
+                @click="
+                  $router.push(
+                    `/community/@${currentCommunity?.name}-${currentCommunity?.id}/settings/general`
+                  )
+                "
+              >
+                <template #header>
+                  <div class="flex items-center gap-3">
+                    <div
+                      class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center"
+                    >
+                      <UIcon
+                        name="i-lucide-settings"
+                        class="w-5 h-5 text-white"
+                      />
+                    </div>
+                    <h3 class="font-semibold text-white">Cài đặt chung</h3>
+                  </div>
+                </template>
+                <p class="text-gray-400 text-sm">
+                  Thay đổi tên máy chủ, mô tả, và cài đặt cơ bản khác.
+                </p>
+              </UCard>
+
+              <!-- Roles -->
+              <UCard
+                class="cursor-pointer hover:bg-dark-800 transition-colors bg-dark-800 border-dark-700"
+                @click="
+                  $router.push(
+                    `/community/@${currentCommunity?.name}-${currentCommunity?.id}/settings/roles`
+                  )
+                "
+              >
+                <template #header>
+                  <div class="flex items-center gap-3">
+                    <div
+                      class="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center"
+                    >
+                      <UIcon
+                        name="i-lucide-shield"
+                        class="w-5 h-5 text-white"
+                      />
+                    </div>
+                    <h3 class="font-semibold text-white">Vai trò</h3>
+                  </div>
+                </template>
+                <p class="text-gray-400 text-sm">
+                  Quản lý vai trò và quyền hạn của thành viên.
+                </p>
+              </UCard>
+
+              <!-- Channels -->
+              <UCard
+                class="cursor-pointer hover:bg-dark-800 transition-colors bg-dark-800 border-dark-700"
+                @click="
+                  $router.push(
+                    `/community/@${currentCommunity?.name}-${currentCommunity?.id}/settings/channels`
+                  )
+                "
+              >
+                <template #header>
+                  <div class="flex items-center gap-3">
+                    <div
+                      class="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center"
+                    >
+                      <UIcon name="i-lucide-hash" class="w-5 h-5 text-white" />
+                    </div>
+                    <h3 class="font-semibold text-white">Kênh</h3>
+                  </div>
+                </template>
+                <p class="text-gray-400 text-sm">
+                  Quản lý kênh text và voice trong máy chủ.
+                </p>
+              </UCard>
+
+              <!-- Members -->
+              <UCard
+                class="cursor-pointer hover:bg-dark-800 transition-colors bg-dark-800 border-dark-700"
+                @click="
+                  $router.push(
+                    `/community/@${currentCommunity?.name}-${currentCommunity?.id}/settings/members`
+                  )
+                "
+              >
+                <template #header>
+                  <div class="flex items-center gap-3">
+                    <div
+                      class="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center"
+                    >
+                      <UIcon name="i-lucide-users" class="w-5 h-5 text-white" />
+                    </div>
+                    <h3 class="font-semibold text-white">Thành viên</h3>
+                  </div>
+                </template>
+                <p class="text-gray-400 text-sm">
+                  Xem và quản lý danh sách thành viên máy chủ.
+                </p>
+              </UCard>
+
+              <!-- Moderation -->
+              <UCard
+                class="cursor-pointer hover:bg-dark-800 transition-colors bg-dark-800 border-dark-700"
+                @click="
+                  $router.push(
+                    `/community/@${currentCommunity?.name}-${currentCommunity?.id}/settings/moderation`
+                  )
+                "
+              >
+                <template #header>
+                  <div class="flex items-center gap-3">
+                    <div
+                      class="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center"
+                    >
+                      <UIcon name="i-lucide-gavel" class="w-5 h-5 text-white" />
+                    </div>
+                    <h3 class="font-semibold text-white">Điều hành</h3>
+                  </div>
+                </template>
+                <p class="text-gray-400 text-sm">
+                  Cài đặt kiểm duyệt và bảo mật máy chủ.
+                </p>
+              </UCard>
+
+              <!-- Integrations -->
+              <UCard
+                class="cursor-pointer hover:bg-dark-800 transition-colors bg-dark-800 border-dark-700"
+                @click="
+                  $router.push(
+                    `/community/@${currentCommunity?.name}-${currentCommunity?.id}/settings/integrations`
+                  )
+                "
+              >
+                <template #header>
+                  <div class="flex items-center gap-3">
+                    <div
+                      class="w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center"
+                    >
+                      <UIcon name="i-lucide-plug" class="w-5 h-5 text-white" />
+                    </div>
+                    <h3 class="font-semibold text-white">Tích hợp</h3>
+                  </div>
+                </template>
+                <p class="text-gray-400 text-sm">
+                  Kết nối với các dịch vụ bên thứ ba.
+                </p>
+              </UCard>
+            </div>
+
+            <!-- Quick Actions -->
+            <div class="mt-12">
+              <h3 class="text-lg font-semibold mb-4 text-white">
+                Hành động nhanh
+              </h3>
+              <div class="flex flex-wrap gap-4">
+                <UButton
+                  icon="i-lucide-user-plus"
+                  variant="outline"
+                  color="primary"
+                  @click="openInviteModal"
+                >
+                  Mời thành viên
+                </UButton>
+                <UButton
+                  icon="i-lucide-circle-plus"
+                  variant="outline"
+                  color="primary"
+                  @click="openCreateChannelModal"
+                >
+                  Tạo kênh mới
+                </UButton>
+                <UButton
+                  icon="i-lucide-settings"
+                  variant="outline"
+                  color="primary"
+                  @click="
+                    $router.push(
+                      `/community/@${currentCommunity?.name}-${currentCommunity?.id}/settings/general`
+                    )
+                  "
+                >
+                  Chỉnh sửa cài đặt
+                </UButton>
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Preview Sidebar -->
+          <div class="lg:col-span-1">
+            <div class="sticky top-6">
+              <!-- Server Overview Card -->
+              <UCard class="bg-dark-800 border-dark-700 overflow-hidden">
+                <!-- Banner inside card -->
+                <div class="relative">
+                  <CommunityBanner
+                    :banner="currentCommunity?.banner"
+                    :name="currentCommunity?.name || 'Máy chủ'"
+                    :height-class="'h-32'"
+                    class="w-full rounded-t-lg"
+                  />
+                  <!-- Avatar overlay -->
+                  <div
+                    class="absolute -bottom-8 left-1/2 transform -translate-x-1/2 w-16 h-16 rounded-full flex items-center justify-center overflow-hidden border-4 border-dark-800 z-10"
+                  >
+                    <img
+                      v-if="currentCommunity?.avatar"
+                      :src="currentCommunity.avatar"
+                      :alt="currentCommunity.name"
+                      class="w-full h-full object-cover"
+                    />
+                    <div
+                      v-else
+                      class="w-full h-full bg-primary rounded-full flex items-center justify-center"
+                    >
+                      <UIcon
+                        name="i-lucide-settings"
+                        class="w-8 h-8 text-white"
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                <div class="text-center pt-10 pb-4">
+                  <h3 class="text-lg font-bold text-white mb-1">
+                    {{ currentCommunity?.name || "Máy chủ" }}
+                  </h3>
+                  <p class="text-gray-400 text-sm mb-4">
+                    {{ currentCommunity?.description || "Không có mô tả" }}
+                  </p>
+                </div>
+
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-400">Thành viên</span>
+                    <span class="text-white font-semibold">{{
+                      currentCommunity?.memberCount || 0
+                    }}</span>
+                  </div>
+                  <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-400">Kênh</span>
+                    <span class="text-white font-semibold">{{
+                      channelStore.channels?.length || 0
+                    }}</span>
+                  </div>
+                  <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-400">Premium</span>
+                    <span class="text-white font-semibold">{{
+                      currentCommunity?.premiumTier || 0
+                    }}</span>
+                  </div>
+                  <div class="flex items-center justify-between text-sm">
+                    <span class="text-gray-400">Ngày tạo</span>
+                    <span class="text-white font-semibold">{{
+                      formatDate(currentCommunity?.createdAt)
+                    }}</span>
+                  </div>
+                </div>
+
+                <!-- Upload Buttons -->
+                <div class="mt-4 space-y-2">
+                  <UploadButton
+                    button-text="Thay đổi Avatar"
+                    accept="image/*"
+                    :max-size="5"
+                    @success="handleAvatarUploadSuccess"
+                    @error="handleUploadError"
+                    class="w-full"
+                  />
+                  <UploadButton
+                    button-text="Thay đổi Banner"
+                    accept="image/*"
+                    :max-size="10"
+                    @success="handleBannerUploadSuccess"
+                    @error="handleUploadError"
+                    class="w-full"
+                  />
+                </div>
+              </UCard>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sub-pages content -->
+      <NuxtPage v-else />
+    </div>
+  </div>
+</template>
+
+<style scoped>
+.bg-dark-900 {
+  background-color: #0f0f0f;
+}
+.bg-dark-800 {
+  background-color: #1a1a1a;
+}
+.bg-dark-700 {
+  background-color: #2a2a2a;
+}
+</style>

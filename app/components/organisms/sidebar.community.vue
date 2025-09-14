@@ -152,6 +152,7 @@ const items = ref<DropdownMenuItem[][]>([
     {
       label: "Cài đặt máy chủ",
       icon: "i-lucide-settings",
+      to: `/community/@${communityStore.currentCommunity?.name}-${communityStore.currentCommunity?.id}/settings`,
     },
     {
       label: "Tạo kênh",

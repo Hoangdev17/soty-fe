@@ -55,8 +55,8 @@ export interface CommunityMember {
 export interface CreateCommunityData {
   name: string;
   description: string;
-  avatar?: string | File;
-  banner?: File;
+  avatar?: string;
+  banner?: string;
   isPrivate?: boolean;
 }
 

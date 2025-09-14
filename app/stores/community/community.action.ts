@@ -127,17 +127,11 @@ export const communityActions = {
     const { fetchWithAuth } = useFetchWithAuth();
     const communityStore = useCommunityStore();
 
-    const formData = new FormData();
-    if (data.name) formData.append("name", data.name);
-    if (data.description) formData.append("description", data.description);
-    if (data.avatar) formData.append("avatar", data.avatar);
-    if (data.banner) formData.append("banner", data.banner);
-
     const updatedCommunity = await fetchWithAuth<Community>(
-      `/communities/${communityId}`,
+      `/community/${communityId}`,
       {
-        method: "PUT",
-        body: formData,
+        method: "PATCH",
+        body: JSON.stringify(data),
       }
     );
 
