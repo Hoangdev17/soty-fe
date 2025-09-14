@@ -1,6 +1,7 @@
 import { useChannelStore } from "./channel.store";
 import type { Channel } from "./channel.type";
 import { joinRoom, leaveRoom } from "../websocket/websocket.action";
+import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
 
 export const channelActions = {
   async fetchAllChannelsByGuildId(guildId: string) {

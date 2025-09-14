@@ -35,6 +35,10 @@ export const useWebSocket = () => {
     leaveRoom(room);
   };
 
+  const joinCommunity = (communityId: string, userId: string) => {
+    return wsStore.joinCommunityRoom(communityId, userId);
+  };
+
   const sendChatMsg = (
     room: string,
     message: string,
@@ -42,6 +46,10 @@ export const useWebSocket = () => {
     metadata?: any
   ) => {
     sendChatMessage(room, message, type, metadata);
+  };
+
+  const getMembers = (communityId: string) => {
+    wsStore.getMembers(communityId);
   };
 
   const isConnected = computed(() => wsStore.isWebSocketConnected);
@@ -55,7 +63,9 @@ export const useWebSocket = () => {
     joinChatRoom,
     leaveChatRoom,
     sendChatMsg,
+    getMembers,
     isConnected,
     messages,
+    joinCommunity,
   };
 };

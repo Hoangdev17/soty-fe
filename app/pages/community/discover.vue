@@ -40,10 +40,12 @@ const navigateToIntroduce = async (communityId: string) => {
   try {
     isNavigating.value = true;
 
-    // Clear current community data first
-    communityStore.currentCommunity = null;
+    // Leave current community room if any
+    if (communityStore.currentCommunity?.id) {
+      await communityStore.removeCommunity(communityStore.currentCommunity.id);
+    }
 
-    // Fetch fresh data for the community
+    // Fetch fresh data for the community (this will join the new community room)
     await communityStore.fetchCommunityById(communityId);
 
     // Navigate to introduce page after data is loaded

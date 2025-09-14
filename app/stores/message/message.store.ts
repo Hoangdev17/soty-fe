@@ -70,6 +70,12 @@ export const useMessageStore = defineStore("message", {
       }
     },
 
+    clearAllMessages() {
+      this.messages = {};
+      this.loading = false;
+      this.error = null;
+    },
+
     async fetchMessages(channelId: string, limit = 50, offset = 0) {
       const { fetchWithAuth } = useFetchWithAuth();
       try {

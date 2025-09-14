@@ -3,6 +3,7 @@ import requiredAuth from "~/middleware/required.auth";
 import { useCommunityStore } from "~/stores/community/community.store";
 import { useAuthStore } from "~/stores/auth/auth.store";
 import { useMemberStore } from "~/stores/member/member.store";
+import { leaveRoom } from "~/stores/websocket/websocket.action";
 import CommunityLoading from "~/components/organisms/CommunityLoading.vue";
 import CommunityBanner from "~/components/organisms/community.banner.vue";
 import InviteModal from "~/components/molecules/invite.modal.vue";
@@ -26,20 +27,63 @@ const isPageLoading = ref(true);
 const isJoinLoading = ref(false);
 const isInviteModalOpen = ref(false);
 
+// Flag để tránh multiple fetch community
+const isFetchingCommunity = ref(false);
+
 // Fetch community data only if not already loaded
 onMounted(async () => {
-  if (guildId && !currentCommunity.value) {
+  if (guildId) {
     await communityStore.fetchCommunityById(guildId);
+
+    // Fetch members
+    await memberStore.fetchMembersViaWebSocket(guildId);
   }
-  // Fetch members
-  await memberStore.fetchMembers(guildId);
   isPageLoading.value = false;
+});
+
+// Watch for guildId changes to reset stores when switching communities
+watch(
+  () => route.params.guild_id,
+  async (newGuildId, oldGuildId) => {
+    if (newGuildId && newGuildId !== oldGuildId) {
+      // Tránh multiple fetch cùng lúc
+      if (isFetchingCommunity.value) {
+        console.log(
+          `⏳ Introduce Page: Already fetching community, skipping...`
+        );
+        return;
+      }
+
+      // Set flag để tránh multiple fetch
+      isFetchingCommunity.value = true;
+
+      // Reset loading state
+      isPageLoading.value = true;
+
+      try {
+        // Fetch new community data (this will also reset stores)
+        await communityStore.fetchCommunityById(newGuildId as string);
+
+        // Fetch members for new community
+        await memberStore.fetchMembersViaWebSocket(newGuildId as string);
+      } finally {
+        // Reset flag sau khi fetch xong
+        isFetchingCommunity.value = false;
+        isPageLoading.value = false;
+      }
+    }
+  }
+);
+
+onUnmounted(() => {
+  if (guildId) {
+    leaveRoom(`community_${guildId}`);
+  }
 });
 
 // Join community
 const joinCommunity = async () => {
   if (!currentCommunity.value) return;
-  const guildUsername = currentCommunity.value.name;
 
   try {
     isJoinLoading.value = true;
@@ -47,9 +91,6 @@ const joinCommunity = async () => {
 
     // Member count will be updated via memberStore
     isJoinLoading.value = true;
-
-    // Chỉ redirect khi join thành công
-    navigateTo(`/community/@${guildUsername}-${guildId}`);
   } catch (error) {
     console.error("Failed to join community:", error);
     // Không redirect nếu thất bại

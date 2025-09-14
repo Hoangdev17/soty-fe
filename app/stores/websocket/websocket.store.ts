@@ -1,8 +1,18 @@
 import { defineStore } from "pinia";
 import { io } from "socket.io-client";
-import type { WebSocketState, WebSocketMessage } from "./websocket.type";
+import type {
+  WebSocketState,
+  WebSocketMessage,
+  GetMembersPayload,
+  WebSocketResponse,
+  MembersListData,
+  MembersListPayload,
+  JoinedCommunityPayload,
+} from "./websocket.type";
 import { useMessageStore } from "../message/message.store";
+import { useMemberStore } from "../member/member.store";
 import type { Message } from "../message/message.type";
+import type { Member } from "../member/member.type";
 
 export const useWebSocketStore = defineStore("websocket", {
   state: (): WebSocketState => ({
@@ -91,6 +101,46 @@ export const useWebSocketStore = defineStore("websocket", {
           };
           this.messages.push(message);
         });
+
+        // Listen for members list event
+        this.connection.on("members_list", (data: any) => {
+          const memberStore = useMemberStore();
+          const membersListPayload = data as MembersListPayload;
+
+          // Update member store with the received members data
+          memberStore.handleWebSocketMembersList(membersListPayload);
+
+          // Also keep in websocket messages for debugging/logging
+          const wsMessage: WebSocketMessage = {
+            type: "members_list",
+            payload: data,
+            timestamp: Date.now(),
+          };
+          this.messages.push(wsMessage);
+        });
+
+        //join community
+        this.connection.on("member_joined", (data: JoinedCommunityPayload) => {
+          const memberStore = useMemberStore();
+          const communityId = data.communityId;
+
+          // Ensure members array exists for the community
+          if (!memberStore.members[communityId]) {
+            memberStore.members[communityId] = [];
+          }
+
+          // Add the new member (assuming data.members is a single Member object)
+          const newMember: Member = data.members;
+
+          memberStore.members[communityId].push(newMember);
+
+          // Increment member count
+          if (memberStore.memberCount !== null) {
+            memberStore.memberCount++;
+          } else {
+            memberStore.memberCount = memberStore.members[communityId].length;
+          }
+        });
       } catch (error) {
         console.error("❌ Failed to create Socket.IO connection:", error);
       }
@@ -114,11 +164,21 @@ export const useWebSocketStore = defineStore("websocket", {
 
     // Specific methods for your backend events
     joinRoom(room: string) {
-      this.sendMessage("join_room", { room });
+      if (this.connection && this.isConnected) {
+        this.sendMessage("join_room", { room });
+      } else {
+        console.warn(`⚠️ Cannot join room ${room}: Socket.IO is not connected`);
+      }
     },
 
     leaveRoom(room: string) {
-      this.sendMessage("leave", { room });
+      if (this.connection && this.isConnected) {
+        this.sendMessage("leave", { room });
+      } else {
+        console.warn(
+          `⚠️ Cannot leave room ${room}: Socket.IO is not connected`
+        );
+      }
     },
 
     sendChatMessage(
@@ -133,6 +193,44 @@ export const useWebSocketStore = defineStore("websocket", {
         type,
         metadata,
       });
+    },
+
+    getMembers(communityId: string) {
+      if (this.connection && this.isConnected) {
+        this.connection.emit("get_members", { communityId });
+      } else {
+        console.warn(
+          `⚠️ Cannot emit get_members for community ${communityId}: Socket.IO is not connected`
+        );
+      }
+    },
+
+    joinCommunityRoom(communityId: string, userId: string) {
+      if (this.connection && this.isConnected) {
+        this.connection.emit("member_joined", { communityId, userId });
+      } else {
+        console.warn(
+          `⚠️ Cannot join community room community_${communityId}: Socket.IO is not connected`
+        );
+      }
+    },
+
+    // Method to ensure room is joined (with retry logic)
+    ensureRoomJoined(room: string, maxRetries: number = 3) {
+      if (this.connection && this.isConnected) {
+        this.joinRoom(room);
+      } else if (maxRetries > 0) {
+        console.log(
+          `⏳ WebSocket not connected, retrying join room ${room} in 1s... (${maxRetries} retries left)`
+        );
+        setTimeout(() => {
+          this.ensureRoomJoined(room, maxRetries - 1);
+        }, 1000);
+      } else {
+        console.error(
+          `❌ Failed to join room ${room} after ${maxRetries} retries`
+        );
+      }
     },
 
     clearMessages() {

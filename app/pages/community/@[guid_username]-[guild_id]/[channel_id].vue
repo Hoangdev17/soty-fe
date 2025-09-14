@@ -4,6 +4,7 @@ import { useChannelStore } from "~/stores/channels/channel.store";
 import { useCommunityStore } from "~/stores/community/community.store";
 import { useMessage } from "~/composables/useMessage";
 import { useMemberStore } from "~/stores/member/member.store";
+import { useAuthStore } from "~/stores/auth/auth.store";
 import ChannelLoading from "~/components/organisms/ChannelLoading.vue";
 
 definePageMeta({
@@ -13,6 +14,7 @@ definePageMeta({
 const channelStore = useChannelStore();
 const guildStore = useCommunityStore();
 const memberStore = useMemberStore();
+const authStore = useAuthStore();
 const { joinRoom, leaveRoom, fetchMessages, getMessages } = useMessage();
 
 const route = useRoute();
@@ -24,6 +26,9 @@ const isPageLoading = ref(true);
 
 const messageLoading = ref(false);
 
+// Flag để tránh multiple fetch community
+const isFetchingCommunity = ref(false);
+
 // Check if there are messages to conditionally show welcome
 const hasMessages = computed(() => {
   if (!channelId) return false;
@@ -34,16 +39,10 @@ onMounted(async () => {
   if (!guildId || !channelId) return;
 
   await guildStore.fetchCommunityById(guildId);
+  await channelStore.fetchChannelById(guildId, channelId);
 
-  // Fetch channel data only if not already loaded
-  if (channelStore.currentChannel?.id !== channelId) {
-    await channelStore.fetchChannelById(guildId, channelId);
-  }
-
-  //Fetch members of the guild only if not already loaded
-  if (memberStore.getMembersByGuild(guildId).length === 0) {
-    await memberStore.fetchMembers(guildId);
-  }
+  // Always fetch members for the current guild
+  await memberStore.fetchMembersViaWebSocket(guildId);
 
   // Fetch existing messages for this channel
   await fetchMessages(channelId);
@@ -51,9 +50,105 @@ onMounted(async () => {
   isPageLoading.value = false;
 });
 
+// Watch for route parameter changes to reset stores when switching communities/channels
+watch(
+  () => route.params.guild_id,
+  async (newGuildId, oldGuildId) => {
+    if (newGuildId && newGuildId !== oldGuildId) {
+      // Tránh multiple fetch cùng lúc
+      if (isFetchingCommunity.value) {
+        console.log(`⏳ Channel Page: Already fetching community, skipping...`);
+        return;
+      }
+
+      console.log(
+        `🔄 Channel Page: guild_id changed from ${oldGuildId} to ${newGuildId}`
+      );
+      console.log(
+        `📊 Channel Page: Current community before fetch:`,
+        guildStore.currentCommunity?.id
+      );
+
+      // Set flag để tránh multiple fetch
+      isFetchingCommunity.value = true;
+
+      // Reset loading state
+      isPageLoading.value = true;
+      messageLoading.value = true;
+
+      try {
+        // Fetch new community data (this will also reset stores)
+        await guildStore.fetchCommunityById(newGuildId as string);
+
+        console.log(
+          `✅ Channel Page: Successfully fetched community ${newGuildId}`
+        );
+        console.log(
+          `📊 Channel Page: Current community after fetch:`,
+          guildStore.currentCommunity?.id
+        );
+
+        // Fetch members for new community
+        await memberStore.fetchMembersViaWebSocket(newGuildId as string);
+      } finally {
+        // Reset flag sau khi fetch xong
+        isFetchingCommunity.value = false;
+        isPageLoading.value = false;
+      }
+    }
+  }
+); // Watch for route parameter changes to reset stores when switching communities/channels
+watch(
+  () => route.params.guild_id,
+  async (newGuildId, oldGuildId) => {
+    if (newGuildId && newGuildId !== oldGuildId) {
+      // Reset loading state
+      isPageLoading.value = true;
+      messageLoading.value = true;
+
+      // Fetch new community data (this will also reset stores)
+      await guildStore.fetchCommunityById(newGuildId as string);
+
+      // Fetch members for new community
+      await memberStore.fetchMembersViaWebSocket(newGuildId as string);
+
+      isPageLoading.value = false;
+    }
+  }
+);
+
+watch(
+  () => route.params.channel_id,
+  async (newChannelId, oldChannelId) => {
+    if (newChannelId && newChannelId !== oldChannelId) {
+      // Reset loading state
+      messageLoading.value = true;
+
+      // Get current guildId from route params (not the old variable)
+      const currentGuildId = route.params.guild_id as string;
+
+      // Fetch new channel data
+      if (currentGuildId) {
+        await channelStore.fetchChannelById(
+          currentGuildId,
+          newChannelId as string
+        );
+      }
+
+      // Fetch messages for new channel
+      await fetchMessages(newChannelId as string);
+
+      messageLoading.value = false;
+    }
+  }
+);
+
 onUnmounted(() => {
   if (channelId) {
-    leaveRoom(channelId);
+    leaveRoom(`channel_${channelId}`);
+  }
+  if (guildId) {
+    leaveRoom(`community_${guildId}`);
   }
 });
 
@@ -80,6 +175,18 @@ watch(
 );
 
 const isOpenSlideoverMember = ref(false);
+
+// Function to refresh members via WebSocket
+const refreshMembers = async () => {
+  const currentGuildId = route.params.guild_id as string;
+  if (currentGuildId) {
+    try {
+      await memberStore.fetchMembersViaWebSocket(currentGuildId);
+    } catch (error) {
+      console.error("Failed to refresh members:", error);
+    }
+  }
+};
 </script>
 
 <template>
@@ -168,15 +275,86 @@ const isOpenSlideoverMember = ref(false);
         <div class="flex items-center justify-between mb-6">
           <h3 class="text-white font-semibold flex items-center text-lg">
             <UIcon name="i-lucide-users-round" class="w-5 h-5 mr-2" />
-            Hoạt động — 11
+            Hoạt động —
+            {{
+              memberStore.getMemberCount(
+                (route.params.guild_id as string) || ""
+              )
+            }}
           </h3>
-          <UButton
-            @click="isOpenSlideoverMember = false"
-            color="transparent"
-            class="text-[#b9bbbe] hover:text-white"
-          >
-            <UIcon name="i-lucide-x" class="w-5 h-5" />
-          </UButton>
+          <div class="flex items-center gap-2">
+            <UButton
+              @click="refreshMembers"
+              color="transparent"
+              class="text-[#b9bbbe] hover:text-white p-1"
+              :loading="memberStore.isLoading"
+              size="sm"
+            >
+              <UIcon name="i-lucide-refresh-ccw" class="w-4 h-4" />
+            </UButton>
+            <UButton
+              @click="isOpenSlideoverMember = false"
+              color="transparent"
+              class="text-[#b9bbbe] hover:text-white p-1"
+            >
+              <UIcon name="i-lucide-x" class="w-5 h-5" />
+            </UButton>
+          </div>
+        </div>
+
+        <!-- Members List -->
+        <div class="space-y-2">
+          <div v-if="memberStore.isLoading" class="text-center py-4">
+            <UIcon
+              name="i-lucide-loader-2"
+              class="w-6 h-6 animate-spin mx-auto text-gray-400"
+            />
+            <p class="text-gray-400 text-sm mt-2">Đang tải...</p>
+          </div>
+
+          <div v-else-if="memberStore.getError" class="text-center py-4">
+            <UIcon
+              name="i-lucide-alert-circle"
+              class="w-6 h-6 mx-auto text-red-400"
+            />
+            <p class="text-red-400 text-sm mt-2">{{ memberStore.getError }}</p>
+          </div>
+
+          <div v-else class="space-y-1">
+            <div
+              v-for="member in memberStore.getMembersByGuild(route.params.guild_id as string || '')"
+              :key="member.id"
+              class="flex items-center gap-3 p-2 rounded-md hover:bg-dark-700 transition-colors"
+            >
+              <UAvatar
+                :src="member.avatar"
+                :alt="member.nickname || member.user?.username"
+                size="sm"
+                class="flex-shrink-0"
+              />
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-white font-medium text-sm truncate">
+                    {{ member.nickname || member.user?.username }}
+                  </span>
+                  <span
+                    v-if="member.user?.id === authStore.user?.id"
+                    class="text-xs text-green-400 font-medium"
+                  >
+                    Bạn
+                  </span>
+                </div>
+                <div class="flex items-center gap-1 text-xs text-gray-400">
+                  <UIcon
+                    name="i-lucide-crown"
+                    v-if="member.permissions?.includes('ADMIN')"
+                    class="w-3 h-3 text-yellow-400"
+                  />
+                  <span>{{ member.user?.username }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </Transition>

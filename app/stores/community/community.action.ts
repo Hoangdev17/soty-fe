@@ -7,6 +7,10 @@ import type {
   CreateCommunityData,
 } from "./community.type";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
+import { joinRoom, leaveRoom } from "../websocket/websocket.action";
+import { useChannelStore } from "../channels/channel.store";
+import { useMessageStore } from "../message/message.store";
+import { useAuthStore } from "../auth/auth.store";
 
 export const communityActions = {
   async fetchAllCommunity() {
@@ -38,9 +42,33 @@ export const communityActions = {
   // Lấy chi tiết community
   async fetchCommunity(communityId: string) {
     const { fetchWithAuth } = useFetchWithAuth();
-    return await fetchWithAuth<Community>(`/communities/${communityId}`, {
-      method: "GET",
-    });
+    const communityStore = useCommunityStore();
+    const memberStore = useMemberStore();
+    const channelStore = useChannelStore();
+    const messageStore = useMessageStore();
+
+    // Leave previous community room if exists
+    if (communityStore.currentCommunity) {
+      leaveRoom(`community_${communityStore.currentCommunity.id}`);
+    }
+
+    // Reset all stores when switching communities
+    memberStore.clearAllMembers();
+    channelStore.clearChannels();
+    messageStore.clearAllMessages();
+
+    const community = await fetchWithAuth<Community>(
+      `/communities/${communityId}`,
+      {
+        method: "GET",
+      }
+    );
+
+    communityStore.currentCommunity = community;
+
+    joinRoom(`community_${communityId}`);
+
+    return community;
   },
 
   // Tạo community mới
@@ -53,7 +81,15 @@ export const communityActions = {
       body: JSON.stringify(data),
     });
 
+    // Leave current community room if exists
+    if (communityStore.currentCommunity) {
+      leaveRoom(`community_${communityStore.currentCommunity.id}`);
+    }
+
     communityStore.communities.push(newCommunity);
+    communityStore.currentCommunity = newCommunity;
+
+    joinRoom(`community_${newCommunity.id}`);
 
     return newCommunity;
   },
@@ -61,6 +97,11 @@ export const communityActions = {
   async fetchCommunityById(communityId: string) {
     const { fetchWithAuth } = useFetchWithAuth();
     const communityStore = useCommunityStore();
+
+    // Leave previous community room if exists
+    if (communityStore.currentCommunity) {
+      leaveRoom(`community_${communityStore.currentCommunity.id}`);
+    }
 
     const community = await fetchWithAuth<Community>(
       `/community/${communityId}`,
@@ -71,6 +112,8 @@ export const communityActions = {
 
     communityStore.currentCommunity = community;
 
+    joinRoom(`community_${communityId}`);
+
     return community;
   },
 
@@ -80,6 +123,7 @@ export const communityActions = {
     data: Partial<CreateCommunityData>
   ) {
     const { fetchWithAuth } = useFetchWithAuth();
+    const communityStore = useCommunityStore();
 
     const formData = new FormData();
     if (data.name) formData.append("name", data.name);
@@ -87,38 +131,35 @@ export const communityActions = {
     if (data.avatar) formData.append("avatar", data.avatar);
     if (data.banner) formData.append("banner", data.banner);
 
-    return await fetchWithAuth<Community>(`/communities/${communityId}`, {
-      method: "PUT",
-      body: formData,
-    });
+    const updatedCommunity = await fetchWithAuth<Community>(
+      `/communities/${communityId}`,
+      {
+        method: "PUT",
+        body: formData,
+      }
+    );
+
+    // Update current community if it's the one being updated
+    if (communityStore.currentCommunity?.id === communityId) {
+      communityStore.currentCommunity = updatedCommunity;
+    }
+
+    return updatedCommunity;
   },
 
   // Join community
   async joinCommunity(communityId: string) {
-    const { fetchWithAuth } = useFetchWithAuth();
-    const communityStore = useCommunityStore();
-    const memberStore = useMemberStore();
+    const authStore = useAuthStore();
+    const userId = authStore.user?.id;
+
+    const { joinCommunity } = useWebSocket();
     const toast = useToast();
 
-    const existingMember = communityStore.currentCommunityMembers.find(
-      (member) => member.communityId === communityId
-    );
-
-    if (existingMember) {
-      throw new Error("You are already a member of this community.");
-    }
-
     try {
-      const response = await fetchWithAuth<Member>(
-        `/community/${communityId}/join`,
-        {
-          method: "POST",
-        }
-      );
+      joinRoom(`community_${communityId}`);
 
-      memberStore.addMember(communityId, response);
-
-      return response;
+      // Use non-null assertion since userId is checked above
+      return await joinCommunity(communityId, userId!);
     } catch (error) {
       toast.add({
         title: "Failed to join",
@@ -132,12 +173,25 @@ export const communityActions = {
   // Leave community
   async leaveCommunity(communityId: string) {
     const { fetchWithAuth } = useFetchWithAuth();
-    return await fetchWithAuth<{ message: string }>(
+    const memberStore = useMemberStore();
+    const channelStore = useChannelStore();
+    const messageStore = useMessageStore();
+
+    const response = await fetchWithAuth<{ message: string }>(
       `/communities/${communityId}/leave`,
       {
         method: "POST",
       }
     );
+
+    // Reset all stores when leaving community
+    memberStore.clearAllMembers();
+    channelStore.clearChannels();
+    messageStore.clearAllMessages();
+
+    leaveRoom(`community_${communityId}`);
+
+    return response;
   },
 
   // Delete community (chỉ owner)

@@ -8,13 +8,60 @@ import type {
 } from "@nuxt/ui";
 import { useCommunityStore } from "~/stores/community/community.store";
 import { useChannelStore } from "~/stores/channels/channel.store";
+import { leaveRoom } from "~/stores/websocket/websocket.action";
 import InviteModal from "~/components/molecules/invite.modal.vue";
 
 const route = useRoute();
 const communityStore = useCommunityStore();
 const channelStore = useChannelStore();
-const guildId = route.params.guild_id as string | undefined;
-const channelId = route.params.channel_id as string | undefined;
+const guildId = ref(route.params.guild_id as string | undefined);
+const itemsNavigates = ref<NavigationMenuItem[][]>([
+  [
+    {
+      label: "Sự kiện",
+      icon: "i-lucide-users",
+      to: "/@me/channels",
+    },
+    {
+      label: "Nâng cấp máy chủ",
+      icon: "i-lucide-store",
+      to: "/community",
+    },
+    {
+      label: "Giới thiệu về community",
+      icon: "i-lucide-store",
+      to: "/community/introduce/" + (guildId.value || ""),
+    },
+  ],
+]);
+watch(
+  () => route.params.guild_id,
+  (newGuildId) => {
+    guildId.value = newGuildId as string | undefined;
+
+    // Cập nhật itemsNavigates để to được tính toán lại
+    itemsNavigates.value = [
+      [
+        {
+          label: "Sự kiện",
+          icon: "i-lucide-users",
+          to: "/@me/channels",
+        },
+        {
+          label: "Nâng cấp máy chủ",
+          icon: "i-lucide-store",
+          to: "/community",
+        },
+        {
+          label: "Giới thiệu về community",
+          icon: "i-lucide-store",
+          to: "/community/introduce/" + (guildId.value || ""),
+        },
+      ],
+    ];
+  },
+  { immediate: true }
+);
 
 const isCreating = ref(false);
 
@@ -60,17 +107,13 @@ watch(
           const community = communityStore.communities.find(
             (c: any) => c.id == communityId
           );
-          if (community) {
-            communityStore.currentCommunity = community;
-          } else {
-            // Fetch từ API nếu không có trong list
-            try {
-              await communityStore.fetchCommunityById(communityId);
-            } catch (error) {
-              console.error("Error fetching community:", error);
-              // Reset về default nếu không tìm thấy
-              serverName.value = "My Server";
-            }
+          // Fetch từ API nếu không có trong list
+          try {
+            await communityStore.fetchCommunityById(communityId);
+          } catch (error) {
+            console.error("Error fetching community:", error);
+            // Reset về default nếu không tìm thấy
+            serverName.value = "My Server";
           }
         }
       }
@@ -146,26 +189,6 @@ const items = ref<DropdownMenuItem[][]>([
   ],
 ]);
 
-const itemsNavigates = ref<NavigationMenuItem[][]>([
-  [
-    {
-      label: "Sự kiện",
-      icon: "i-lucide-users",
-      to: "/@me/channels",
-    },
-    {
-      label: "Nâng cấp máy chủ",
-      icon: "i-lucide-store",
-      to: "/community",
-    },
-    {
-      label: "Giới thiệu về community",
-      icon: "i-lucide-store",
-      to: "/community/introduce/" + guildId,
-    },
-  ],
-]);
-
 const itemChannelType = ref<RadioGroupItem[]>([
   {
     label: "TEXT",
@@ -199,13 +222,9 @@ const itemsChannel = computed<NavigationMenuItem[][]>(() => {
   return [channelItems];
 });
 
-// Cập nhật onMounted để fetch kênh (nếu chưa có)
-onMounted(async () => {
-  if (communityStore?.currentCommunity?.id) {
-    await channelStore.fetchAllChannelsByGuildId(
-      communityStore.currentCommunity.id
-    );
-    // itemsChannel sẽ tự động cập nhật nhờ computed
+onUnmounted(() => {
+  if (guildId) {
+    leaveRoom(`community_${guildId}`);
   }
 });
 

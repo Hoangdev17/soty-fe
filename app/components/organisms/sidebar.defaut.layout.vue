@@ -32,23 +32,23 @@ watch(
         if (lastDashIndex !== -1) {
           const communityId = communitySlug.substring(lastDashIndex + 1);
 
-          // Tìm community trong list và set current
-          const community = userCommunity.value.find(
-            (c: any) => c.id == communityId
-          );
-          if (community) {
-            communityStore.currentCommunity = community;
-          } else {
-            // Nếu không tìm thấy, fetch từ API
-            try {
-              await communityStore.fetchCommunityById(communityId);
-            } catch (error) {
-              console.error("Error fetching community:", error);
-            }
+          // Luôn fetch community mới để đảm bảo data được clear và update đúng
+          try {
+            await communityStore.fetchCommunityById(communityId);
+            console.log(
+              `✅ Sidebar: Successfully fetched community ${communityId}`
+            );
+          } catch (error) {
+            console.error("❌ Sidebar: Error fetching community:", error);
+          } finally {
+            // Reset flag sau khi fetch xong
           }
         }
       }
     } else {
+      console.log(
+        `🏠 Sidebar: Not a community route, clearing current community`
+      );
       // Clear currentCommunity when not in community routes
       communityStore.currentCommunity = null;
     }
@@ -89,7 +89,6 @@ const isActiveNav = (nav: any) => {
   if (nav.isHome) {
     return route.path === nav.metadata.prefix;
   } else {
-    // Check if this community is the current active community
     return communityStore.currentCommunity?.id === nav.metadata?.id;
   }
 };

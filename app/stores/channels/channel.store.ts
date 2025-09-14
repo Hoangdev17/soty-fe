@@ -14,5 +14,13 @@ export const useChannelStore = defineStore("channel", {
 
   actions: {
     ...channelActions,
+
+    clearChannels() {
+      this.channels = [];
+      this.currentChannel = null;
+      this.isLoading = false;
+      this.isLoadingChannels = false;
+      this.isLoadingCurrentChannel = false;
+    },
   },
 });

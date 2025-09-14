@@ -25,5 +25,12 @@ export const useMemberStore = defineStore("member", {
 
   actions: {
     ...memberActions,
+
+    clearAllMembers() {
+      this.members = {};
+      this.memberCount = null;
+      this.loading = false;
+      this.error = null;
+    },
   },
 });
