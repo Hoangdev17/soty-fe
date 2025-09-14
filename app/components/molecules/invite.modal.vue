@@ -78,7 +78,7 @@ const isCopying = ref(false);
 // Generate invite link based on guild info
 const inviteLink = computed(() => {
   if (props.guildId && props.guildUsername) {
-    return `${window.location.origin}/community/@${props.guildUsername}-${props.guildId}`;
+    return `${window.location.origin}/community/introduce/${props.guildId}`;
   }
   return "";
 });
