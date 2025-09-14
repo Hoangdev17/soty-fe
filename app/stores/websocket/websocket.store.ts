@@ -13,6 +13,7 @@ import { useMessageStore } from "../message/message.store";
 import { useMemberStore } from "../member/member.store";
 import type { Message } from "../message/message.type";
 import type { Member } from "../member/member.type";
+import { toast } from "#build/ui";
 
 export const useWebSocketStore = defineStore("websocket", {
   state: (): WebSocketState => ({
@@ -106,6 +107,7 @@ export const useWebSocketStore = defineStore("websocket", {
         // Listen for members list event
         this.connection.on("members_list", (data: any) => {
           const memberStore = useMemberStore();
+
           const membersListPayload = data as MembersListPayload;
 
           // Update member store with the received members data
@@ -123,6 +125,7 @@ export const useWebSocketStore = defineStore("websocket", {
         //join community
         this.connection.on("member_joined", (data: JoinedCommunityPayload) => {
           const memberStore = useMemberStore();
+          const toast = useToast();
           const communityId = data.communityId;
 
           // Ensure members array exists for the community
@@ -141,6 +144,13 @@ export const useWebSocketStore = defineStore("websocket", {
           } else {
             memberStore.memberCount = memberStore.members[communityId].length;
           }
+
+          toast.add({
+            title:
+              newMember.user?.username + "vừa trượt vào cộng đồng của bạn!",
+            color: "success",
+            duration: 5000,
+          });
         });
       } catch (error) {
         console.error("❌ Failed to create Socket.IO connection:", error);
