@@ -35,9 +35,6 @@ watch(
           // Luôn fetch community mới để đảm bảo data được clear và update đúng
           try {
             await communityStore.fetchCommunityById(communityId);
-            console.log(
-              `✅ Sidebar: Successfully fetched community ${communityId}`
-            );
           } catch (error) {
             console.error("❌ Sidebar: Error fetching community:", error);
           } finally {
@@ -46,10 +43,6 @@ watch(
         }
       }
     } else {
-      console.log(
-        `🏠 Sidebar: Not a community route, clearing current community`
-      );
-      // Clear currentCommunity when not in community routes
       communityStore.currentCommunity = null;
     }
   },
