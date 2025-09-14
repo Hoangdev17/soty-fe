@@ -60,8 +60,6 @@ watch(
         console.log(`⏳ Channel Page: Already fetching community, skipping...`);
         return;
       }
-
-      // Set flag để tránh multiple fetch
       isFetchingCommunity.value = true;
 
       // Reset loading state
