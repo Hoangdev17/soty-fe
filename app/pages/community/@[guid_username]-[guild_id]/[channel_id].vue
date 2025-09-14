@@ -5,7 +5,7 @@ import { useCommunityStore } from "~/stores/community/community.store";
 import { useMessage } from "~/composables/useMessage";
 import { useMemberStore } from "~/stores/member/member.store";
 import { useAuthStore } from "~/stores/auth/auth.store";
-import ChannelLoading from "~/components/organisms/ChannelLoading.vue";
+import ChannelLoading from "~/components/organisms/channel.loading.vue";
 
 definePageMeta({
   layout: "community-layout",

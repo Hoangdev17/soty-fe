@@ -91,6 +91,8 @@ export const communityActions = {
 
     joinRoom(`community_${newCommunity.id}`);
 
+    navigateTo("/community/introduce/" + newCommunity.id);
+
     return newCommunity;
   },
 

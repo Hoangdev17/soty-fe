@@ -32,7 +32,6 @@ watch(
         if (lastDashIndex !== -1) {
           const communityId = communitySlug.substring(lastDashIndex + 1);
 
-          // Luôn fetch community mới để đảm bảo data được clear và update đúng
           try {
             await communityStore.fetchCommunityById(communityId);
           } catch (error) {
@@ -46,7 +45,7 @@ watch(
       communityStore.currentCommunity = null;
     }
   },
-  { immediate: true } // Chạy ngay khi component mount
+  { immediate: true }
 );
 
 // Static nav items (Discord home, etc.)

@@ -4,7 +4,7 @@ import { useCommunityStore } from "~/stores/community/community.store";
 import { useAuthStore } from "~/stores/auth/auth.store";
 import { useMemberStore } from "~/stores/member/member.store";
 import { leaveRoom } from "~/stores/websocket/websocket.action";
-import CommunityLoading from "~/components/organisms/CommunityLoading.vue";
+import CommunityLoading from "~/components/organisms/community.loading.vue";
 import CommunityBanner from "~/components/organisms/community.banner.vue";
 import InviteModal from "~/components/molecules/invite.modal.vue";
 
