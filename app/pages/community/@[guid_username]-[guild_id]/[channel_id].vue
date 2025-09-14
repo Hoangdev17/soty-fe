@@ -61,14 +61,6 @@ watch(
         return;
       }
 
-      console.log(
-        `🔄 Channel Page: guild_id changed from ${oldGuildId} to ${newGuildId}`
-      );
-      console.log(
-        `📊 Channel Page: Current community before fetch:`,
-        guildStore.currentCommunity?.id
-      );
-
       // Set flag để tránh multiple fetch
       isFetchingCommunity.value = true;
 
@@ -79,14 +71,6 @@ watch(
       try {
         // Fetch new community data (this will also reset stores)
         await guildStore.fetchCommunityById(newGuildId as string);
-
-        console.log(
-          `✅ Channel Page: Successfully fetched community ${newGuildId}`
-        );
-        console.log(
-          `📊 Channel Page: Current community after fetch:`,
-          guildStore.currentCommunity?.id
-        );
 
         // Fetch members for new community
         await memberStore.fetchMembersViaWebSocket(newGuildId as string);
