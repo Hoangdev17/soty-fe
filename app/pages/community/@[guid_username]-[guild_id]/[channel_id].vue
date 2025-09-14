@@ -15,7 +15,7 @@ const channelStore = useChannelStore();
 const guildStore = useCommunityStore();
 const memberStore = useMemberStore();
 const authStore = useAuthStore();
-const { joinRoom, leaveRoom, fetchMessages, getMessages } = useMessage();
+const { leaveRoom, fetchMessages, getMessages } = useMessage();
 
 const route = useRoute();
 const channelId = route.params.channel_id as string | undefined;
@@ -44,8 +44,6 @@ onMounted(async () => {
   // Always fetch members for the current guild
   await memberStore.fetchMembersViaWebSocket(guildId);
 
-  // Fetch existing messages for this channel
-  await fetchMessages(channelId);
   messageLoading.value = false;
   isPageLoading.value = false;
 });
@@ -99,32 +97,6 @@ watch(
   }
 );
 
-watch(
-  () => route.params.channel_id,
-  async (newChannelId, oldChannelId) => {
-    if (newChannelId && newChannelId !== oldChannelId) {
-      // Reset loading state
-      messageLoading.value = true;
-
-      // Get current guildId from route params (not the old variable)
-      const currentGuildId = route.params.guild_id as string;
-
-      // Fetch new channel data
-      if (currentGuildId) {
-        await channelStore.fetchChannelById(
-          currentGuildId,
-          newChannelId as string
-        );
-      }
-
-      // Fetch messages for new channel
-      await fetchMessages(newChannelId as string);
-
-      messageLoading.value = false;
-    }
-  }
-);
-
 onUnmounted(() => {
   if (channelId) {
     leaveRoom(`channel_${channelId}`);
@@ -133,28 +105,6 @@ onUnmounted(() => {
     leaveRoom(`community_${guildId}`);
   }
 });
-
-// Watch for changes to the currentChannel in the store so the page can react
-watch(
-  () => channelStore.currentChannel,
-  async (newChannel, oldChannel) => {
-    try {
-      if (!newChannel) return;
-
-      // If channel id changed and it's not the initial load, fetch messages for the new channel
-      if (
-        newChannel.id &&
-        newChannel.id !== oldChannel?.id &&
-        oldChannel !== undefined
-      ) {
-        await fetchMessages(newChannel.id);
-      }
-    } catch (err) {
-      console.error("Error fetching messages for new channel:", err);
-    }
-  },
-  { immediate: false }
-);
 
 const isOpenSlideoverMember = ref(false);
 
@@ -234,7 +184,6 @@ const refreshMembers = async () => {
 
         <!-- Message list - takes remaining space and handles its own scrolling -->
         <MoleculesMessageList
-          v-if="hasMessages"
           :roomId="channelId || ''"
           class="flex-1 min-h-0"
         />

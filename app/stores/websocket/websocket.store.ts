@@ -78,6 +78,7 @@ export const useWebSocketStore = defineStore("websocket", {
               avatar: data.author?.avatar,
             },
           };
+
           messageStore.receiveMessage(
             message.metadata?.channelId || "",
             message
@@ -187,12 +188,18 @@ export const useWebSocketStore = defineStore("websocket", {
       type: string = "text",
       metadata?: any
     ) {
-      this.sendMessage("send_message", {
-        room,
-        message,
-        type,
-        metadata,
-      });
+      if (this.connection && this.isConnected) {
+        this.connection.emit("send_message", {
+          room,
+          message,
+          type,
+          metadata,
+        });
+      } else {
+        console.warn(
+          `⚠️ Cannot send message to room ${room}: Socket.IO is not connected`
+        );
+      }
     },
 
     getMembers(communityId: string) {
