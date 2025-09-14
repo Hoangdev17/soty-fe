@@ -228,12 +228,14 @@ onUnmounted(() => {
   }
 });
 
-// Thêm watch để fetch lại khi currentCommunity thay đổi
+// Watcher để navigate đến kênh mới khi currentChannel thay đổi
 watch(
-  () => communityStore.currentCommunity,
-  async (newCommunity) => {
-    if (newCommunity?.id) {
-      await channelStore.fetchAllChannelsByGuildId(newCommunity.id);
+  () => channelStore.currentChannel,
+  (newChannel) => {
+    if (newChannel?.id && communityStore.currentCommunity?.id) {
+      navigateTo(
+        `/community/@${communityStore.currentCommunity.name}-${communityStore.currentCommunity.id}/${newChannel.id}`
+      );
     }
   }
 );
@@ -269,16 +271,7 @@ const createChannel = async () => {
       guildId: communityStore.currentCommunity.id,
     });
 
-    if (channelStore.channels && channelStore.channels.length > 0) {
-      const lastChannel =
-        channelStore.channels[channelStore.channels.length - 1];
-      if (lastChannel?.id) {
-        navigateTo(
-          `/community/@${communityStore.currentCommunity?.name}-${communityStore.currentCommunity?.id}/${lastChannel.id}`
-        );
-      }
-    }
-
+    // Navigation sẽ được xử lý qua watcher của currentChannel
     closeCreateChannelModal();
   } catch (error) {
     console.error("Error creating channel:", error);

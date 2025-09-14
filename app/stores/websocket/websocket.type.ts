@@ -1,5 +1,6 @@
 import type { Socket } from "socket.io-client";
 import type { Member } from "../member/member.type";
+import type { ChannelType } from "../channels/channel.type";
 
 export type WEBSOCKET_EVENTS = {
   // Connection events
@@ -27,6 +28,9 @@ export type WEBSOCKET_EVENTS = {
   ROLE_UPDATED: "role_updated";
   GET_MEMBERS: "get_members";
   MEMBERS_LIST: "members_list";
+
+  //CHANNEL
+  CREATE_CHANNEL: "create_channel";
 
   // Notification events
   NOTIFICATION: "notification";
@@ -77,5 +81,44 @@ export interface JoinedCommunityPayload {
   communityId: string;
   members: Member;
   joinedBy: string;
+  timestamp: Date;
+}
+
+export interface CreateChannelPayload {
+  guildId: string;
+  name: string;
+  nsfw: boolean;
+  topic?: string;
+  position?: number;
+  type: ChannelType;
+  manageable: boolean;
+  rateLimitPerUser?: number;
+  viewAble?: boolean;
+  recipients?: string[];
+  maxMembers?: number;
+}
+
+export interface ChannelCreatedData {
+  channel: {
+    id: string;
+    name: string;
+    description: string;
+    lastMessageId: string | null;
+    manageable: boolean;
+    starterMessageId: string | null;
+    nsfw: boolean;
+    parentId: string | null;
+    position: number;
+    topic: string | null;
+    type: ChannelType;
+    viewAble: boolean;
+    rateLimitPerUser: number | null;
+    recipients: string[];
+    maxMembers: number | null;
+    createdAt: Date;
+    updatedAt: Date;
+  };
+  communityId: string;
+  createdBy: string;
   timestamp: Date;
 }

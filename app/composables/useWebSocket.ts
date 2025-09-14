@@ -7,6 +7,7 @@ import {
   leaveRoom,
   sendChatMessage,
 } from "../stores/websocket/websocket.action";
+import type { CreateChannelPayload } from "~/stores/websocket/websocket.type";
 
 export const useWebSocket = () => {
   const wsStore = useWebSocketStore();
@@ -39,6 +40,10 @@ export const useWebSocket = () => {
     return wsStore.joinCommunityRoom(communityId, userId);
   };
 
+  const createChannel = (data: CreateChannelPayload) => {
+    wsStore.createChannel(data);
+  };
+
   const sendChatMsg = (
     room: string,
     message: string,
@@ -67,5 +72,6 @@ export const useWebSocket = () => {
     isConnected,
     messages,
     joinCommunity,
+    createChannel,
   };
 };

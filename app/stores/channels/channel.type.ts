@@ -1,4 +1,4 @@
-enum ChannelType {
+export enum ChannelType {
   GUILD_TEXT = "GUILD_TEXT",
   DM = "DM",
   GUILD_VOICE = "GUILD_VOICE",

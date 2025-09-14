@@ -18,20 +18,15 @@ export const channelActions = {
   },
 
   async createChannel(data: { guildId: string; name: string; type: string }) {
-    const { fetchWithAuth } = useFetchWithAuth();
-    const channelStore = useChannelStore();
+    const { createChannel } = useWebSocket();
 
-    const newChannel = await fetchWithAuth<Channel>(
-      `/channels/${data.guildId}`,
-      {
-        method: "POST",
-        body: JSON.stringify(data),
-      }
-    );
-
-    channelStore.channels.push(newChannel);
-
-    return newChannel;
+    createChannel({
+      guildId: data.guildId,
+      name: data.name,
+      type: data.type as any,
+      nsfw: false,
+      manageable: true,
+    });
   },
 
   async fetchChannelById(guildId: string, channelId: string) {

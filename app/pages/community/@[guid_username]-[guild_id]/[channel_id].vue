@@ -184,6 +184,7 @@ const refreshMembers = async () => {
 
         <!-- Message list - takes remaining space and handles its own scrolling -->
         <MoleculesMessageList
+          v-if="hasMessages"
           :roomId="channelId || ''"
           class="flex-1 min-h-0"
         />

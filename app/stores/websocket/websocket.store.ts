@@ -8,12 +8,14 @@ import type {
   MembersListData,
   MembersListPayload,
   JoinedCommunityPayload,
+  CreateChannelPayload,
+  ChannelCreatedData,
 } from "./websocket.type";
 import { useMessageStore } from "../message/message.store";
 import { useMemberStore } from "../member/member.store";
 import type { Message } from "../message/message.type";
 import type { Member } from "../member/member.type";
-import { toast } from "#build/ui";
+import { useChannelStore } from "../channels/channel.store";
 
 export const useWebSocketStore = defineStore("websocket", {
   state: (): WebSocketState => ({
@@ -152,6 +154,24 @@ export const useWebSocketStore = defineStore("websocket", {
             duration: 5000,
           });
         });
+
+        //create channel
+        this.connection.on("channel_created", (data: ChannelCreatedData) => {
+          const toast = useToast();
+          const channelStore = useChannelStore();
+
+          channelStore.channels.push(data.channel);
+          channelStore.currentChannel = data.channel;
+
+          toast.add({
+            title:
+              "Kênh " +
+              data.channel.name +
+              "mới xuất hiện kìa! Hãy cùng khám phá nào!",
+            color: "success",
+            duration: 5000,
+          });
+        });
       } catch (error) {
         console.error("❌ Failed to create Socket.IO connection:", error);
       }
@@ -228,6 +248,17 @@ export const useWebSocketStore = defineStore("websocket", {
       } else {
         console.warn(
           `⚠️ Cannot join community room community_${communityId}: Socket.IO is not connected`
+        );
+      }
+    },
+
+    //create channel
+    createChannel(data: CreateChannelPayload) {
+      if (this.connection && this.isConnected) {
+        this.connection.emit("create_channel", data);
+      } else {
+        console.warn(
+          `⚠️ Cannot create channel in guild ${data.guildId}: Socket.IO is not connected`
         );
       }
     },
