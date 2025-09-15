@@ -5,13 +5,13 @@ import requiredAuth from "~/middleware/required.auth";
 
 // SEO Meta
 useSeoMeta({
-  title: "Discord - Group Chat That's All Fun & Games",
-  ogTitle: "Discord - Group Chat That's All Fun & Games",
+  title: "Soty - Group Chat That's All Fun & Games",
+  ogTitle: "Soty - Group Chat That's All Fun & Games",
   description:
-    "Discord is great for playing games and chilling with friends, or even building a worldwide community. Customize your own space to talk, play, and hang out.",
+    "Soty is great for playing games and chilling with friends, or even building a worldwide community. Customize your own space to talk, play, and hang out.",
   ogDescription:
-    "Discord is great for playing games and chilling with friends, or even building a worldwide community. Customize your own space to talk, play, and hang out.",
-  ogImage: "/discord-og.jpg",
+    "Soty is great for playing games and chilling with friends, or even building a worldwide community. Customize your own space to talk, play, and hang out.",
+  ogImage: "/soty-og.jpg",
   twitterCard: "summary_large_image",
 });
 

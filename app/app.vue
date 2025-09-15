@@ -10,6 +10,15 @@ const loadingMessage =
   "Chào mừng bạn đến với Soty – nơi kết nối cộng đồng và học hỏi cùng nhau!";
 
 onMounted(async () => {
+  if (import.meta.server) return;
+  const route = useRoute();
+  // Không hiển thị loading nếu route hiện tại là index, login, register hoặc forgot-password
+  showLoading.value =
+    route.path !== "/" &&
+    route.path !== "/auth/login" &&
+    route.path !== "/auth/register" &&
+    route.path !== "/auth/forgot-password";
+
   if (!authStore.isInitialized) {
     await authStore.initializeAuth();
   }

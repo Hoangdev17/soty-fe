@@ -5,6 +5,7 @@ import { useCommunityStore } from "~/stores/community/community.store";
 
 definePageMeta({
   layout: "main",
+  middleware: ["required-auth"],
 });
 
 // DÙng field 'value' để UTabs map với v-model
