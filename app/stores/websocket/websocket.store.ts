@@ -160,6 +160,8 @@ export const useWebSocketStore = defineStore("websocket", {
           const toast = useToast();
           const channelStore = useChannelStore();
 
+          console.log("📢 New channel created:", data.channel);
+
           channelStore.channels.push(data.channel);
           channelStore.currentChannel = data.channel;
 
@@ -167,7 +169,7 @@ export const useWebSocketStore = defineStore("websocket", {
             title:
               "Kênh " +
               data.channel.name +
-              "mới xuất hiện kìa! Hãy cùng khám phá nào!",
+              " mới xuất hiện kìa! Hãy cùng khám phá nào!",
             color: "success",
             duration: 5000,
           });
