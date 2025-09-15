@@ -19,7 +19,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="min-h-screen flex bg-[var(--ui-bg)]">
+  <div class="min-h-screen flex bg-[var(--ui-bg)] h-screen overflow-hidden">
     <!-- Server List Sidebar -->
     <aside class="w-[80px] h-screen flex flex-col relative">
       <div class="flex-1 overflow-y-auto">
@@ -29,16 +29,16 @@ onUnmounted(() => {
     </aside>
 
     <!-- Main Community Content -->
-    <div class="flex flex-1">
+    <div class="flex flex-1 h-screen">
       <!-- Channel Sidebar -->
-      <div class="w-60">
+      <div class="w-60 h-screen">
         <SidebarCommunity />
       </div>
 
       <USeparator orientation="vertical" class="h-screen" />
 
       <!-- Messages Area -->
-      <main class="flex-1 bg-dark-800">
+      <main class="flex-1 bg-dark-800 h-screen overflow-y-auto">
         <slot />
       </main>
     </div>
