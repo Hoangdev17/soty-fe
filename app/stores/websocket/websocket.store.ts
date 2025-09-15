@@ -160,10 +160,10 @@ export const useWebSocketStore = defineStore("websocket", {
           const toast = useToast();
           const channelStore = useChannelStore();
 
-          console.log("📢 New channel created:", data.channel);
-
+          // Add channel to all clients' channel list
           channelStore.channels.push(data.channel);
-          channelStore.currentChannel = data.channel;
+
+          // Don't set currentChannel here - let the component that created it handle navigation
 
           toast.add({
             title:

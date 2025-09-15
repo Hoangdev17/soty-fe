@@ -64,6 +64,39 @@ watch(
 );
 
 const isCreating = ref(false);
+const isCreatingChannel = ref(false); // Track if this client is creating a channel
+const creatingChannelName = ref(""); // Track the name of the channel being created
+
+// Watch for new channels being added to navigate only for creator
+watch(
+  () => channelStore.channels?.length,
+  (newLength, oldLength) => {
+    if (
+      newLength > oldLength &&
+      isCreatingChannel.value &&
+      creatingChannelName.value
+    ) {
+      // Find the newly created channel
+      const newestChannel = channelStore.channels?.find(
+        (channel) => channel.name === creatingChannelName.value
+      );
+
+      if (newestChannel && communityStore.currentCommunity) {
+        // Set as current channel and navigate
+        channelStore.currentChannel = newestChannel;
+
+        const newUrl = `/community/@${communityStore.currentCommunity.name}-${communityStore.currentCommunity.id}/${newestChannel.id}`;
+
+        // Navigate to the new channel
+        navigateTo(newUrl);
+
+        // Reset flags
+        isCreatingChannel.value = false;
+        creatingChannelName.value = "";
+      }
+    }
+  }
+);
 
 // Invite modal state
 const isInviteModalOpen = ref(false);
@@ -73,6 +106,20 @@ const channelForm = ref<HTMLFormElement>();
 
 // Reactive server name
 const serverName = ref(communityStore.currentCommunity?.name || "My Server");
+
+// Dropdown state
+const showDropdown = ref(false);
+
+// Handle dropdown menu item clicks
+const handleMenuClick = (item: any) => {
+  showDropdown.value = false; // Close dropdown
+
+  if (item.onSelect) {
+    item.onSelect(item);
+  } else if (item.to) {
+    navigateTo(item.to);
+  }
+};
 
 // Watch for currentCommunity changes
 watch(
@@ -132,6 +179,19 @@ onMounted(async () => {
       communityStore.currentCommunity.id
     );
   }
+
+  // Close dropdown when clicking outside
+  const handleClickOutside = (event: MouseEvent) => {
+    const target = event.target as Element;
+    if (!target.closest(".relative")) {
+      showDropdown.value = false;
+    }
+  };
+  document.addEventListener("click", handleClickOutside);
+
+  onUnmounted(() => {
+    document.removeEventListener("click", handleClickOutside);
+  });
 });
 
 const items = ref<DropdownMenuItem[][]>([
@@ -252,28 +312,33 @@ const closeCreateChannelModal = () => {
 const createChannel = async () => {
   if (!newChannel.value.name.trim() || !communityStore.currentCommunity?.id)
     return;
+
   isCreating.value = true;
+  isCreatingChannel.value = true; // Set flag that this client is creating
+  creatingChannelName.value = newChannel.value.name; // Store the channel name
+
   try {
-    const createdChannel = await channelStore.createChannel({
+    await channelStore.createChannel({
       name: newChannel.value.name,
       type: newChannel.value.type,
       guildId: communityStore.currentCommunity.id,
     });
 
-    const currentChannel =
-      communityStore.communities[communityStore.communities.length - 1];
-
-    // Navigate trực tiếp đến kênh mới chỉ trên client tạo
-    if (currentChannel?.id !== communityStore.currentCommunity?.id) {
-      navigateTo(
-        `/community/@${communityStore.currentCommunity.name}-${communityStore.currentCommunity.id}/${currentChannel?.id}`
-      );
-    }
-
+    // Close modal immediately, let watcher handle navigation
     closeCreateChannelModal();
+
+    // Set timeout to reset flags if no response after 10 seconds
+    setTimeout(() => {
+      if (isCreatingChannel.value) {
+        isCreatingChannel.value = false;
+        creatingChannelName.value = "";
+      }
+    }, 10000);
   } catch (error) {
     console.error("Error creating channel:", error);
-    // Có thể thêm toast notification
+    // Reset flags on error
+    isCreatingChannel.value = false;
+    creatingChannelName.value = "";
   } finally {
     isCreating.value = false;
   }
@@ -282,39 +347,87 @@ const createChannel = async () => {
 
 <template>
   <div class="flex flex-col h-full bg-dark-800 text-white w-60 relative">
-    <UDropdownMenu :items="items" :ui="{ content: 'w-48' }">
-      <UButton color="neutral" variant="outline" class="justify-between w-full">
-        <span>{{ serverName }}</span>
-        <UIcon name="i-lucide-chevron-down" class="w-4 h-4" />
-      </UButton>
-    </UDropdownMenu>
+    <!-- Header section with Discord-style colors -->
+    <div class="flex-shrink-0 px-4 pt-4 pb-2">
+      <!-- Server Header -->
+      <div class="relative">
+        <header
+          class="flex items-center justify-between text-gray-200 rounded-md transition-colors"
+          @click="showDropdown = !showDropdown"
+        >
+          <span class="font-medium text-base">{{ serverName }}</span>
+          <UIcon
+            name="i-lucide-chevron-down"
+            class="w-4 h-4 text-gray-400 transition-transform"
+            :class="{ 'rotate-180': showDropdown }"
+          />
+        </header>
 
-    <UNavigationMenu
-      orientation="vertical"
-      :items="itemsNavigates"
-      :ui="{
-        item: {
-          base: 'flex items-center gap-2 px-3 py-2 rounded-md transition',
-          active: 'bg-neutral-800 text-white',
-          inactive: 'text-neutral-400 hover:bg-neutral-700 hover:text-white',
-        },
-      }"
-      class="mt-4"
-    />
-    <USeparator class="my-2" />
+        <!-- Dropdown Menu -->
+        <div
+          v-if="showDropdown"
+          class="absolute top-full left-0 right-0 mt-1 z-50"
+        >
+          <div
+            class="bg-gray-800 rounded-md border border-gray-600 shadow-xl overflow-hidden"
+          >
+            <template v-for="(group, groupIndex) in items" :key="groupIndex">
+              <div v-if="groupIndex > 0" class="border-t border-gray-600"></div>
+              <div v-for="item in group" :key="item.label" class="p-1">
+                <div
+                  v-if="item.type === 'label'"
+                  class="px-3 py-2 text-xs text-gray-400 uppercase font-semibold"
+                >
+                  {{ item.label }}
+                </div>
+                <button
+                  v-else
+                  @click="handleMenuClick(item)"
+                  class="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-200 hover:bg-gray-600/50 hover:text-white rounded transition-colors"
+                >
+                  <UIcon v-if="item.icon" :name="item.icon" class="w-4 h-4" />
+                  {{ item.label }}
+                </button>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+    </div>
 
-    <UNavigationMenu
-      orientation="vertical"
-      :items="itemsChannel"
-      :ui="{
-        item: {
-          base: 'flex items-center gap-2 px-3 py-2 rounded-md transition text-base',
-          active: 'bg-neutral-800 text-white',
-          inactive: 'text-neutral-400 hover:bg-neutral-700 hover:text-white',
-        },
-      }"
-      class="mt-4"
-    />
+    <!-- Navigation section -->
+    <div class="flex-shrink-0 px-4 pb-2">
+      <UNavigationMenu
+        orientation="vertical"
+        :items="itemsNavigates"
+        :ui="{
+          item: {
+            base: 'flex items-center gap-2 px-3 py-2 rounded-md transition',
+            active: 'bg-gray-700 text-white',
+            inactive: 'text-gray-300 hover:bg-gray-600/50 hover:text-white',
+          },
+        }"
+        class="mt-2"
+      />
+      <USeparator class="my-2" />
+    </div>
+
+    <!-- Scrollable channels section -->
+    <div class="flex-1 overflow-y-auto scrollbar-hide">
+      <div class="px-4 pb-20">
+        <UNavigationMenu
+          orientation="vertical"
+          :items="itemsChannel"
+          :ui="{
+            item: {
+              base: 'flex items-center gap-2 px-3 py-2 rounded-md transition text-base',
+              active: 'bg-gray-700 text-white',
+              inactive: 'text-gray-300 hover:bg-gray-600/50 hover:text-white',
+            },
+          }"
+        />
+      </div>
+    </div>
   </div>
   <!-- Modal tạo kênh -->
   <UModal v-model:open="isCreateChannelModalOpen" class="max-w-md">
