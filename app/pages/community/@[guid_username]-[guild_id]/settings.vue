@@ -6,6 +6,8 @@ import UploadButton from "~/components/molecules/upload.button.vue";
 import { useMemberStore } from "~/stores/member/member.store";
 import type { Community } from "~/stores/community/community.type";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
+import UnsavedChangesBar from "~/components/atoms/unsave.change.vue";
+import { useUnsavedChanges } from "~/composables/useUnsavedChanges";
 
 const route = useRoute();
 const router = useRouter();
@@ -39,24 +41,110 @@ watchEffect(() => {
 });
 
 const closeSettings = () => {
-  // Simply go back to previous page
-  router.back();
+  if (hasUnsavedChanges.value) {
+    const confirmClose = confirm(
+      "Bạn có thay đổi chưa lưu. Bạn có chắc muốn đóng settings?"
+    );
+    if (!confirmClose) return;
+  }
+  // Navigate to community page with current community name
+  const guildId = route.params.guild_id as string;
+  const communityName = currentCommunity.value?.name || "";
+  router.push(`/community/introduce/${guildId}`);
 };
 
-// Keyboard shortcut ESC to close
-onMounted(() => {
-  const handleKeyDown = (event: KeyboardEvent) => {
-    if (event.key === "Escape") {
-      closeSettings();
+// Prevent navigation when there are unsaved changes
+const beforeRouteLeave = (to: any, from: any, next: any) => {
+  if (hasUnsavedChanges.value) {
+    const confirmLeave = confirm(
+      "Bạn có thay đổi chưa lưu. Bạn có chắc muốn rời khỏi trang này?"
+    );
+    if (confirmLeave) {
+      next();
+    } else {
+      next(false);
     }
-  };
+  } else {
+    next();
+  }
+};
 
-  document.addEventListener("keydown", handleKeyDown);
-
-  onUnmounted(() => {
-    document.removeEventListener("keydown", handleKeyDown);
-  });
+// Add route guard
+definePageMeta({
+  beforeRouteLeave,
 });
+
+// Unsaved changes logic
+const { hasUnsavedChanges, setUnsavedChanges } = useUnsavedChanges();
+
+// Form data for community settings
+const formData = reactive({
+  name: "",
+  description: "",
+  avatar: "",
+  banner: "",
+});
+
+// Watch for community changes to initialize form data
+watch(
+  currentCommunity,
+  (newCommunity) => {
+    if (newCommunity) {
+      formData.name = newCommunity.name || "";
+      formData.description = newCommunity.description || "";
+      formData.avatar = newCommunity.avatar || "";
+      formData.banner = newCommunity.banner || "";
+    }
+  },
+  { immediate: true }
+);
+
+// Watch form data changes to detect unsaved changes
+watch(
+  formData,
+  (newData) => {
+    if (!currentCommunity.value) return;
+
+    const hasChanges =
+      newData.name !== (currentCommunity.value.name || "") ||
+      newData.description !== (currentCommunity.value.description || "") ||
+      newData.avatar !== (currentCommunity.value.avatar || "") ||
+      newData.banner !== (currentCommunity.value.banner || "");
+
+    setUnsavedChanges(hasChanges, "Bạn có thay đổi chưa lưu!");
+  },
+  { deep: true }
+);
+
+// Save changes
+const saveChanges = async () => {
+  if (!currentCommunity.value) return;
+
+  try {
+    await communityStore.updateCommunity(currentCommunity.value.id, {
+      name: formData.name,
+      description: formData.description,
+      avatar: formData.avatar,
+      banner: formData.banner,
+    });
+
+    setUnsavedChanges(false);
+  } catch (error) {
+    console.error("Failed to save changes:", error);
+    // You can add toast notification here
+  }
+};
+
+// Reset changes
+const resetChanges = () => {
+  if (!currentCommunity.value) return;
+
+  formData.name = currentCommunity.value.name || "";
+  formData.description = currentCommunity.value.description || "";
+  formData.avatar = currentCommunity.value.avatar || "";
+  formData.banner = currentCommunity.value.banner || "";
+  setUnsavedChanges(false);
+};
 
 type MenuItem = {
   label: string;
@@ -172,23 +260,11 @@ const openCreateChannelModal = () => {
 };
 
 const handleAvatarUploadSuccess = async (url: string) => {
-  try {
-    await communityStore.updateCommunity(currentCommunity.value?.id as string, {
-      avatar: url,
-    });
-  } catch (error) {
-    console.error("Failed to update avatar:", error);
-  }
+  formData.avatar = url;
 };
 
 const handleBannerUploadSuccess = async (url: string) => {
-  try {
-    await communityStore.updateCommunity(currentCommunity.value?.id as string, {
-      banner: url,
-    });
-  } catch (error) {
-    console.error("Failed to update banner:", error);
-  }
+  formData.banner = url;
 };
 
 const handleUploadError = (error: string) => {
@@ -221,7 +297,7 @@ onMounted(async () => {
             class="rounded-full"
           />
           <h3 class="font-semibold text-white truncate ml-2">
-            {{ currentCommunity?.name || "Máy chủ" }}
+            {{ formData.name || currentCommunity?.name || "Máy chủ" }}
           </h3>
         </div>
       </div>
@@ -364,195 +440,48 @@ onMounted(async () => {
               </UCard>
             </div>
 
-            <!-- Settings Grid -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <!-- General Settings -->
-              <UCard
-                class="cursor-pointer hover:bg-dark-800 transition-colors bg-dark-800 border-dark-700"
-                @click="
-                  $router.push(
-                    `/community/@${currentCommunity?.name}-${currentCommunity?.id}/settings/general`
-                  )
-                "
-              >
-                <template #header>
-                  <div class="flex items-center gap-3">
-                    <div
-                      class="w-10 h-10 bg-blue-500 rounded-lg flex items-center justify-center"
-                    >
-                      <UIcon
-                        name="i-lucide-settings"
-                        class="w-5 h-5 text-white"
-                      />
-                    </div>
-                    <h3 class="font-semibold text-white">Cài đặt chung</h3>
-                  </div>
-                </template>
-                <p class="text-gray-400 text-sm">
-                  Thay đổi tên máy chủ, mô tả, và cài đặt cơ bản khác.
-                </p>
-              </UCard>
+            <!-- Community name -->
+            <USeparator class="w-full" />
+            <UFormField label="Community name" class="w-full">
+              <UInput
+                v-model="formData.name"
+                class="w-full"
+                placeholder="Community name"
+              />
+            </UFormField>
+            <USeparator class="w-full" />
 
-              <!-- Roles -->
-              <UCard
-                class="cursor-pointer hover:bg-dark-800 transition-colors bg-dark-800 border-dark-700"
-                @click="
-                  $router.push(
-                    `/community/@${currentCommunity?.name}-${currentCommunity?.id}/settings/roles`
-                  )
-                "
-              >
-                <template #header>
-                  <div class="flex items-center gap-3">
-                    <div
-                      class="w-10 h-10 bg-green-500 rounded-lg flex items-center justify-center"
-                    >
-                      <UIcon
-                        name="i-lucide-shield"
-                        class="w-5 h-5 text-white"
-                      />
-                    </div>
-                    <h3 class="font-semibold text-white">Vai trò</h3>
-                  </div>
-                </template>
-                <p class="text-gray-400 text-sm">
-                  Quản lý vai trò và quyền hạn của thành viên.
-                </p>
-              </UCard>
+            <UFormField label="Description" class="w-full">
+              <UTextarea
+                v-model="formData.description"
+                class="w-full"
+                placeholder="Description"
+              />
+            </UFormField>
+            <USeparator class="w-full" />
 
-              <!-- Channels -->
-              <UCard
-                class="cursor-pointer hover:bg-dark-800 transition-colors bg-dark-800 border-dark-700"
-                @click="
-                  $router.push(
-                    `/community/@${currentCommunity?.name}-${currentCommunity?.id}/settings/channels`
-                  )
-                "
-              >
-                <template #header>
-                  <div class="flex items-center gap-3">
-                    <div
-                      class="w-10 h-10 bg-purple-500 rounded-lg flex items-center justify-center"
-                    >
-                      <UIcon name="i-lucide-hash" class="w-5 h-5 text-white" />
-                    </div>
-                    <h3 class="font-semibold text-white">Kênh</h3>
-                  </div>
-                </template>
-                <p class="text-gray-400 text-sm">
-                  Quản lý kênh text và voice trong máy chủ.
-                </p>
-              </UCard>
+            <UFormField label="Avatar" class="">
+              <UploadButton
+                button-text="Add avatar"
+                accept="image/*"
+                :max-size="2"
+                @success="handleAvatarUploadSuccess"
+                @error="handleUploadError"
+                class="mt-2"
+              />
+            </UFormField>
+            <USeparator class="w-full" />
 
-              <!-- Members -->
-              <UCard
-                class="cursor-pointer hover:bg-dark-800 transition-colors bg-dark-800 border-dark-700"
-                @click="
-                  $router.push(
-                    `/community/@${currentCommunity?.name}-${currentCommunity?.id}/settings/members`
-                  )
-                "
-              >
-                <template #header>
-                  <div class="flex items-center gap-3">
-                    <div
-                      class="w-10 h-10 bg-yellow-500 rounded-lg flex items-center justify-center"
-                    >
-                      <UIcon name="i-lucide-users" class="w-5 h-5 text-white" />
-                    </div>
-                    <h3 class="font-semibold text-white">Thành viên</h3>
-                  </div>
-                </template>
-                <p class="text-gray-400 text-sm">
-                  Xem và quản lý danh sách thành viên máy chủ.
-                </p>
-              </UCard>
-
-              <!-- Moderation -->
-              <UCard
-                class="cursor-pointer hover:bg-dark-800 transition-colors bg-dark-800 border-dark-700"
-                @click="
-                  $router.push(
-                    `/community/@${currentCommunity?.name}-${currentCommunity?.id}/settings/moderation`
-                  )
-                "
-              >
-                <template #header>
-                  <div class="flex items-center gap-3">
-                    <div
-                      class="w-10 h-10 bg-red-500 rounded-lg flex items-center justify-center"
-                    >
-                      <UIcon name="i-lucide-gavel" class="w-5 h-5 text-white" />
-                    </div>
-                    <h3 class="font-semibold text-white">Điều hành</h3>
-                  </div>
-                </template>
-                <p class="text-gray-400 text-sm">
-                  Cài đặt kiểm duyệt và bảo mật máy chủ.
-                </p>
-              </UCard>
-
-              <!-- Integrations -->
-              <UCard
-                class="cursor-pointer hover:bg-dark-800 transition-colors bg-dark-800 border-dark-700"
-                @click="
-                  $router.push(
-                    `/community/@${currentCommunity?.name}-${currentCommunity?.id}/settings/integrations`
-                  )
-                "
-              >
-                <template #header>
-                  <div class="flex items-center gap-3">
-                    <div
-                      class="w-10 h-10 bg-indigo-500 rounded-lg flex items-center justify-center"
-                    >
-                      <UIcon name="i-lucide-plug" class="w-5 h-5 text-white" />
-                    </div>
-                    <h3 class="font-semibold text-white">Tích hợp</h3>
-                  </div>
-                </template>
-                <p class="text-gray-400 text-sm">
-                  Kết nối với các dịch vụ bên thứ ba.
-                </p>
-              </UCard>
-            </div>
-
-            <!-- Quick Actions -->
-            <div class="mt-12">
-              <h3 class="text-lg font-semibold mb-4 text-white">
-                Hành động nhanh
-              </h3>
-              <div class="flex flex-wrap gap-4">
-                <UButton
-                  icon="i-lucide-user-plus"
-                  variant="outline"
-                  color="primary"
-                  @click="openInviteModal"
-                >
-                  Mời thành viên
-                </UButton>
-                <UButton
-                  icon="i-lucide-circle-plus"
-                  variant="outline"
-                  color="primary"
-                  @click="openCreateChannelModal"
-                >
-                  Tạo kênh mới
-                </UButton>
-                <UButton
-                  icon="i-lucide-settings"
-                  variant="outline"
-                  color="primary"
-                  @click="
-                    $router.push(
-                      `/community/@${currentCommunity?.name}-${currentCommunity?.id}/settings/general`
-                    )
-                  "
-                >
-                  Chỉnh sửa cài đặt
-                </UButton>
-              </div>
-            </div>
+            <UFormField label="Banner" class="">
+              <UploadButton
+                button-text="Add banner"
+                accept="image/*"
+                :max-size="2"
+                @success="handleBannerUploadSuccess"
+                @error="handleUploadError"
+                class="mt-2"
+              />
+            </UFormField>
           </div>
 
           <!-- Right Preview Sidebar -->
@@ -563,8 +492,8 @@ onMounted(async () => {
                 <!-- Banner inside card -->
                 <div class="relative">
                   <CommunityBanner
-                    :banner="currentCommunity?.banner"
-                    :name="currentCommunity?.name || 'Máy chủ'"
+                    :banner="formData.banner || currentCommunity?.banner"
+                    :name="formData.name || currentCommunity?.name || 'Máy chủ'"
                     :height-class="'h-32'"
                     class="w-full rounded-t-lg"
                   />
@@ -573,9 +502,9 @@ onMounted(async () => {
                     class="absolute -bottom-8 left-1/2 transform -translate-x-1/2 w-16 h-16 rounded-full flex items-center justify-center overflow-hidden border-4 border-dark-800 z-10"
                   >
                     <img
-                      v-if="currentCommunity?.avatar"
-                      :src="currentCommunity.avatar"
-                      :alt="currentCommunity.name"
+                      v-if="formData.avatar || currentCommunity?.avatar"
+                      :src="formData.avatar || currentCommunity?.avatar"
+                      :alt="formData.name || currentCommunity?.name"
                       class="w-full h-full object-cover"
                     />
                     <div
@@ -592,10 +521,14 @@ onMounted(async () => {
 
                 <div class="text-center pt-10 pb-4">
                   <h3 class="text-lg font-bold text-white mb-1">
-                    {{ currentCommunity?.name || "Máy chủ" }}
+                    {{ formData.name || currentCommunity?.name || "Máy chủ" }}
                   </h3>
                   <p class="text-gray-400 text-sm mb-4">
-                    {{ currentCommunity?.description || "Không có mô tả" }}
+                    {{
+                      formData.description ||
+                      currentCommunity?.description ||
+                      "Không có mô tả"
+                    }}
                   </p>
                 </div>
 
@@ -625,26 +558,6 @@ onMounted(async () => {
                     }}</span>
                   </div>
                 </div>
-
-                <!-- Upload Buttons -->
-                <div class="mt-4 space-y-2">
-                  <UploadButton
-                    button-text="Thay đổi Avatar"
-                    accept="image/*"
-                    :max-size="5"
-                    @success="handleAvatarUploadSuccess"
-                    @error="handleUploadError"
-                    class="w-full"
-                  />
-                  <UploadButton
-                    button-text="Thay đổi Banner"
-                    accept="image/*"
-                    :max-size="10"
-                    @success="handleBannerUploadSuccess"
-                    @error="handleUploadError"
-                    class="w-full"
-                  />
-                </div>
               </UCard>
             </div>
           </div>
@@ -654,6 +567,16 @@ onMounted(async () => {
       <!-- Sub-pages content -->
       <NuxtPage v-else />
     </div>
+
+    <!-- Unsaved Changes Bar -->
+    <UnsavedChangesBar
+      :show="hasUnsavedChanges"
+      title="Cẩn thận — bạn có thay đổi chưa lưu!"
+      save-label="Lưu Thay Đổi"
+      reset-label="Đặt lại"
+      @save="saveChanges"
+      @reset="resetChanges"
+    />
   </div>
 </template>
 

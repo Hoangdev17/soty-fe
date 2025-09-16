@@ -7,10 +7,19 @@ const props = defineProps<{
   roomId: string;
 }>();
 
-const { getMessages, fetchMessages } = useMessage();
+const emit = defineEmits<{
+  reply: [message: any];
+  threadClick: [threadId: string];
+  createThread: [message: any];
+}>();
+
+const { getMessages, fetchMessages, pinMessage, unpinMessage, createThread } =
+  useMessage();
 const messages = computed(() => getMessages(props.roomId));
 
-// Track pagination
+// Modal state
+const isCreateThreadModalOpen = ref(false);
+const selectedMessageForThread = ref<any>(null);
 const offset = ref(0);
 const limit = 50;
 const hasMore = ref(true);
@@ -68,6 +77,38 @@ onMounted(async () => {
 const formatTime = (timestamp: Date) => {
   return new Date(timestamp).toLocaleTimeString();
 };
+
+// Message action handlers
+const handleReply = (message: any) => {
+  // Emit event to parent component to handle reply
+  emit("reply", message);
+};
+
+const handlePin = async (message: any) => {
+  try {
+    await pinMessage(message.id, props.roomId);
+  } catch (error) {
+    console.error("Failed to pin message:", error);
+  }
+};
+
+const handleUnpin = async (message: any) => {
+  try {
+    await unpinMessage(message.id, props.roomId);
+  } catch (error) {
+    console.error("Failed to unpin message:", error);
+  }
+};
+
+const handleThreadClick = (message: any) => {
+  if (message.threadId) {
+    emit("threadClick", message.threadId);
+  }
+};
+
+const handleCreateThread = (message: any) => {
+  emit("createThread", message);
+};
 </script>
 
 <template>
@@ -88,9 +129,22 @@ const formatTime = (timestamp: Date) => {
     <div
       v-for="(message, index) in messages"
       :key="message.id"
-      class="message p-3 rounded bg-dark-600 mb-2"
+      class="message p-3 rounded bg-dark-600 mb-2 hover:bg-dark-500 transition-colors group relative"
       :class="{ 'mt-auto': index === 0 }"
     >
+      <!-- Reply context -->
+      <div v-if="message.replyTo" class="mb-2 pl-4 border-l-2 border-gray-500">
+        <div class="text-xs text-gray-400 mb-1">
+          Trả lời
+          <span class="font-semibold text-gray-300">{{
+            message.replyTo.author.username
+          }}</span>
+        </div>
+        <div class="text-sm text-gray-300 line-clamp-2">
+          {{ message.replyTo.content }}
+        </div>
+      </div>
+
       <div class="flex">
         <div class="mr-3">
           <UAvatar
@@ -99,7 +153,7 @@ const formatTime = (timestamp: Date) => {
             size="xl"
           />
         </div>
-        <div>
+        <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1">
             <span class="font-semibold">{{
               message.author?.username || "Unknown"
@@ -107,8 +161,72 @@ const formatTime = (timestamp: Date) => {
             <span class="text-xs text-gray-400">{{
               formatTime(message.createdAt)
             }}</span>
+            <!-- Pin indicator -->
+            <UIcon
+              v-if="message.pinned"
+              name="i-lucide-pin"
+              class="w-3 h-3 text-yellow-400"
+              title="Tin nhắn đã ghim"
+            />
+            <!-- Thread indicator -->
+            <div
+              v-if="message.isThreadStarter"
+              class="flex items-center gap-1 text-xs text-blue-400 cursor-pointer hover:text-blue-300"
+              @click="handleThreadClick(message)"
+            >
+              <UIcon name="i-lucide-message-circle" class="w-3 h-3" />
+              <span>{{ message.threadCount || 0 }} trả lời</span>
+            </div>
           </div>
           <div class="message-content">{{ message.content }}</div>
+        </div>
+
+        <!-- Message actions (visible on hover) -->
+        <div
+          class="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1"
+        >
+          <UButton
+            size="xs"
+            color="gray"
+            variant="ghost"
+            class="p-1 hover:bg-dark-400"
+            @click="handleReply(message)"
+            title="Trả lời"
+          >
+            <UIcon name="i-lucide-reply" class="w-4 h-4" />
+          </UButton>
+          <UButton
+            v-if="!message.pinned"
+            size="xs"
+            color="gray"
+            variant="ghost"
+            class="p-1 hover:bg-dark-400"
+            @click="handlePin(message)"
+            title="Ghim tin nhắn"
+          >
+            <UIcon name="i-lucide-pin" class="w-4 h-4" />
+          </UButton>
+          <UButton
+            v-else
+            size="xs"
+            color="yellow"
+            variant="ghost"
+            class="p-1 hover:bg-yellow-600"
+            @click="handleUnpin(message)"
+            title="Bỏ ghim"
+          >
+            <UIcon name="i-lucide-pin-off" class="w-4 h-4" />
+          </UButton>
+          <UButton
+            size="xs"
+            color="gray"
+            variant="ghost"
+            class="p-1 hover:bg-dark-400"
+            @click="handleCreateThread(message)"
+            title="Tạo thread"
+          >
+            <UIcon name="i-lucide-message-circle" class="w-4 h-4" />
+          </UButton>
         </div>
       </div>
     </div>

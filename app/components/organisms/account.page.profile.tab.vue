@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAuthStore } from "~/stores/auth/auth.store";
-import UnsavedChangesBar from "../atoms/UnsavedChangesBar.vue";
+import UnsavedChangesBar from "../atoms/unsave.change.vue";
+import UploadButton from "../molecules/upload.button.vue";
 
 const authStore = useAuthStore();
 const user = computed(() => authStore.userInfo);
@@ -8,19 +9,28 @@ const user = computed(() => authStore.userInfo);
 const state = reactive({
   globalName: "",
   username: "",
+  avatar: "",
+  banner: "",
+  bio: "",
 });
 
 // Original state để so sánh
 const originalState = reactive({
   globalName: "",
   username: "",
+  avatar: "",
+  banner: "",
+  bio: "",
 });
 
 // Check if there are unsaved changes
 const hasChanges = computed(() => {
   return (
     state.globalName !== originalState.globalName ||
-    state.username !== originalState.username
+    state.username !== originalState.username ||
+    state.avatar !== originalState.avatar ||
+    state.banner !== originalState.banner ||
+    state.bio !== originalState.bio
   );
 });
 
@@ -43,13 +53,22 @@ watch(
     if (newUser) {
       const globalName = newUser.globalName || "";
       const username = newUser.username || "";
+      const avatar = newUser.avatar || "";
+      const banner = newUser.banner || "";
+      const bio = newUser.bio || "";
 
       state.globalName = globalName;
       state.username = username;
+      state.avatar = avatar;
+      state.banner = banner;
+      state.bio = bio;
 
       // Update original state
       originalState.globalName = globalName;
       originalState.username = username;
+      originalState.avatar = avatar;
+      originalState.banner = banner;
+      originalState.bio = bio;
     }
   },
   { immediate: true }
@@ -58,14 +77,26 @@ watch(
 // Save changes function
 const saveChanges = async () => {
   try {
+    await authStore.updateUserProfile({
+      globalName: state.globalName,
+      username: state.username,
+      avatar: state.avatar,
+      banner: state.banner,
+      bio: state.bio,
+    });
+
     // Update original state after successful save
     originalState.globalName = state.globalName;
     originalState.username = state.username;
+    originalState.avatar = state.avatar;
+    originalState.banner = state.banner;
+    originalState.bio = state.bio;
 
     // Show success notification
     // TODO: Add notification
   } catch (error) {
     console.error("Failed to save changes:", error);
+    // TODO: Add error notification
   }
 };
 
@@ -73,6 +104,23 @@ const saveChanges = async () => {
 const resetChanges = () => {
   state.globalName = originalState.globalName;
   state.username = originalState.username;
+  state.avatar = originalState.avatar;
+  state.banner = originalState.banner;
+  state.bio = originalState.bio;
+};
+
+// Upload handlers
+const handleAvatarUploadSuccess = (url: string) => {
+  state.avatar = url;
+};
+
+const handleBannerUploadSuccess = (url: string) => {
+  state.banner = url;
+};
+
+const handleUploadError = (error: string) => {
+  console.error("Upload failed:", error);
+  // TODO: Add error notification
 };
 </script>
 
@@ -100,11 +148,12 @@ const resetChanges = () => {
 
       <p class="uppercase text-sm font-semibold w-full">Avatar</p>
       <div class="flex items-center gap-x-2">
-        <UButton
-          icon="i-lucide-plus"
-          label="Change avatar"
-          color="primary"
-          size="lg"
+        <UploadButton
+          button-text="Change avatar"
+          accept="image/*"
+          :max-size="2"
+          @success="handleAvatarUploadSuccess"
+          @error="handleUploadError"
           class="w-full"
         />
       </div>
@@ -151,11 +200,12 @@ const resetChanges = () => {
 
       <p class="uppercase text-sm font-semibold w-full">BANNER</p>
       <div class="flex items-center gap-x-2">
-        <UButton
-          icon="i-lucide-plus"
-          label="Change banner"
-          color="primary"
-          size="lg"
+        <UploadButton
+          button-text="Change banner"
+          accept="image/*"
+          :max-size="5"
+          @success="handleBannerUploadSuccess"
+          @error="handleUploadError"
           class="w-full"
         />
         <UButton
@@ -164,6 +214,7 @@ const resetChanges = () => {
           variant="ghost"
           size="lg"
           class="w-full"
+          @click="state.banner = ''"
         />
       </div>
       <USeparator class="w-full" />
@@ -210,6 +261,7 @@ const resetChanges = () => {
 
       <p class="uppercase text-sm font-semibold w-full">BIOGRAPHY</p>
       <UTextarea
+        v-model="state.bio"
         color="neutral"
         variant="subtle"
         hightlight="true"
@@ -229,15 +281,28 @@ const resetChanges = () => {
         <!-- Banner Section -->
         <div class="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative">
           <div class="absolute inset-0 bg-black opacity-10"></div>
+          <img
+            v-if="state.banner"
+            :src="state.banner"
+            alt="Banner"
+            class="w-full h-full object-cover"
+          />
         </div>
 
         <!-- Avatar Section -->
         <div class="relative px-6 pb-6">
           <div class="flex items-start -mt-12 mb-4">
             <div
-              class="w-20 h-20 bg-gray-300 dark:bg-gray-600 rounded-full border-4 border-white dark:border-gray-800 flex items-center justify-center"
+              class="w-20 h-20 bg-gray-300 dark:bg-gray-600 rounded-full border-4 border-white dark:border-gray-800 flex items-center justify-center overflow-hidden"
             >
+              <img
+                v-if="state.avatar"
+                :src="state.avatar"
+                :alt="state.globalName || user?.globalName || 'Avatar'"
+                class="w-full h-full object-cover"
+              />
               <UIcon
+                v-else
                 name="i-lucide-user"
                 class="w-8 h-8 text-gray-500 dark:text-gray-400"
               />
@@ -260,57 +325,12 @@ const resetChanges = () => {
               <p
                 class="text-gray-700 dark:text-gray-300 text-sm leading-relaxed"
               >
-                Your biography will appear here. Add some details about yourself
-                to make your profile more interesting!
+                {{
+                  state.bio ||
+                  "Your biography will appear here. Add some details about yourself to make your profile more interesting!"
+                }}
               </p>
             </div>
-
-            <!-- Profile Stats/Actions -->
-            <div
-              class="flex items-center gap-x-2 pt-3 border-t border-gray-200 dark:border-gray-700"
-            >
-              <UButton
-                label="Follow"
-                color="primary"
-                size="sm"
-                class="flex-1"
-              />
-              <UButton
-                icon="i-lucide-message-circle"
-                color="neutral"
-                variant="outline"
-                size="sm"
-              />
-              <UButton
-                icon="i-lucide-more-horizontal"
-                color="neutral"
-                variant="ghost"
-                size="sm"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- Additional Preview Info -->
-      <div
-        class="w-full p-4 bg-gray-50 dark:bg-gray-800/50 rounded-lg border border-gray-200 dark:border-gray-700"
-      >
-        <h3 class="text-sm font-semibold text-gray-900 dark:text-white mb-2">
-          Profile Elements
-        </h3>
-        <div class="space-y-2 text-xs text-gray-600 dark:text-gray-400">
-          <div class="flex items-center gap-x-2">
-            <div class="w-3 h-3 bg-green-500 rounded-full"></div>
-            <span>Avatar: Default</span>
-          </div>
-          <div class="flex items-center gap-x-2">
-            <div class="w-3 h-3 bg-blue-500 rounded-full"></div>
-            <span>Banner: Gradient</span>
-          </div>
-          <div class="flex items-center gap-x-2">
-            <div class="w-3 h-3 bg-gray-400 rounded-full"></div>
-            <span>Effects: None</span>
           </div>
         </div>
       </div>

@@ -123,5 +123,30 @@ export const useAuthStore = defineStore("auth", {
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("userData");
     },
+
+    // Update user profile
+    async updateUserProfile(updates: Partial<User>) {
+      const { fetchWithAuth } = useFetchWithAuth();
+
+      try {
+        const updatedUser = await fetchWithAuth<User>("/users", {
+          method: "PATCH",
+          body: JSON.stringify(updates),
+        });
+
+        // Update store
+        this.user = updatedUser;
+
+        // Update localStorage
+        if (typeof window !== "undefined") {
+          localStorage.setItem("userData", JSON.stringify(updatedUser));
+        }
+
+        return updatedUser;
+      } catch (error) {
+        console.error("Failed to update user profile:", error);
+        throw error;
+      }
+    },
   },
 });

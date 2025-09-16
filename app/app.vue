@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import AppLoading from "~/components/atoms/AppLoading.vue";
+import AppLoading from "~/components/atoms/app.loading.vue";
 import { useAuthStore } from "~/stores/auth/auth.store";
 
 const authStore = useAuthStore();
