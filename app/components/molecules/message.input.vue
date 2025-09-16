@@ -5,6 +5,16 @@ import { useMessage } from "~/composables/useMessage";
 
 const props = defineProps<{
   channelId?: string;
+  isThread?: boolean;
+  replyTo?: {
+    id: string;
+    content: string;
+    author: {
+      id?: string;
+      username: string;
+      avatar?: string;
+    };
+  };
 }>();
 
 const route = useRoute();
@@ -19,7 +29,8 @@ const effectiveChannelId = computed(() => {
   );
 });
 
-const { sendMessage, isLoading, error } = useMessage();
+const { sendMessage, sendMessageToThread, replyToMessage, isLoading } =
+  useMessage();
 const messageText = ref("");
 
 const handleSendMessage = async () => {
@@ -32,16 +43,74 @@ const handleSendMessage = async () => {
   }
 
   try {
-    await sendMessage(channelId, messageText.value.trim());
+    if (props.replyTo) {
+      // Send reply
+      if (props.isThread) {
+        // For thread replies, send to thread endpoint
+        await sendMessageToThread(channelId, messageText.value.trim());
+        // TODO: Add reply metadata to the message
+      } else {
+        await replyToMessage(
+          channelId,
+          messageText.value.trim(),
+          props.replyTo.id
+        );
+      }
+      emit("reply-sent");
+    } else {
+      // Send regular message or thread message
+      if (props.isThread) {
+        await sendMessageToThread(channelId, messageText.value.trim());
+      } else {
+        await sendMessage(channelId, messageText.value.trim());
+      }
+    }
     messageText.value = "";
   } catch (err) {
     console.error("Failed to send message:", err);
   }
 };
+
+const cancelReply = () => {
+  emit("reply-cancelled");
+};
+
+// Define emits
+const emit = defineEmits<{
+  "reply-sent": [];
+  "reply-cancelled": [];
+}>();
 </script>
 
 <template>
   <div class="message-input-container bg-[#40444b] rounded-lg">
+    <!-- Reply context -->
+    <div v-if="replyTo" class="px-4 py-2 border-b border-gray-600 bg-[#2f3136]">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <UIcon name="i-lucide-reply" class="w-4 h-4 text-blue-400" />
+          <span class="text-sm text-gray-300">
+            Trả lời
+            <span class="font-semibold text-blue-400">{{
+              replyTo.author.username
+            }}</span>
+          </span>
+        </div>
+        <UButton
+          size="xs"
+          color="gray"
+          variant="ghost"
+          class="p-1 hover:bg-gray-600"
+          @click="cancelReply"
+        >
+          <UIcon name="i-lucide-x" class="w-4 h-4" />
+        </UButton>
+      </div>
+      <div class="text-sm text-gray-400 mt-1 line-clamp-1">
+        {{ replyTo.content }}
+      </div>
+    </div>
+
     <form
       @submit.prevent="handleSendMessage"
       class="input-wrapper flex items-end p-2"
@@ -59,7 +128,7 @@ const handleSendMessage = async () => {
       <!-- Input chat -->
       <UInput
         type="text"
-        :placeholder="`Nhắn #general`"
+        :placeholder="props.isThread ? 'Nhắn trong thread...' : 'Nhắn #general'"
         v-model="messageText"
         color="neutral"
         variant="none"

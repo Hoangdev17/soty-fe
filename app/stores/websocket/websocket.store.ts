@@ -69,7 +69,7 @@ export const useWebSocketStore = defineStore("websocket", {
           const messageStore = useMessageStore();
           const message: Message = {
             id: data.id,
-            content: data.content,
+            content: data.content || (data as any).message || "",
             room: data.room,
             type: data.type,
             metadata: data.metadata,
@@ -83,7 +83,11 @@ export const useWebSocketStore = defineStore("websocket", {
           };
 
           messageStore.receiveMessage(
-            message.metadata?.channelId || "",
+            message.metadata?.channelId ||
+              message.metadata?.threadId ||
+              message.room?.replace("channel_", "") ||
+              message.room?.replace("thread_", "") ||
+              "",
             message
           );
 
@@ -220,18 +224,12 @@ export const useWebSocketStore = defineStore("websocket", {
       type: string = "text",
       metadata?: any
     ) {
-      if (this.connection && this.isConnected) {
-        this.connection.emit("send_message", {
-          room,
-          message,
-          type,
-          metadata,
-        });
-      } else {
-        console.warn(
-          `⚠️ Cannot send message to room ${room}: Socket.IO is not connected`
-        );
-      }
+      this.sendMessage("send_message", {
+        room,
+        message,
+        type,
+        metadata,
+      });
     },
 
     getMembers(communityId: string) {

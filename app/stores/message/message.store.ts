@@ -1,11 +1,15 @@
 import { defineStore } from "pinia";
-import type { Message, MessageState } from "./message.type";
+import type { Message, MessageState, Thread } from "./message.type";
 import { useWebSocketStore } from "../websocket/websocket.store";
 import { joinRoom } from "../websocket/websocket.action";
+import type { ChannelType } from "../channels/channel.type";
 
 export const useMessageStore = defineStore("message", {
   state: (): MessageState => ({
     messages: {},
+    threads: [],
+    currentThread: null,
+    pinnedMessages: {},
     loading: false,
     error: null,
   }),
@@ -21,6 +25,18 @@ export const useMessageStore = defineStore("message", {
       return messages[messages.length - 1] || null;
     },
 
+    getPinnedMessages: (state) => (channelId: string) => {
+      return state.pinnedMessages[channelId] || [];
+    },
+
+    getThread: (state) => (threadId: string) => {
+      return state.threads.find((thread) => thread.id === threadId) || null;
+    },
+
+    getThreadsByChannel: (state) => (channelId: string) => {
+      return state.threads.filter((thread) => thread.channelId === channelId);
+    },
+
     isLoading: (state) => state.loading,
     getError: (state) => state.error,
   },
@@ -30,7 +46,18 @@ export const useMessageStore = defineStore("message", {
       if (!this.messages[channelId]) {
         this.messages[channelId] = [];
       }
-      this.messages[channelId].push(message);
+
+      // Check if message already exists to prevent duplicates
+      const existingMessageIndex = this.messages[channelId].findIndex(
+        (msg) => msg.id === message.id
+      );
+
+      if (existingMessageIndex === -1) {
+        this.messages[channelId].push(message);
+      } else {
+        // Update existing message if needed
+        this.messages[channelId][existingMessageIndex] = message;
+      }
     },
 
     async sendMessage(channelId: string, content: string) {
@@ -49,7 +76,9 @@ export const useMessageStore = defineStore("message", {
 
         messageStore.addMessage(channelId, res);
 
-        socketStore.sendChatMessage(`channel_${channelId}`, content);
+        socketStore.sendChatMessage(`channel_${channelId}`, content, "text", {
+          channelId,
+        });
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to send message";
@@ -76,33 +105,34 @@ export const useMessageStore = defineStore("message", {
       this.error = null;
     },
 
-    async fetchMessages(channelId: string, limit = 50, offset = 0) {
+    async fetchMessages(roomId: string, limit = 50, offset = 0) {
       const { fetchWithAuth } = useFetchWithAuth();
       try {
         this.loading = true;
         this.error = null;
 
+        let endpoint: string;
+        endpoint = `/messages/${roomId}?limit=${limit}&offset=${offset}`;
+
         // Fetch messages for the room from API with pagination
-        const messages = await fetchWithAuth<Message[]>(
-          `/messages/${channelId}?limit=${limit}&offset=${offset}`
-        );
+        const messages = await fetchWithAuth<Message[]>(endpoint);
 
         // If offset > 0, append to existing messages, else replace
         if (offset > 0) {
-          if (!this.messages[channelId]) {
-            this.messages[channelId] = [];
+          if (!this.messages[roomId]) {
+            this.messages[roomId] = [];
           }
           // Prepend older messages (since offset increases for older messages)
-          this.messages[channelId] = [
+          this.messages[roomId] = [
             ...messages.map((msg) => ({
               ...msg,
               createdAt: new Date(msg.createdAt),
             })),
-            ...this.messages[channelId],
+            ...this.messages[roomId],
           ];
         } else {
           // Replace existing messages for this room
-          this.messages[channelId] = messages.map((msg) => ({
+          this.messages[roomId] = messages.map((msg) => ({
             ...msg,
             createdAt: new Date(msg.createdAt),
           }));
@@ -125,6 +155,341 @@ export const useMessageStore = defineStore("message", {
 
       // The websocket store already listens for 'message' events
       // So we don't need to duplicate the listener here
+    },
+
+    // Reply functionality
+    async replyToMessage(
+      channelId: string,
+      content: string,
+      replyToMessageId: string
+    ) {
+      try {
+        const { fetchWithAuth } = useFetchWithAuth();
+
+        this.loading = true;
+        this.error = null;
+
+        const res = await fetchWithAuth<Message>(`/messages`, {
+          method: "POST",
+          body: JSON.stringify({
+            channelId,
+            content,
+            replyTo: replyToMessageId,
+          }),
+        });
+
+        this.addMessage(channelId, res);
+
+        const socketStore = useWebSocketStore();
+        socketStore.sendChatMessage(`channel_${channelId}`, content, "text", {
+          channelId,
+          replyTo: replyToMessageId,
+        });
+      } catch (error) {
+        this.error =
+          error instanceof Error ? error.message : "Failed to reply to message";
+        console.error("Error replying to message:", error);
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // Pin functionality
+    async pinMessage(messageId: string, channelId: string) {
+      try {
+        const { fetchWithAuth } = useFetchWithAuth();
+
+        this.loading = true;
+        this.error = null;
+
+        const res = await fetchWithAuth<Message>(`/messages/${messageId}/pin`, {
+          method: "POST",
+        });
+
+        // Update the message in the messages array
+        const messages = this.messages[channelId] || [];
+        const messageIndex = messages.findIndex((msg) => msg.id === messageId);
+        if (messageIndex !== -1) {
+          messages[messageIndex] = res;
+        }
+
+        // Add to pinned messages
+        if (!this.pinnedMessages[channelId]) {
+          this.pinnedMessages[channelId] = [];
+        }
+        this.pinnedMessages[channelId].push(res);
+      } catch (error) {
+        this.error =
+          error instanceof Error ? error.message : "Failed to pin message";
+        console.error("Error pinning message:", error);
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async unpinMessage(messageId: string, channelId: string) {
+      try {
+        const { fetchWithAuth } = useFetchWithAuth();
+
+        this.loading = true;
+        this.error = null;
+
+        const res = await fetchWithAuth<Message>(
+          `/messages/${messageId}/unpin`,
+          {
+            method: "POST",
+          }
+        );
+
+        // Update the message in the messages array
+        const messages = this.messages[channelId] || [];
+        const messageIndex = messages.findIndex((msg) => msg.id === messageId);
+        if (messageIndex !== -1) {
+          messages[messageIndex] = res;
+        }
+
+        // Remove from pinned messages
+        if (this.pinnedMessages[channelId]) {
+          this.pinnedMessages[channelId] = this.pinnedMessages[
+            channelId
+          ].filter((msg) => msg.id !== messageId);
+        }
+      } catch (error) {
+        this.error =
+          error instanceof Error ? error.message : "Failed to unpin message";
+        console.error("Error unpinning message:", error);
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async fetchPinnedMessages(channelId: string) {
+      try {
+        const { fetchWithAuth } = useFetchWithAuth();
+
+        this.loading = true;
+        this.error = null;
+
+        const pinnedMessages = await fetchWithAuth<Message[]>(
+          `/messages/pinned/${channelId}`
+        );
+
+        this.pinnedMessages[channelId] = pinnedMessages.map((msg) => ({
+          ...msg,
+          createdAt: new Date(msg.createdAt),
+          pinnedAt: msg.pinnedAt ? new Date(msg.pinnedAt) : undefined,
+        }));
+      } catch (error) {
+        this.error =
+          error instanceof Error
+            ? error.message
+            : "Failed to fetch pinned messages";
+        console.error("Error fetching pinned messages:", error);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // Thread functionality
+    async createThread(
+      channelId: string,
+      starterMessageId: string,
+      name: string,
+      topic: string,
+      type: ChannelType
+    ) {
+      try {
+        const { fetchWithAuth } = useFetchWithAuth();
+
+        this.loading = true;
+        this.error = null;
+
+        const threadData = await fetchWithAuth<Thread>(
+          `/channels/${channelId}/threads`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              name,
+              topic,
+              type,
+              starterMessageId,
+            }),
+          }
+        );
+
+        // Map API response to Thread interface
+        const thread: Thread = {
+          id: threadData.id,
+          channelId: threadData.channelId || channelId,
+          starterMessageId: threadData.starterMessageId,
+          name: threadData.name,
+          topic: threadData.topic || "",
+          type: threadData.type,
+          createdAt: new Date(threadData.createdAt),
+          createdBy: {
+            id: threadData.createdBy?.id,
+            username: threadData.createdBy?.username || "Unknown",
+            avatar: threadData.createdBy?.avatar,
+          },
+          lastMessageAt: threadData.lastMessageAt
+            ? new Date(threadData.lastMessageAt)
+            : undefined,
+          messageCount: threadData.messageCount || 0,
+          members: threadData.members || [],
+        };
+
+        this.threads.push(thread);
+
+        return thread;
+      } catch (error) {
+        this.error =
+          error instanceof Error ? error.message : "Failed to create thread";
+        console.error("Error creating thread:", error);
+        throw error;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async fetchThread(threadId: string, channelId: string) {
+      try {
+        const { fetchWithAuth } = useFetchWithAuth();
+
+        this.loading = true;
+        this.error = null;
+
+        const threadData = await fetchWithAuth<Thread>(
+          `/channels/${channelId}/threads/${threadId}`
+        );
+
+        // Map API response to Thread interface
+        const thread: Thread = {
+          id: threadData.id,
+          channelId: threadData.channelId || channelId,
+          starterMessageId: threadData.starterMessageId,
+          name: threadData.name,
+          topic: threadData.topic || "",
+          type: threadData.type,
+          createdAt: new Date(threadData.createdAt),
+          createdBy: {
+            id: threadData.createdBy?.id,
+            username: threadData.createdBy?.username || "Unknown",
+            avatar: threadData.createdBy?.avatar,
+          },
+          lastMessageAt: threadData.lastMessageAt
+            ? new Date(threadData.lastMessageAt)
+            : undefined,
+          messageCount: threadData.messageCount || 0,
+          members: threadData.members || [],
+        };
+
+        // Find existing thread and update it, or add new one
+        const existingIndex = this.threads.findIndex((t) => t.id === threadId);
+        if (existingIndex >= 0) {
+          this.threads[existingIndex] = thread;
+        } else {
+          this.threads.push(thread);
+        }
+        this.currentThread = thread;
+        return thread;
+      } catch (error) {
+        this.error =
+          error instanceof Error ? error.message : "Failed to fetch thread";
+        console.error("Error fetching thread:", error);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async fetchThreadsByChannel(channelId: string) {
+      try {
+        const { fetchWithAuth } = useFetchWithAuth();
+
+        this.loading = true;
+        this.error = null;
+
+        const response = await fetchWithAuth<any>(
+          `/channels/${channelId}/threads/list/all`
+        );
+
+        const threads = response.map((threadData: any) => ({
+          id: threadData.id,
+          channelId: threadData.parentId || channelId,
+          starterMessageId: threadData.starterMessageId,
+          name: threadData.name,
+          topic: threadData.topic || "",
+          type: threadData.type,
+          createdAt: new Date(threadData.createdAt),
+          createdBy: {
+            id: threadData.createdBy?.id,
+            username: threadData.createdBy?.username || "Unknown",
+            avatar: threadData.createdBy?.avatar,
+          },
+          lastMessageAt: threadData.lastMessageAt
+            ? new Date(threadData.lastMessageAt)
+            : undefined,
+          messageCount: threadData.messageCount || 0,
+          members: threadData.members || [],
+        }));
+
+        // Remove existing threads for this channel
+        this.threads = this.threads.filter(
+          (thread) => thread.channelId !== channelId
+        );
+
+        // Add new threads
+        this.threads.push(...threads);
+      } catch (error) {
+        this.error =
+          error instanceof Error ? error.message : "Failed to fetch threads";
+        console.error("Error fetching threads:", error);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    // Send message to thread
+    async sendMessageToThread(threadId: string, content: string) {
+      try {
+        const { fetchWithAuth } = useFetchWithAuth();
+
+        this.loading = true;
+        this.error = null;
+
+        const res = await fetchWithAuth<Message>(
+          `/threads/${threadId}/messages`,
+          {
+            method: "POST",
+            body: JSON.stringify({
+              content,
+              threadId, // Add threadId to the request body
+            }),
+          }
+        );
+
+        // Add message to thread's message list
+        this.addMessage(threadId, res);
+
+        // Send via WebSocket if needed
+        const socketStore = useWebSocketStore();
+        socketStore.sendChatMessage(`thread_${threadId}`, content, "text", {
+          threadId,
+        });
+
+        return res;
+      } catch (error) {
+        this.error =
+          error instanceof Error
+            ? error.message
+            : "Failed to send message to thread";
+        console.error("Error sending message to thread:", error);
+        throw error;
+      } finally {
+        this.loading = false;
+      }
     },
   },
 });

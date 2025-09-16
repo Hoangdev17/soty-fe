@@ -8,12 +8,25 @@ import type {
 } from "@nuxt/ui";
 import { useCommunityStore } from "~/stores/community/community.store";
 import { useChannelStore } from "~/stores/channels/channel.store";
+import { useMessage } from "~/composables/useMessage";
 import { leaveRoom } from "~/stores/websocket/websocket.action";
 import InviteModal from "~/components/molecules/invite.modal.vue";
 
 const route = useRoute();
 const communityStore = useCommunityStore();
 const channelStore = useChannelStore();
+const { getThreadsByChannel, fetchThreadsByChannel } = useMessage();
+
+// Function to fetch threads for all channels
+const fetchAllThreads = async () => {
+  if (channelStore.channels && channelStore.channels.length > 0) {
+    for (const channel of channelStore.channels) {
+      if (channel.type === "GUILD_TEXT" || channel.type === "GUILD_NEWS") {
+        await fetchThreadsByChannel(channel.id);
+      }
+    }
+  }
+};
 const guildId = ref(route.params.guild_id as string | undefined);
 const itemsNavigates = ref<NavigationMenuItem[][]>([
   [
@@ -70,7 +83,12 @@ const creatingChannelName = ref(""); // Track the name of the channel being crea
 // Watch for new channels being added to navigate only for creator
 watch(
   () => channelStore.channels?.length,
-  (newLength, oldLength) => {
+  async (newLength, oldLength) => {
+    if (newLength !== oldLength) {
+      // Refetch threads when channels change
+      await fetchAllThreads();
+    }
+
     if (
       newLength > oldLength &&
       isCreatingChannel.value &&
@@ -178,6 +196,7 @@ onMounted(async () => {
     await channelStore.fetchAllChannelsByGuildId(
       communityStore.currentCommunity.id
     );
+    await fetchAllThreads();
   }
 
   // Close dropdown when clicking outside
@@ -265,20 +284,52 @@ const itemChannelType = ref<RadioGroupItem[]>([
   },
 ]);
 
+// Function to get icon for channel type
+const getChannelIcon = (channelType: string) => {
+  switch (channelType) {
+    case "GUILD_TEXT":
+      return "i-lucide-hash";
+    case "GUILD_VOICE":
+      return "i-lucide-volume-2";
+    case "GUILD_PUBLIC_THREAD":
+    case "GUILD_PRIVATE_THREAD":
+    case "GUILD_NEWS_THREAD":
+      return "i-lucide-message-circle";
+    case "GUILD_NEWS":
+      return "i-lucide-newspaper";
+    case "GUILD_STAGE_VOICE":
+      return "i-lucide-mic";
+    case "GUILD_FORUM":
+      return "i-lucide-message-square";
+    case "GUILD_CATEGORY":
+      return "i-lucide-folder";
+    case "DM":
+      return "i-lucide-message-square";
+    case "GROUP_DM":
+      return "i-lucide-users";
+    default:
+      return "i-lucide-hash"; // Default fallback
+  }
+};
+
 const itemsChannel = computed<NavigationMenuItem[][]>(() => {
   if (!channelStore.channels || channelStore.channels.length === 0) {
     return [];
   }
 
-  // Tạo items động từ channels
-  const channelItems: NavigationMenuItem[] = channelStore.channels.map(
-    (channel: any) => ({
+  // Tạo items động từ channels và threads
+  const channelItems: NavigationMenuItem[] = [];
+
+  channelStore.channels.forEach((channel: any) => {
+    // Add the main channel
+    channelItems.push({
       label: channel.name || "Kênh không tên",
-      icon:
-        channel.type === "GUILD_TEXT" ? "i-lucide-hash" : "i-lucide-volume-2", // Icon dựa trên type
+      icon: getChannelIcon(channel.type),
       to: `/community/@${communityStore.currentCommunity?.name}-${communityStore.currentCommunity?.id}/${channel.id}`,
-    })
-  );
+    });
+
+    // Add threads for this channel as children
+  });
 
   return [channelItems];
 });
@@ -355,7 +406,7 @@ const createChannel = async () => {
           class="flex items-center justify-between text-gray-200 rounded-md transition-colors"
           @click="showDropdown = !showDropdown"
         >
-          <span class="font-medium text-base">{{ serverName }}</span>
+          <span class="font-medium text-base truncate">{{ serverName }}</span>
           <UIcon
             name="i-lucide-chevron-down"
             class="w-4 h-4 text-gray-400 transition-transform"
@@ -424,6 +475,8 @@ const createChannel = async () => {
               active: 'bg-gray-700 text-white',
               inactive: 'text-gray-300 hover:bg-gray-600/50 hover:text-white',
             },
+            itemLeading: 'flex-shrink-0',
+            itemLabel: 'sidebar-channel-name flex-1 min-w-0',
           }"
         />
       </div>

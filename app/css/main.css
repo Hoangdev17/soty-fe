@@ -20,3 +20,72 @@
 .scrollbar-hide::-webkit-scrollbar {
   display: none; /* WebKit browsers */
 }
+
+/* Channel Page Styles */
+.channel-page {
+  color: #dcddde;
+  /* Make the chat page fill the viewport and prevent the page itself from scrolling */
+  height: 100vh;
+  overflow: hidden;
+}
+
+.mention {
+  background-color: rgba(88, 101, 242, 0.3);
+  padding: 0 2px;
+  border-radius: 3px;
+}
+
+.message-group:hover {
+  background-color: #32353b;
+}
+
+.reaction:hover {
+  background-color: #40444b;
+}
+
+.input-wrapper input:focus {
+  outline: none;
+}
+
+.username.text-\[#00d4aa\] {
+  color: #00d4aa;
+}
+
+.username.text-\[#ed4245\] {
+  color: #ed4245;
+}
+
+.slide-enter-active,
+.slide-leave-active {
+  transition: all 0.3s ease-in-out;
+}
+
+.slide-enter-from {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+.slide-leave-to {
+  transform: translateX(100%);
+  opacity: 0;
+}
+
+/* Ensure the immediate flex child can shrink so inner flex children can scroll */
+.channel-page > .flex-1 {
+  min-height: 0;
+}
+
+/* Sidebar channel names */
+.sidebar-channel-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Truncate channel names in sidebar */
+.sidebar-channel-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}

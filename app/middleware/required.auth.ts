@@ -34,7 +34,10 @@ export default defineNuxtRouteMiddleware(async (to) => {
   }
 
   // Nếu chưa login → chặn navigation ngay lập tức
-  if (!authStore.isLoggedIn && to.path !== "/auth/login") {
+  if (
+    (!authStore.isLoggedIn && to.path !== "/auth/login") ||
+    localStorage.getItem("accessToken") === null
+  ) {
     return navigateTo("/auth/login");
   }
 });

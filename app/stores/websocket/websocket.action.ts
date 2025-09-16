@@ -40,7 +40,7 @@ export const sendChatMessage = (
   metadata?: any
 ) => {
   const wsStore = useWebSocketStore();
-  wsStore.sendChatMessage(room, message, metadata);
+  wsStore.sendChatMessage(room, message, type, metadata);
 };
 
 // Legacy compatibility
