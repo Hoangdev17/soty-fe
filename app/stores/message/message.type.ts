@@ -64,3 +64,8 @@ export interface MessageState {
   loading: boolean;
   error: string | null;
 }
+
+export interface PinMessageResponse {
+  channelId: string;
+  formatted: Message;
+}

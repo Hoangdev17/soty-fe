@@ -15,6 +15,7 @@ import DmChannel from "~/components/organisms/dm.channel.vue";
 
 definePageMeta({
   layout: "community-layout",
+  middleware: "required-auth",
 });
 
 const channelStore = useChannelStore();

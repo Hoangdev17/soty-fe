@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { ref } from "vue";
-
 import type {
   DropdownMenuItem,
   NavigationMenuItem,
@@ -15,7 +13,7 @@ import InviteModal from "~/components/molecules/invite.modal.vue";
 const route = useRoute();
 const communityStore = useCommunityStore();
 const channelStore = useChannelStore();
-const { getThreadsByChannel, fetchThreadsByChannel } = useMessage();
+const { fetchThreadsByChannel } = useMessage();
 
 // Function to fetch threads for all channels
 const fetchAllThreads = async () => {
@@ -133,8 +131,8 @@ const handleMenuClick = (item: any) => {
   showDropdown.value = false; // Close dropdown
 
   if (item.onSelect) {
-    item.onSelect(item);
-  } else if (item.to) {
+    item.onSelect();
+  } else if (item.to && communityStore.currentCommunity) {
     navigateTo(item.to);
   }
 };
@@ -202,10 +200,15 @@ onMounted(async () => {
   // Close dropdown when clicking outside
   const handleClickOutside = (event: MouseEvent) => {
     const target = event.target as Element;
-    if (!target.closest(".relative")) {
+    const dropdownContainer = target.closest(".relative");
+    const header = target.closest("header");
+
+    // Nếu click không phải trong dropdown container hoặc header thì đóng dropdown
+    if (!dropdownContainer && !header) {
       showDropdown.value = false;
     }
   };
+
   document.addEventListener("click", handleClickOutside);
 
   onUnmounted(() => {
@@ -213,7 +216,7 @@ onMounted(async () => {
   });
 });
 
-const items = ref<DropdownMenuItem[][]>([
+const items = computed<DropdownMenuItem[][]>(() => [
   [
     {
       label: "Nâng cấp máy chủ",
@@ -231,7 +234,9 @@ const items = ref<DropdownMenuItem[][]>([
     {
       label: "Cài đặt máy chủ",
       icon: "i-lucide-settings",
-      to: `/community/@${communityStore.currentCommunity?.name}-${communityStore.currentCommunity?.id}/settings`,
+      to: communityStore.currentCommunity
+        ? `/community/@${communityStore.currentCommunity.name}-${communityStore.currentCommunity.id}/settings`
+        : undefined,
     },
     {
       label: "Tạo kênh",
@@ -403,8 +408,8 @@ const createChannel = async () => {
       <!-- Server Header -->
       <div class="relative">
         <header
-          class="flex items-center justify-between text-gray-200 rounded-md transition-colors"
-          @click="showDropdown = !showDropdown"
+          class="flex items-center justify-between text-gray-200 rounded-md transition-colors cursor-pointer hover:bg-gray-600/30 px-2 py-1"
+          @click.stop="showDropdown = !showDropdown"
         >
           <span class="font-medium text-base truncate">{{ serverName }}</span>
           <UIcon
@@ -418,6 +423,7 @@ const createChannel = async () => {
         <div
           v-if="showDropdown"
           class="absolute top-full left-0 right-0 mt-1 z-50"
+          @click.stop
         >
           <div
             class="bg-gray-800 rounded-md border border-gray-600 shadow-xl overflow-hidden"
@@ -434,7 +440,8 @@ const createChannel = async () => {
                 <button
                   v-else
                   @click="handleMenuClick(item)"
-                  class="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-200 hover:bg-gray-600/50 hover:text-white rounded transition-colors"
+                  :disabled="!item.to && item.label === 'Cài đặt máy chủ'"
+                  class="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-200 hover:bg-gray-600/50 hover:text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   <UIcon v-if="item.icon" :name="item.icon" class="w-4 h-4" />
                   {{ item.label }}

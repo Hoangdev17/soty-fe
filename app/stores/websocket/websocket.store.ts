@@ -13,7 +13,11 @@ import type {
 } from "./websocket.type";
 import { useMessageStore } from "../message/message.store";
 import { useMemberStore } from "../member/member.store";
-import type { Message } from "../message/message.type";
+import type {
+  Message,
+  Thread,
+  PinMessageResponse,
+} from "../message/message.type";
 import type { Member } from "../member/member.type";
 import { useChannelStore } from "../channels/channel.store";
 
@@ -178,6 +182,92 @@ export const useWebSocketStore = defineStore("websocket", {
             duration: 5000,
           });
         });
+
+        //created thread
+        this.connection.on("created_thread", (data: Thread) => {
+          const messageStore = useMessageStore();
+          const toast = useToast();
+          // Handle thread created event
+          messageStore.threads.push(data);
+
+          toast.add({
+            title: "Chủ đề mới đã được tạo! Hãy tham gia thảo luận nào!",
+            color: "success",
+            duration: 5000,
+          });
+        });
+
+        //pin message
+        this.connection.on("messages_pinned", (data: PinMessageResponse) => {
+          const messageStore = useMessageStore();
+          const channelStore = useChannelStore();
+          const toast = useToast();
+
+          console.log("Pinned message data:", data);
+
+          const message = data.formatted;
+          const channelId = data.channelId;
+
+          // Ensure the messages array exists for the channel
+          if (!messageStore.messages[channelId]) {
+            messageStore.messages[channelId] = [];
+          }
+          let messages = messageStore.messages[channelId]!;
+          const existingIndex = messages.findIndex(
+            (msg) => msg.id === message.id
+          );
+          if (existingIndex === -1) {
+            // Add the message if not exists
+            messages.push(message);
+          } else {
+            // Update existing message
+            messages[existingIndex] = message;
+          }
+
+          // Set pinned flag
+          const messageIndex = messages.findIndex(
+            (msg) => msg.id === message.id
+          );
+          if (messageIndex !== -1) {
+            messages[messageIndex]!.pinned = true;
+          }
+
+          // Ensure the pinnedMessages array exists
+          if (!messageStore.pinnedMessages[channelId]) {
+            messageStore.pinnedMessages[channelId] = [];
+          }
+
+          messageStore.pinnedMessages[channelId]!.push(message);
+        });
+
+        //unpin message
+        this.connection.on(
+          "messages_unpinned",
+          (data: { channelId: string; messageId: string }) => {
+            const messageStore = useMessageStore();
+            const channelStore = useChannelStore();
+            const toast = useToast();
+
+            // Update the message in the messages array to reflect unpinned state
+            if (messageStore.messages[data.channelId]) {
+              const messages = messageStore.messages[data.channelId]!;
+              const messageIndex = messages.findIndex(
+                (msg) => msg.id === data.messageId
+              );
+              if (messageIndex !== -1) {
+                messages[messageIndex]!.pinned = false;
+              }
+            }
+
+            // Remove from pinned messages
+            if (messageStore.pinnedMessages[data.channelId]) {
+              messageStore.pinnedMessages[data.channelId] =
+                messageStore.pinnedMessages[data.channelId]!.filter(
+                  (msg) => msg.id !== data.messageId
+                );
+            }
+          }
+        );
       } catch (error) {
         console.error("❌ Failed to create Socket.IO connection:", error);
       }
