@@ -18,8 +18,6 @@ const { getMessages, fetchMessages, pinMessage, unpinMessage, createThread } =
 const messages = computed(() => getMessages(props.roomId));
 
 // Modal state
-const isCreateThreadModalOpen = ref(false);
-const selectedMessageForThread = ref<any>(null);
 const offset = ref(0);
 const limit = 50;
 const hasMore = ref(true);

@@ -31,10 +31,10 @@ const handleUnpin = async (messageId: string) => {
 
 <template>
   <div
-    class="w-80 max-h-96 bg-dark-800 border border-dark-700 rounded-lg shadow-xl"
+    class="w-80 max-h-96 bg-dark-800 border-b border-[#202225] rounded-lg shadow-xl"
   >
     <!-- Header -->
-    <div class="p-4 border-b border-dark-700">
+    <div class="p-4 border-b border-[#202225]">
       <h3 class="text-white font-semibold flex items-center gap-2">
         <UIcon name="i-lucide-pin" class="w-5 h-5 text-yellow-400" />
         Tin nhắn đã ghim

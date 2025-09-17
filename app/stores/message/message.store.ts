@@ -3,6 +3,7 @@ import type { Message, MessageState, Thread } from "./message.type";
 import { useWebSocketStore } from "../websocket/websocket.store";
 import { joinRoom } from "../websocket/websocket.action";
 import type { ChannelType } from "../channels/channel.type";
+import { toast } from "#build/ui";
 
 export const useMessageStore = defineStore("message", {
   state: (): MessageState => ({
@@ -137,6 +138,24 @@ export const useMessageStore = defineStore("message", {
             createdAt: new Date(msg.createdAt),
           }));
         }
+
+        // Fetch pinned messages and update pinned flags
+        if (offset === 0) {
+          // Only fetch pinned on initial load
+          try {
+            await this.fetchPinnedMessages(roomId, false);
+            // Update pinned flags in messages
+            const pinnedMsgs = this.pinnedMessages[roomId] || [];
+            const msgs = this.messages[roomId] || [];
+            msgs.forEach((msg) => {
+              if (pinnedMsgs.some((pinned) => pinned.id === msg.id)) {
+                msg.pinned = true;
+              }
+            });
+          } catch (error) {
+            console.error("Error fetching pinned messages:", error);
+          }
+        }
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to fetch messages";
@@ -199,13 +218,18 @@ export const useMessageStore = defineStore("message", {
     async pinMessage(messageId: string, channelId: string) {
       try {
         const { fetchWithAuth } = useFetchWithAuth();
+        const toast = useToast();
 
         this.loading = true;
         this.error = null;
 
         const res = await fetchWithAuth<Message>(`/messages/${messageId}/pin`, {
-          method: "POST",
+          method: "PUT",
+          body: JSON.stringify({ channelId }),
         });
+
+        // Set pinned flag
+        res.pinned = true;
 
         // Update the message in the messages array
         const messages = this.messages[channelId] || [];
@@ -219,6 +243,11 @@ export const useMessageStore = defineStore("message", {
           this.pinnedMessages[channelId] = [];
         }
         this.pinnedMessages[channelId].push(res);
+        toast.add({
+          title: "Pinned",
+          description: "Message has been pinned",
+          color: "success",
+        });
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to pin message";
@@ -232,22 +261,24 @@ export const useMessageStore = defineStore("message", {
     async unpinMessage(messageId: string, channelId: string) {
       try {
         const { fetchWithAuth } = useFetchWithAuth();
+        const toast = useToast();
 
         this.loading = true;
         this.error = null;
 
-        const res = await fetchWithAuth<Message>(
-          `/messages/${messageId}/unpin`,
-          {
-            method: "POST",
-          }
-        );
+        const response = await fetchWithAuth<{
+          success: boolean;
+          messageId: string;
+        }>(`/messages/${messageId}/unpin`, {
+          method: "DELETE",
+          body: JSON.stringify({ channelId }),
+        });
 
-        // Update the message in the messages array
+        // Find the message in the messages array and set pinned to false
         const messages = this.messages[channelId] || [];
         const messageIndex = messages.findIndex((msg) => msg.id === messageId);
         if (messageIndex !== -1) {
-          messages[messageIndex] = res;
+          messages[messageIndex]!.pinned = false;
         }
 
         // Remove from pinned messages
@@ -256,6 +287,12 @@ export const useMessageStore = defineStore("message", {
             channelId
           ].filter((msg) => msg.id !== messageId);
         }
+
+        toast.add({
+          title: "Unpinned",
+          description: "Message has been unpinned",
+          color: "success",
+        });
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to unpin message";
@@ -266,21 +303,21 @@ export const useMessageStore = defineStore("message", {
       }
     },
 
-    async fetchPinnedMessages(channelId: string) {
+    async fetchPinnedMessages(channelId: string, setLoading = true) {
+      const { fetchWithAuth } = useFetchWithAuth();
       try {
-        const { fetchWithAuth } = useFetchWithAuth();
-
-        this.loading = true;
+        if (setLoading) this.loading = true;
         this.error = null;
 
         const pinnedMessages = await fetchWithAuth<Message[]>(
-          `/messages/pinned/${channelId}`
+          `/messages/channels/${channelId}/pinned`
         );
 
-        this.pinnedMessages[channelId] = pinnedMessages.map((msg) => ({
+        this.pinnedMessages[channelId] = pinnedMessages.map((msg: Message) => ({
           ...msg,
           createdAt: new Date(msg.createdAt),
           pinnedAt: msg.pinnedAt ? new Date(msg.pinnedAt) : undefined,
+          pinned: true,
         }));
       } catch (error) {
         this.error =
@@ -289,7 +326,7 @@ export const useMessageStore = defineStore("message", {
             : "Failed to fetch pinned messages";
         console.error("Error fetching pinned messages:", error);
       } finally {
-        this.loading = false;
+        if (setLoading) this.loading = false;
       }
     },
 
