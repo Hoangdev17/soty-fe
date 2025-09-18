@@ -36,10 +36,6 @@ export const useWebSocket = () => {
     leaveRoom(room);
   };
 
-  const joinCommunity = (communityId: string, userId: string) => {
-    return wsStore.joinCommunityRoom(communityId, userId);
-  };
-
   const createChannel = (data: CreateChannelPayload) => {
     wsStore.createChannel(data);
   };
@@ -71,7 +67,6 @@ export const useWebSocket = () => {
     getMembers,
     isConnected,
     messages,
-    joinCommunity,
     createChannel,
   };
 };

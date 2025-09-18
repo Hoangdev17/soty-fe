@@ -75,8 +75,50 @@ export const useAuthStore = defineStore("auth", {
       }
     },
 
+    // Check if token is expired
+    isTokenExpired(token: string | null): boolean {
+      if (!token) return true;
+
+      try {
+        // JWT has 3 parts separated by '.'
+        const parts = token.split(".");
+        if (parts.length !== 3 || !parts[1]) return true;
+
+        // Decode payload (second part)
+        const payload = JSON.parse(atob(parts[1]));
+        const currentTime = Math.floor(Date.now() / 1000);
+
+        // Check if token has exp claim and if it's expired
+        return payload.exp && payload.exp < currentTime;
+      } catch (error) {
+        console.log("Error decoding token:", error);
+        return true;
+      }
+    },
+
     // Verify token trong background
     async verifyTokenInBackground() {
+      // Check if token is expired before making request
+      if (this.isTokenExpired(this.token)) {
+        const refreshToken = localStorage.getItem("refreshToken");
+        if (refreshToken) {
+          try {
+            const { fetchWithAuth } = useFetchWithAuth();
+            // This will trigger the refresh logic in useFetchWithAuth
+            await fetchWithAuth<User>("/auth/me");
+            return;
+          } catch (refreshError) {
+            console.log("🔄 Token refresh failed:", refreshError);
+            await this.logout();
+            return;
+          }
+        } else {
+          console.log("🔐 No refresh token available");
+          await this.logout();
+          return;
+        }
+      }
+
       try {
         const { fetchWithAuth } = useFetchWithAuth();
         const user = await fetchWithAuth<User>("/auth/me", {
@@ -91,10 +133,28 @@ export const useAuthStore = defineStore("auth", {
           this.user = user;
           localStorage.setItem("userData", JSON.stringify(user));
         }
-        console.log("🔐 Background token verification successful");
       } catch (error) {
-        console.log("🔐 Background token verification failed, logging out...");
-        this.clearAuthData();
+        // Try to refresh token first
+        const refreshToken = localStorage.getItem("refreshToken");
+        if (refreshToken) {
+          console.log(
+            "🔄 Attempting to refresh token after verification failure..."
+          );
+          try {
+            const { fetchWithAuth } = useFetchWithAuth();
+            // This will trigger the refresh logic in useFetchWithAuth
+            await fetchWithAuth<User>("/auth/me");
+            console.log(
+              "🔄 Token refreshed successfully after verification failure"
+            );
+            return;
+          } catch (refreshError) {
+            console.log("🔄 Token refresh also failed:", refreshError);
+          }
+        }
+
+        // If refresh failed or no refresh token, logout
+        await this.logout();
       }
     },
 
@@ -122,6 +182,29 @@ export const useAuthStore = defineStore("auth", {
       localStorage.removeItem("accessToken");
       localStorage.removeItem("refreshToken");
       localStorage.removeItem("userData");
+    },
+
+    // Logout and redirect to login
+    async logout() {
+      this.clearAuthData();
+      this.isInitialized = false;
+      this.isLoading = false;
+
+      // Disconnect WebSocket
+      if (typeof window !== "undefined") {
+        const { disconnectSocketIO } = await import(
+          "~/stores/websocket/websocket.action"
+        );
+        disconnectSocketIO();
+      }
+
+      // Redirect to login if on client side
+      if (
+        typeof window !== "undefined" &&
+        window.location.pathname !== "/auth/login"
+      ) {
+        window.location.href = "/auth/login";
+      }
     },
 
     // Update user profile

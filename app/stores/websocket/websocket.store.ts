@@ -20,6 +20,7 @@ import type {
 } from "../message/message.type";
 import type { Member } from "../member/member.type";
 import { useChannelStore } from "../channels/channel.store";
+import { useCommunityStore } from "../community/community.store";
 
 export const useWebSocketStore = defineStore("websocket", {
   state: (): WebSocketState => ({
@@ -198,7 +199,6 @@ export const useWebSocketStore = defineStore("websocket", {
         //join community
         this.connection.on("member_joined", (data: JoinedCommunityPayload) => {
           const memberStore = useMemberStore();
-          const toast = useToast();
           const communityId = data.communityId;
 
           // Ensure members array exists for the community
@@ -217,13 +217,6 @@ export const useWebSocketStore = defineStore("websocket", {
           } else {
             memberStore.memberCount = memberStore.members[communityId].length;
           }
-
-          toast.add({
-            title:
-              newMember.user?.username + "vừa trượt vào cộng đồng của bạn!",
-            color: "success",
-            duration: 5000,
-          });
         });
 
         //create channel
@@ -233,17 +226,6 @@ export const useWebSocketStore = defineStore("websocket", {
 
           // Add channel to all clients' channel list
           channelStore.channels.push(data.channel);
-
-          // Don't set currentChannel here - let the component that created it handle navigation
-
-          toast.add({
-            title:
-              "Kênh " +
-              data.channel.name +
-              " mới xuất hiện kìa! Hãy cùng khám phá nào!",
-            color: "success",
-            duration: 5000,
-          });
         });
 
         //created thread
@@ -394,17 +376,6 @@ export const useWebSocketStore = defineStore("websocket", {
         );
       }
     },
-
-    joinCommunityRoom(communityId: string, userId: string) {
-      if (this.connection && this.isConnected) {
-        this.connection.emit("member_joined", { communityId, userId });
-      } else {
-        console.warn(
-          `⚠️ Cannot join community room community_${communityId}: Socket.IO is not connected`
-        );
-      }
-    },
-
     //create channel
     createChannel(data: CreateChannelPayload) {
       if (this.connection && this.isConnected) {

@@ -88,9 +88,9 @@ const joinCommunity = async () => {
   try {
     isJoinLoading.value = true;
     await communityStore.joinCommunity(guildId);
+    await communityStore.fetchCommunities();
 
-    // Member count will be updated via memberStore
-    isJoinLoading.value = true;
+    isJoinLoading.value = false;
   } catch (error) {
     console.error("Failed to join community:", error);
     // Không redirect nếu thất bại
@@ -117,7 +117,7 @@ const formatDate = (dateString: string) => {
 </script>
 
 <template>
-  <div class="h-screen bg-dark-900 overflow-hidden">
+  <div class="h-screen bg-dark-800 overflow-hidden">
     <!-- Loading state -->
     <CommunityLoading v-if="isPageLoading" />
 
@@ -173,7 +173,7 @@ const formatDate = (dateString: string) => {
           <div class="flex items-center gap-6 text-sm text-gray-400">
             <div class="flex items-center gap-2">
               <UIcon name="i-lucide-users" class="w-4 h-4" />
-              <span>{{ memberStore.getMemberCount(guildId) }} members</span>
+              <span>{{ memberStore.memberCount }} members</span>
             </div>
             <div class="flex items-center gap-2">
               <UIcon name="i-lucide-calendar" class="w-4 h-4" />
@@ -188,6 +188,7 @@ const formatDate = (dateString: string) => {
             v-if="!isMember"
             @click="joinCommunity"
             size="lg"
+            :loading="isJoinLoading"
             color="primary"
             class="px-8 py-3"
           >

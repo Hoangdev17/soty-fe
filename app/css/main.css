@@ -1,6 +1,11 @@
 @import "tailwindcss";
 @import "@nuxt/ui";
 
+/* Global Dark Theme Colors */
+.bg-dark-900 {
+  background-color: #0f0f0f;
+}
+
 .slide-enter-active,
 .slide-leave-active {
   transition: all 0.3s ease;

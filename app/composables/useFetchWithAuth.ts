@@ -63,7 +63,10 @@ export function useFetchWithAuth() {
   async function handleRefreshToken(): Promise<boolean> {
     try {
       const refreshToken = localStorage.getItem("refreshToken");
-      if (!refreshToken) return false;
+      if (!refreshToken) {
+        console.log("🔄 No refresh token found");
+        return false;
+      }
 
       const res = await fetch(`${baseUrl}/auth/refresh`, {
         method: "POST",
@@ -71,14 +74,18 @@ export function useFetchWithAuth() {
         body: JSON.stringify({ refreshToken }),
       });
 
-      if (!res.ok) return false;
+      if (!res.ok) {
+        return false;
+      }
 
       const data = await res.json();
+
       authStore.token = data.accessToken;
       localStorage.setItem("accessToken", data.accessToken);
       localStorage.setItem("refreshToken", data.refreshToken);
       return true;
-    } catch {
+    } catch (error) {
+      console.log("🔄 Refresh token error:", error);
       return false;
     }
   }

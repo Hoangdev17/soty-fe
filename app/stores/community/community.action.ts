@@ -7,7 +7,11 @@ import type {
   CreateCommunityData,
 } from "./community.type";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
-import { joinRoom, leaveRoom } from "../websocket/websocket.action";
+import {
+  joinRoom,
+  leaveRoom,
+  ensureRoomJoined,
+} from "../websocket/websocket.action";
 import { useChannelStore } from "../channels/channel.store";
 import { useMessageStore } from "../message/message.store";
 import { useAuthStore } from "../auth/auth.store";
@@ -100,6 +104,7 @@ export const communityActions = {
     const { fetchWithAuth } = useFetchWithAuth();
     const communityStore = useCommunityStore();
     const channelStore = useChannelStore();
+    const memberStore = useMemberStore();
 
     // Leave previous community room if exists
     if (communityStore.currentCommunity) {
@@ -115,6 +120,8 @@ export const communityActions = {
 
     communityStore.currentCommunity = community;
     channelStore.channels = community.channels;
+
+    memberStore.memberCount = community.memberCount;
 
     joinRoom(`community_${communityId}`);
 
@@ -148,16 +155,37 @@ export const communityActions = {
   // Join community
   async joinCommunity(communityId: string) {
     const authStore = useAuthStore();
-    const userId = authStore.user?.id;
+    const { fetchWithAuth } = useFetchWithAuth();
 
-    const { joinCommunity } = useWebSocket();
     const toast = useToast();
 
     try {
-      joinRoom(`community_${communityId}`);
+      const response = await fetchWithAuth<Member>(
+        `/community/${communityId}/join`,
+        { method: "POST" }
+      );
 
-      // Use non-null assertion since userId is checked above
-      return await joinCommunity(communityId, userId!);
+      // Immediately ensure the client is joined to the websocket room
+      // so it can receive realtime updates and so server broadcasts
+      // include this connection when appropriate. Use ensureRoomJoined
+      // which will retry if socket isn't connected yet.
+      ensureRoomJoined(`community_${communityId}`);
+
+      // Update local member store immediately so the joining user sees the change
+      const memberStore = useMemberStore();
+      try {
+        await memberStore.addMember(communityId, response);
+      } catch (err) {
+        // If local add fails, ignore and continue to attempt refresh
+        console.warn("Failed to add member locally:", err);
+      }
+
+      // Refresh members in background to guarantee consistency with server
+      memberStore.fetchMembers(communityId).catch(() => {
+        // swallow errors — UI already updated optimistically
+      });
+
+      return response;
     } catch (error) {
       toast.add({
         title: "Failed to join",

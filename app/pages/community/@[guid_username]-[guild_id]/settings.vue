@@ -4,8 +4,6 @@ import { useChannelStore } from "~/stores/channels/channel.store";
 import CommunityBanner from "~/components/organisms/community.banner.vue";
 import UploadButton from "~/components/molecules/upload.button.vue";
 import { useMemberStore } from "~/stores/member/member.store";
-import type { Community } from "~/stores/community/community.type";
-import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
 import UnsavedChangesBar from "~/components/atoms/unsave.change.vue";
 import { useUnsavedChanges } from "~/composables/useUnsavedChanges";
 
@@ -72,6 +70,7 @@ const beforeRouteLeave = (to: any, from: any, next: any) => {
 // Add route guard
 definePageMeta({
   beforeRouteLeave,
+  middleware: ["required-auth"],
 });
 
 // Unsaved changes logic
@@ -192,7 +191,7 @@ const menuItems = computed<MenuItem[][]>(() => [
     {
       label: "Roles",
       icon: "i-lucide-shield",
-      to: `/community/@${currentCommunity.value?.name}-${currentCommunity.value?.id}/settings/roles`,
+      to: `/community/@${currentCommunity.value?.name}-${currentCommunity.value?.id}/roles`,
       active: section.value === "roles",
     },
     {
@@ -249,16 +248,6 @@ const formatDate = (dateString?: string) => {
   });
 };
 
-const openInviteModal = () => {
-  // TODO: Implement invite modal
-  console.log("Open invite modal");
-};
-
-const openCreateChannelModal = () => {
-  // TODO: Implement create channel modal
-  console.log("Open create channel modal");
-};
-
 const handleAvatarUploadSuccess = async (url: string) => {
   formData.avatar = url;
 };
@@ -283,76 +272,7 @@ onMounted(async () => {
 <template>
   <div class="flex items-start size-full bg-dark-900">
     <!-- Sidebar -->
-    <div
-      class="sticky top-0 flex flex-col min-h-screen h-screen w-[200px] border-r border-dark-700 p-4 gap-4 bg-dark-800"
-    >
-      <!-- Server Info -->
-      <div class="flex items-center gap-3 p-3 rounded-lg bg-dark-700">
-        <div class="min-w-0 flex">
-          <UAvatar
-            v-if="currentCommunity?.avatar"
-            :src="currentCommunity?.avatar"
-            :alt="currentCommunity?.name || 'Server Icon'"
-            size="sm"
-            class="rounded-full"
-          />
-          <h3 class="font-semibold text-white truncate ml-2">
-            {{ formData.name || currentCommunity?.name || "Máy chủ" }}
-          </h3>
-        </div>
-      </div>
-
-      <!-- Menu Items -->
-      <div class="flex flex-col gap-4">
-        <div
-          v-for="(group, groupIdx) in menuItems"
-          :key="groupIdx"
-          class="flex flex-col gap-1"
-        >
-          <div
-            v-for="(item, itemIdx) in group"
-            :key="itemIdx"
-            class="flex items-center gap-2"
-          >
-            <!-- Label -->
-            <template v-if="item.type === 'label'">
-              <div class="uppercase font-bold text-xs text-gray-400 py-2 px-2">
-                {{ item.label }}
-              </div>
-            </template>
-
-            <!-- Normal item -->
-            <template v-else>
-              <UButton
-                v-if="item.to"
-                :to="item.to"
-                :color="item.active ? 'primary' : 'gray'"
-                variant="ghost"
-                class="flex items-center gap-2 px-2 py-2 rounded-md w-full text-sm justify-start"
-                :class="{
-                  'text-primary bg-primary-50 dark:bg-primary-950': item.active,
-                  'hover:bg-dark-700 text-gray-300': !item.active,
-                }"
-              >
-                <UIcon :name="item.icon" class="w-4 h-4" />
-                <span>{{ item.label }}</span>
-              </UButton>
-              <!-- Action item -->
-              <UButton
-                v-else-if="item.onSelect"
-                color="error"
-                variant="ghost"
-                class="flex items-center gap-2 px-2 py-2 rounded-md w-full text-sm"
-                @click="item.onSelect"
-              >
-                <UIcon :name="item.icon ?? ''" class="w-4 h-4" />
-                <span>{{ item.label }}</span>
-              </UButton>
-            </template>
-          </div>
-        </div>
-      </div>
-    </div>
+    <OrganismsSidebarSettingCommunity />
 
     <!-- Main Content -->
     <div
@@ -579,15 +499,3 @@ onMounted(async () => {
     />
   </div>
 </template>
-
-<style scoped>
-.bg-dark-900 {
-  background-color: #0f0f0f;
-}
-.bg-dark-800 {
-  background-color: #1a1a1a;
-}
-.bg-dark-700 {
-  background-color: #2a2a2a;
-}
-</style>

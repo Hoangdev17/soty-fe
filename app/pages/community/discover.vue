@@ -3,6 +3,7 @@ import NavigateMenuDiscover from "~/components/molecules/navigate.menu.discover.
 import SidebarDiscover from "~/components/organisms/sidebar.discover.vue";
 import requiredAuth from "~/middleware/required.auth";
 import { useCommunityStore } from "~/stores/community/community.store";
+import { useMemberStore } from "~/stores/member/member.store";
 
 definePageMeta({
   layout: "main",
@@ -10,6 +11,7 @@ definePageMeta({
 });
 
 const communityStore = useCommunityStore();
+const memberStore = useMemberStore();
 const { communitiesAll, isLoadingCommunities } = storeToRefs(communityStore);
 
 // Loading state for navigation
@@ -32,6 +34,18 @@ const filteredCommunities = computed(() => {
         .includes(searchQuery.value.toLowerCase())
   );
 });
+
+// Get member count for a community (prioritize actual member data over API count)
+const getCommunityMemberCount = (
+  communityId: string,
+  fallbackCount?: number
+) => {
+  const actualMembers = memberStore.getMembersByGuild(communityId);
+  if (actualMembers.length > 0) {
+    return actualMembers.length;
+  }
+  return fallbackCount || 0;
+};
 
 // Navigate to introduce page with fresh data
 const navigateToIntroduce = async (communityId: string) => {
@@ -171,7 +185,12 @@ const navigateToIntroduce = async (communityId: string) => {
                 <div class="flex items-center gap-4">
                   <div class="flex items-center gap-1">
                     <UIcon name="i-lucide-users" class="w-4 h-4" />
-                    <span>{{ community.memberCount }}</span>
+                    <span>{{
+                      getCommunityMemberCount(
+                        community.id,
+                        community.memberCount
+                      )
+                    }}</span>
                   </div>
                   <div class="flex items-center gap-1">
                     <UIcon name="i-lucide-eye" class="w-4 h-4" />

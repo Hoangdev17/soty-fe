@@ -56,6 +56,13 @@ export const memberActions = {
     }
 
     memberStore.members[guildId].push(member);
+
+    // Keep memberCount in sync when adding a member locally
+    if (typeof memberStore.memberCount === "number") {
+      memberStore.memberCount++;
+    } else {
+      memberStore.memberCount = memberStore.members[guildId].length;
+    }
   },
 
   async removeMember(guildId: string, memberId: string) {

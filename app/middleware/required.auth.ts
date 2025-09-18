@@ -4,8 +4,16 @@ import { useAuthStore } from "~/stores/auth/auth.store";
 export default defineNuxtRouteMiddleware(async (to) => {
   if (import.meta.server) return;
 
-  const accessToken = localStorage.getItem("accessToken");
-  if (!accessToken) {
+  const authStore = useAuthStore();
+
+  // Đợi initializeAuth xong
+  if (!authStore.isInitialized) {
+    await authStore.initializeAuth();
+  }
+
+  // Check if user is authenticated in store (this handles expired tokens)
+  if (!authStore.isLoggedIn) {
+    // Allow access to auth pages and home
     if (
       to.path === "/auth/login" ||
       to.path === "/auth/register" ||
@@ -17,27 +25,12 @@ export default defineNuxtRouteMiddleware(async (to) => {
     return navigateTo("/auth/login");
   }
 
+  // Prevent authenticated users from accessing auth pages
   if (
     to.path === "/auth/login" ||
     to.path === "/auth/register" ||
-    to.path === "/auth/forgot-password" ||
-    to.path === "/"
+    to.path === "/auth/forgot-password"
   ) {
-    return;
-  }
-
-  const authStore = useAuthStore();
-
-  // Đợi initializeAuth xong
-  if (!authStore.isInitialized) {
-    await authStore.initializeAuth();
-  }
-
-  // Nếu chưa login → chặn navigation ngay lập tức
-  if (
-    (!authStore.isLoggedIn && to.path !== "/auth/login") ||
-    localStorage.getItem("accessToken") === null
-  ) {
-    return navigateTo("/auth/login");
+    return navigateTo("/@me/channels");
   }
 });
