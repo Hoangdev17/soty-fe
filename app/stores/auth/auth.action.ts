@@ -96,11 +96,6 @@ export const authActions = {
 
   async logout() {
     const store = useAuthStore();
-    store.clearAuthData();
-    store.isInitialized = false;
-    store.isLoading = false;
-
-    // Disconnect WebSocket
-    disconnectSocketIO();
+    await store.logout();
   },
 };

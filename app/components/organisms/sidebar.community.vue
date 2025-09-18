@@ -128,6 +128,8 @@ const showDropdown = ref(false);
 
 // Handle dropdown menu item clicks
 const handleMenuClick = (item: any) => {
+  if (item.disabled) return;
+
   showDropdown.value = false; // Close dropdown
 
   if (item.onSelect) {
@@ -166,17 +168,30 @@ watch(
         if (lastDashIndex !== -1) {
           const communityId = cleanSlug.substring(lastDashIndex + 1);
 
-          // Tìm community trong list hiện có
-          const community = communityStore.communities.find(
-            (c: any) => c.id == communityId
-          );
-          // Fetch từ API nếu không có trong list
-          try {
-            await communityStore.fetchCommunityById(communityId);
-          } catch (error) {
-            console.error("Error fetching community:", error);
-            // Reset về default nếu không tìm thấy
-            serverName.value = "My Server";
+          // Validate that communityId is a valid format (should be numeric or UUID-like)
+          if (
+            communityId &&
+            (communityId.match(/^\d+$/) || communityId.match(/^[a-f0-9-]+$/i))
+          ) {
+            // Tìm community trong list hiện có
+            const community = communityStore.communities.find(
+              (c: any) => c.id == communityId
+            );
+
+            if (community) {
+              // Use existing community
+              communityStore.currentCommunity = community;
+            } else {
+              // Fetch từ API nếu không có trong list
+              try {
+                await communityStore.fetchCommunityById(communityId);
+              } catch (error) {
+                console.error("Error fetching community:", error);
+                // Reset về default nếu không tìm thấy
+                communityStore.currentCommunity = null;
+                serverName.value = "My Server";
+              }
+            }
           }
         }
       }
@@ -196,25 +211,23 @@ onMounted(async () => {
     );
     await fetchAllThreads();
   }
-
-  // Close dropdown when clicking outside
-  const handleClickOutside = (event: MouseEvent) => {
-    const target = event.target as Element;
-    const dropdownContainer = target.closest(".relative");
-    const header = target.closest("header");
-
-    // Nếu click không phải trong dropdown container hoặc header thì đóng dropdown
-    if (!dropdownContainer && !header) {
-      showDropdown.value = false;
-    }
-  };
-
-  document.addEventListener("click", handleClickOutside);
-
-  onUnmounted(() => {
-    document.removeEventListener("click", handleClickOutside);
-  });
+  // Close dropdown when clicking outside (event listener attached in setup)
+  if (communityStore?.currentCommunity?.id) {
+    // noop - setup complete
+  }
 });
+
+// Close dropdown when clicking outside - handler declared at setup scope
+const handleClickOutside = (event: MouseEvent) => {
+  const target = event.target as Element;
+  const dropdownContainer = target.closest(".relative");
+  const header = target.closest("header");
+
+  // Nếu click không phải trong dropdown container hoặc header thì đóng dropdown
+  if (!dropdownContainer && !header) {
+    showDropdown.value = false;
+  }
+};
 
 const items = computed<DropdownMenuItem[][]>(() => [
   [
@@ -230,6 +243,7 @@ const items = computed<DropdownMenuItem[][]>(() => [
       onSelect: () => {
         isInviteModalOpen.value = true;
       },
+      disabled: !communityStore.currentCommunity,
     },
     {
       label: "Cài đặt máy chủ",
@@ -237,6 +251,7 @@ const items = computed<DropdownMenuItem[][]>(() => [
       to: communityStore.currentCommunity
         ? `/community/@${communityStore.currentCommunity.name}-${communityStore.currentCommunity.id}/settings`
         : undefined,
+      disabled: !communityStore.currentCommunity,
     },
     {
       label: "Tạo kênh",
@@ -244,32 +259,39 @@ const items = computed<DropdownMenuItem[][]>(() => [
       onSelect: () => {
         openCreateChannelModal();
       },
+      disabled: !communityStore.currentCommunity,
     },
     {
       label: "Tạo danh mục",
       icon: "i-lucide-folder-plus",
+      disabled: !communityStore.currentCommunity,
     },
     {
       label: "Tạo sự kiện",
       icon: "i-lucide-calendar-1",
+      disabled: !communityStore.currentCommunity,
     },
     {
       label: "Chủ đề đang hoạt động",
       icon: "i-lucide-message-circle",
+      disabled: !communityStore.currentCommunity,
     },
     {
       label: "Thư mục App",
       icon: "i-lucide-gamepad-2",
+      disabled: !communityStore.currentCommunity,
     },
   ],
   [
     {
       label: "Cài đặt thông báo",
       icon: "i-lucide-bell-ring",
+      disabled: !communityStore.currentCommunity,
     },
     {
       label: "Cài đặt bảo mật",
       icon: "i-lucide-shield-half",
+      disabled: !communityStore.currentCommunity,
     },
   ],
 ]);
@@ -340,8 +362,8 @@ const itemsChannel = computed<NavigationMenuItem[][]>(() => {
 });
 
 onUnmounted(() => {
-  if (guildId) {
-    leaveRoom(`community_${guildId}`);
+  if (guildId.value) {
+    leaveRoom(`community_${guildId.value}`);
   }
 });
 
@@ -440,8 +462,8 @@ const createChannel = async () => {
                 <button
                   v-else
                   @click="handleMenuClick(item)"
-                  :disabled="!item.to && item.label === 'Cài đặt máy chủ'"
-                  class="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-200 hover:bg-gray-600/50 hover:text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  :disabled="item.disabled"
+                  class="w-full flex items-center gap-3 px-3 py-2 text-sm text-gray-200 hover:bg-gray-600/50 hover:text-white rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-gray-200"
                 >
                   <UIcon v-if="item.icon" :name="item.icon" class="w-4 h-4" />
                   {{ item.label }}
@@ -458,13 +480,6 @@ const createChannel = async () => {
       <UNavigationMenu
         orientation="vertical"
         :items="itemsNavigates"
-        :ui="{
-          item: {
-            base: 'flex items-center gap-2 px-3 py-2 rounded-md transition',
-            active: 'bg-gray-700 text-white',
-            inactive: 'text-gray-300 hover:bg-gray-600/50 hover:text-white',
-          },
-        }"
         class="mt-2"
       />
       <USeparator class="my-2" />
@@ -473,19 +488,7 @@ const createChannel = async () => {
     <!-- Scrollable channels section -->
     <div class="flex-1 overflow-y-auto scrollbar-hide">
       <div class="px-4 pb-20">
-        <UNavigationMenu
-          orientation="vertical"
-          :items="itemsChannel"
-          :ui="{
-            item: {
-              base: 'flex items-center gap-2 px-3 py-2 rounded-md transition text-base',
-              active: 'bg-gray-700 text-white',
-              inactive: 'text-gray-300 hover:bg-gray-600/50 hover:text-white',
-            },
-            itemLeading: 'flex-shrink-0',
-            itemLabel: 'sidebar-channel-name flex-1 min-w-0',
-          }"
-        />
+        <UNavigationMenu orientation="vertical" :items="itemsChannel" />
       </div>
     </div>
   </div>
@@ -517,19 +520,7 @@ const createChannel = async () => {
             variant="card"
             :items="itemChannelType"
             :disabled="isCreating"
-          >
-            <template #item="{ item }">
-              <div class="flex items-center gap-3">
-                <component :is="item.icon" class="w-5 h-5 text-primary" />
-                <div>
-                  <div class="font-medium">{{ item.label }}</div>
-                  <div class="text-sm text-gray-500">
-                    {{ item.description }}
-                  </div>
-                </div>
-              </div>
-            </template>
-          </URadioGroup>
+          />
         </div>
       </form>
     </template>

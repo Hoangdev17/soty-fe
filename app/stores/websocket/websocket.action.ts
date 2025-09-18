@@ -33,6 +33,12 @@ export const leaveRoom = (room: string) => {
   wsStore.leaveRoom(room);
 };
 
+export const ensureRoomJoined = (room: string, maxRetries: number = 3) => {
+  const wsStore = useWebSocketStore();
+  // Call store action that will retry joining until connected or retries exhausted
+  wsStore.ensureRoomJoined(room, maxRetries);
+};
+
 export const sendChatMessage = (
   room: string,
   message: string,

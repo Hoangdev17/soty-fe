@@ -5,10 +5,6 @@ import FloatingUserCard from "~/components/organisms/floating.user.card.vue";
 import { initializeWebSocket } from "../stores/websocket/websocket.action";
 import { disconnectWebSocket } from "../stores/websocket/websocket.action";
 
-definePageMeta({
-  middleware: "required-auth",
-});
-
 onMounted(() => {
   initializeWebSocket();
 });
