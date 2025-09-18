@@ -1,6 +1,9 @@
 <script setup lang="ts">
+import type { ContextMenuItem } from "@nuxt/ui";
 import { ref, watch, nextTick, onMounted, computed } from "vue";
 import { useMessage } from "~/composables/useMessage";
+import { useChannelStore } from "~/stores/channels/channel.store";
+import { navigateTo } from "#app";
 
 const props = defineProps<{
   roomId: string;
@@ -14,6 +17,7 @@ const emit = defineEmits<{
 
 const { getMessages, fetchMessages, pinMessage, unpinMessage } = useMessage();
 const messages = computed(() => getMessages(props.roomId));
+const channelStore = useChannelStore();
 
 // Modal state
 const offset = ref(0);
@@ -23,6 +27,46 @@ const loadingMore = ref(false);
 
 // Container ref for scrolling
 const listContainer = ref<HTMLElement | null>(null);
+
+const getContextMenuItems = (message: any): ContextMenuItem[][] => {
+  return [
+    [
+      {
+        label: "Trả lời",
+        icon: "i-lucide-reply",
+        click: () => handleReply(message),
+      },
+      {
+        label: message.pinned ? "Bỏ ghim" : "Ghim tin nhắn",
+        icon: message.pinned ? "i-lucide-pin-off" : "i-lucide-pin",
+        click: () =>
+          message.pinned ? handleUnpin(message) : handlePin(message),
+      },
+      {
+        label: "Tạo thread",
+        icon: "i-lucide-message-circle",
+        click: () => handleCreateThread(message),
+      },
+    ],
+  ];
+};
+
+const getContextMenuUserItems = (message: any): ContextMenuItem[][] => {
+  return [
+    [
+      {
+        label: "Hồ sơ",
+        icon: "i-lucide-user",
+        click: () => console.log("View profile", message.author),
+      },
+      {
+        label: "Nhắn tin",
+        icon: "i-lucide-message-circle",
+        onSelect: () => handleCreateDM(message.author.id),
+      },
+    ],
+  ];
+};
 
 const scrollToBottom = async () => {
   await nextTick();
@@ -106,6 +150,15 @@ const handleCreateThread = (message: any) => {
   emit("createThread", message);
 };
 
+const handleCreateDM = async (userId: string) => {
+  try {
+    const channelDM = await channelStore.createChannelDm([userId]);
+    navigateTo(`/@me/${channelDM.id}`);
+  } catch (error) {
+    console.error("Failed to create DM:", error);
+  }
+};
+
 // Helper function to parse message content with mentions
 const parseMessageContent = (content: string, replyTo?: any) => {
   if (!content) return content;
@@ -143,116 +196,136 @@ const isReplyMessage = (message: any) => {
     </div>
 
     <!-- Messages -->
-    <div
+    <UContextMenu
       v-for="(message, index) in messages"
       :key="message.id"
-      class="message p-3 rounded mb-2 hover:bg-dark-500 transition-colors group relative"
-      :class="{
-        'mt-auto': index === 0,
-        'bg-cyan-50 dark:bg-cyan-700/25': isReplyMessage(message),
-        'bg-dark-600': !isReplyMessage(message),
+      :items="getContextMenuItems(message)"
+      mode="contextmenu"
+      :ui="{
+        content: 'w-48',
       }"
     >
-      <!-- Reply context -->
-      <div v-if="message.replyTo" class="mb-2 pl-4 border-l-2 border-gray-500">
-        <div class="text-xs text-gray-400 mb-1">
-          Trả lời
-          <span class="font-semibold text-gray-300">{{
-            message.replyTo.author.username
-          }}</span>
+      <div
+        class="message p-3 rounded mb-2 hover:bg-dark-500 transition-colors group relative"
+        :class="{
+          'mt-auto': index === 0,
+          'bg-cyan-50 dark:bg-cyan-700/25': isReplyMessage(message),
+          'bg-dark-600': !isReplyMessage(message),
+        }"
+      >
+        <!-- Reply context -->
+        <div
+          v-if="message.replyTo"
+          class="mb-2 pl-4 border-l-2 border-gray-500"
+        >
+          <div class="text-xs text-gray-400 mb-1">
+            Trả lời
+            <span class="font-semibold text-gray-300">{{
+              message.replyTo.author.username
+            }}</span>
+          </div>
+          <div class="text-sm text-gray-300 line-clamp-2">
+            {{ message.replyTo.content }}
+          </div>
         </div>
-        <div class="text-sm text-gray-300 line-clamp-2">
-          {{ message.replyTo.content }}
-        </div>
-      </div>
 
-      <div class="flex">
-        <div class="mr-3">
-          <UAvatar
-            :src="message.author?.avatar"
-            :alt="message.author?.username"
-            size="xl"
-          />
-        </div>
-        <div class="flex-1 min-w-0">
-          <div class="flex items-center gap-2 mb-1">
-            <span class="font-semibold">{{
-              message.author?.username || "Unknown"
-            }}</span>
-            <span class="text-xs text-gray-400">{{
-              formatTime(message.createdAt)
-            }}</span>
-            <!-- Pin indicator -->
-            <UIcon
-              v-if="message.pinned"
-              name="i-lucide-pin"
-              class="w-3 h-3 text-yellow-400"
-              title="Tin nhắn đã ghim"
-            />
-            <!-- Thread indicator -->
-            <div
-              v-if="message.isThreadStarter"
-              class="flex items-center gap-1 text-xs text-blue-400 cursor-pointer hover:text-blue-300"
-              @click="handleThreadClick(message)"
+        <div class="flex">
+          <div class="mr-3">
+            <UContextMenu
+              :items="getContextMenuUserItems(message)"
+              mode="contextmenu"
+              :ui="{
+                content: 'w-48',
+              }"
+              @contextmenu.stop
             >
-              <UIcon name="i-lucide-message-circle" class="w-3 h-3" />
-              <span>{{ message.threadCount || 0 }} trả lời</span>
+              <UAvatar
+                :src="message.author?.avatar"
+                :alt="message.author?.username"
+                size="xl"
+              />
+            </UContextMenu>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="font-semibold">{{
+                message.author?.username || "Unknown"
+              }}</span>
+              <span class="text-xs text-gray-400">{{
+                formatTime(message.createdAt)
+              }}</span>
+              <!-- Pin indicator -->
+              <UIcon
+                v-if="message.pinned"
+                name="i-lucide-pin"
+                class="w-3 h-3 text-yellow-400"
+                title="Tin nhắn đã ghim"
+              />
+              <!-- Thread indicator -->
+              <div
+                v-if="message.isThreadStarter"
+                class="flex items-center gap-1 text-xs text-blue-400 cursor-pointer hover:text-blue-300"
+                @click="handleThreadClick(message)"
+              >
+                <UIcon name="i-lucide-message-circle" class="w-3 h-3" />
+                <span>{{ message.threadCount || 0 }} trả lời</span>
+              </div>
+            </div>
+            <div class="message-content">
+              {{ parseMessageContent(message.content, message.replyTo) }}
             </div>
           </div>
-          <div class="message-content">
-            {{ parseMessageContent(message.content, message.replyTo) }}
+
+          <!-- Message actions (visible on hover) -->
+          <div
+            class="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1"
+          >
+            <UButton
+              size="xs"
+              color="gray"
+              variant="ghost"
+              class="p-1 hover:bg-dark-400"
+              @click="handleReply(message)"
+              title="Trả lời"
+            >
+              <UIcon name="i-lucide-reply" class="w-4 h-4" />
+            </UButton>
+            <UButton
+              v-if="!message.pinned"
+              size="xs"
+              color="gray"
+              variant="ghost"
+              class="p-1 hover:bg-dark-400"
+              @click="handlePin(message)"
+              title="Ghim tin nhắn"
+            >
+              <UIcon name="i-lucide-pin" class="w-4 h-4" />
+            </UButton>
+            <UButton
+              v-else
+              size="xs"
+              color="yellow"
+              variant="ghost"
+              class="p-1 hover:bg-yellow-600"
+              @click="handleUnpin(message)"
+              title="Bỏ ghim"
+            >
+              <UIcon name="i-lucide-pin-off" class="w-4 h-4" />
+            </UButton>
+            <UButton
+              size="xs"
+              color="gray"
+              variant="ghost"
+              class="p-1 hover:bg-dark-400"
+              @click="handleCreateThread(message)"
+              title="Tạo thread"
+            >
+              <UIcon name="i-lucide-message-circle" class="w-4 h-4" />
+            </UButton>
           </div>
         </div>
-
-        <!-- Message actions (visible on hover) -->
-        <div
-          class="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1"
-        >
-          <UButton
-            size="xs"
-            color="gray"
-            variant="ghost"
-            class="p-1 hover:bg-dark-400"
-            @click="handleReply(message)"
-            title="Trả lời"
-          >
-            <UIcon name="i-lucide-reply" class="w-4 h-4" />
-          </UButton>
-          <UButton
-            v-if="!message.pinned"
-            size="xs"
-            color="gray"
-            variant="ghost"
-            class="p-1 hover:bg-dark-400"
-            @click="handlePin(message)"
-            title="Ghim tin nhắn"
-          >
-            <UIcon name="i-lucide-pin" class="w-4 h-4" />
-          </UButton>
-          <UButton
-            v-else
-            size="xs"
-            color="yellow"
-            variant="ghost"
-            class="p-1 hover:bg-yellow-600"
-            @click="handleUnpin(message)"
-            title="Bỏ ghim"
-          >
-            <UIcon name="i-lucide-pin-off" class="w-4 h-4" />
-          </UButton>
-          <UButton
-            size="xs"
-            color="gray"
-            variant="ghost"
-            class="p-1 hover:bg-dark-400"
-            @click="handleCreateThread(message)"
-            title="Tạo thread"
-          >
-            <UIcon name="i-lucide-message-circle" class="w-4 h-4" />
-          </UButton>
-        </div>
       </div>
-    </div>
+    </UContextMenu>
   </div>
 </template>
 

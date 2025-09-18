@@ -52,4 +52,54 @@ export const channelActions = {
 
     return channel;
   },
+
+  async fetchChannelDMByUserId() {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const channelStore = useChannelStore();
+
+    const channel = await fetchWithAuth<Channel[]>(`/dm/channels`, {
+      method: "GET",
+    });
+
+    channelStore.channelDM = channel;
+    return channel;
+  },
+
+  async createChannelDm(userIds: string[]) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const channelStore = useChannelStore();
+
+    const channelDM = await fetchWithAuth<Channel>(`/dm/channels`, {
+      method: "POST",
+      body: JSON.stringify({ userIds }),
+    });
+
+    channelStore.channelDM.push(channelDM);
+
+    return channelDM;
+  },
+
+  async fetchChannelDmById(channelId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const channelStore = useChannelStore();
+
+    // Leave previous channel room if exists
+    if (channelStore.currentChannel) {
+      leaveRoom(`channel_${channelStore.currentChannel.id}`);
+    }
+
+    const channelDM = await fetchWithAuth<Channel>(
+      `/dm/channels/${channelId}`,
+      {
+        method: "GET",
+      }
+    );
+
+    channelStore.currentChannel = channelDM;
+
+    // Join WebSocket room for this channel
+    joinRoom(`channel_${channelId}`);
+
+    return channelDM;
+  },
 };
