@@ -15,6 +15,7 @@ const props = defineProps<{
       avatar?: string;
     };
   };
+  mentionAuthor?: boolean;
 }>();
 
 const route = useRoute();
@@ -46,14 +47,15 @@ const handleSendMessage = async () => {
     if (props.replyTo) {
       // Send reply
       if (props.isThread) {
-        // For thread replies, send to thread endpoint
+        // For thread replies, send to thread endpoint with reply metadata
         await sendMessageToThread(channelId, messageText.value.trim());
-        // TODO: Add reply metadata to the message
+        // Note: Thread replies don't use the same reply structure as channel replies
       } else {
         await replyToMessage(
           channelId,
           messageText.value.trim(),
-          props.replyTo.id
+          props.replyTo.id,
+          props.mentionAuthor ?? true
         );
       }
       emit("reply-sent");

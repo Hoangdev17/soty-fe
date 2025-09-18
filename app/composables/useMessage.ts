@@ -11,6 +11,7 @@ import {
   fetchThread as fetchThreadAction,
   fetchThreadsByChannel as fetchThreadsByChannelAction,
   sendMessageToThread as sendMessageToThreadAction,
+  fetchMessageReferences as fetchMessageReferencesAction,
 } from "../stores/message/message.action";
 import { useWebSocket } from "./useWebSocket";
 import type { Message } from "../stores/message/message.type";
@@ -102,9 +103,15 @@ export const useMessage = () => {
   const replyToMessage = (
     channelId: string,
     content: string,
-    replyToMessageId: string
+    replyToMessageId: string,
+    mentionAuthor: boolean = true
   ) => {
-    return replyToMessageAction(channelId, content, replyToMessageId);
+    return replyToMessageAction(
+      channelId,
+      content,
+      replyToMessageId,
+      mentionAuthor
+    );
   };
 
   // Pin functionality
@@ -155,6 +162,10 @@ export const useMessage = () => {
     return sendMessageToThreadAction(threadId, content);
   };
 
+  const fetchMessageReferences = (channelId: string) => {
+    return fetchMessageReferencesAction(channelId);
+  };
+
   return {
     joinRoom,
     joinThreadRoom,
@@ -168,6 +179,7 @@ export const useMessage = () => {
     error,
     // Reply functionality
     replyToMessage,
+    fetchMessageReferences,
     // Pin functionality
     pinMessage,
     unpinMessage,

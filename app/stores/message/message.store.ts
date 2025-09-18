@@ -113,6 +113,7 @@ export const useMessageStore = defineStore("message", {
         this.error = null;
 
         let endpoint: string;
+        // Use endpoint that matches backend getMessages method
         endpoint = `/messages/${roomId}?limit=${limit}&offset=${offset}`;
 
         // Fetch messages for the room from API with pagination
@@ -128,6 +129,19 @@ export const useMessageStore = defineStore("message", {
             ...messages.map((msg) => ({
               ...msg,
               createdAt: new Date(msg.createdAt),
+              room: `channel_${roomId}`, // Add room field for frontend compatibility
+              // Ensure replyTo data is properly mapped
+              replyTo: msg.replyTo
+                ? {
+                    id: msg.replyTo.id,
+                    content: msg.replyTo.content,
+                    author: {
+                      id: msg.replyTo.author?.id,
+                      username: msg.replyTo.author?.username || "Unknown",
+                      avatar: msg.replyTo.author?.avatar,
+                    },
+                  }
+                : undefined,
             })),
             ...this.messages[roomId],
           ];
@@ -136,6 +150,19 @@ export const useMessageStore = defineStore("message", {
           this.messages[roomId] = messages.map((msg) => ({
             ...msg,
             createdAt: new Date(msg.createdAt),
+            room: `channel_${roomId}`, // Add room field for frontend compatibility
+            // Ensure replyTo data is properly mapped
+            replyTo: msg.replyTo
+              ? {
+                  id: msg.replyTo.id,
+                  content: msg.replyTo.content,
+                  author: {
+                    id: msg.replyTo.author?.id,
+                    username: msg.replyTo.author?.username || "Unknown",
+                    avatar: msg.replyTo.author?.avatar,
+                  },
+                }
+              : undefined,
           }));
         }
 
@@ -180,7 +207,8 @@ export const useMessageStore = defineStore("message", {
     async replyToMessage(
       channelId: string,
       content: string,
-      replyToMessageId: string
+      replyToMessageId: string,
+      mentionAuthor: boolean = true
     ) {
       try {
         const { fetchWithAuth } = useFetchWithAuth();
@@ -193,16 +221,18 @@ export const useMessageStore = defineStore("message", {
           body: JSON.stringify({
             channelId,
             content,
-            replyTo: replyToMessageId,
+            replyToMessageId,
+            mentionAuthor,
           }),
         });
 
         this.addMessage(channelId, res);
 
         const socketStore = useWebSocketStore();
-        socketStore.sendChatMessage(`channel_${channelId}`, content, "text", {
+        socketStore.sendChatMessage(`channel_${channelId}`, content, "reply", {
           channelId,
-          replyTo: replyToMessageId,
+          replyToMessageId,
+          mentionAuthor,
         });
       } catch (error) {
         this.error =
@@ -526,6 +556,77 @@ export const useMessageStore = defineStore("message", {
         throw error;
       } finally {
         this.loading = false;
+      }
+    },
+
+    // Fetch message references for reply messages
+    async fetchMessageReferences(channelId: string) {
+      try {
+        const { fetchWithAuth } = useFetchWithAuth();
+
+        // Get current messages for this channel (work on a copy)
+        const currentMessages = this.messages[channelId] || [];
+        const replyMessageIds = currentMessages
+          .filter((msg) => msg.type === 19 || msg.type === "reply")
+          .map((msg) => msg.id);
+
+        if (replyMessageIds.length === 0) {
+          return; // No reply messages to fetch references for
+        }
+
+        // Fetch references for reply messages
+        const references = await fetchWithAuth<any[]>(
+          `/messages/references?channelId=${channelId}&messageIds=${replyMessageIds.join(
+            ","
+          )}`
+        );
+
+        if (!references || references.length === 0) return;
+
+        // Normalize and map references by the id of the message that references another
+        const refsBySource: Record<string, any> = {};
+        references.forEach((r) => {
+          // Possible shapes: { referenceBy, referencedMessage },
+          // or { referenceBy, messageRef }, or { referenceById, messageRef }
+          const sourceId = r.referenceBy || r.referenceById || r.reference_by;
+          const refMsg =
+            r.referencedMessage ||
+            r.messageRef ||
+            r.message_ref ||
+            r.reference?.messageRef;
+          if (sourceId && refMsg) {
+            refsBySource[sourceId] = refMsg;
+          }
+        });
+
+        // Create a new messages array to ensure reactivity
+        const updatedMessages = currentMessages.map((m) => {
+          const ref = refsBySource[m.id];
+          if (!ref) return m;
+
+          // Normalize referenced author
+          const author =
+            ref.author || ref.authorProfile || ref.messageAuthor || null;
+
+          return {
+            ...m,
+            replyTo: {
+              id: ref.id,
+              content: ref.content,
+              author: {
+                id: author?.id,
+                username: author?.username || author?.name || "Unknown",
+                avatar: author?.avatar,
+              },
+            },
+          };
+        });
+
+        // Assign back to trigger reactivity in Vue
+        this.messages[channelId] = updatedMessages;
+      } catch (error) {
+        console.error("Error fetching message references:", error);
+        // Don't throw error as this is optional enhancement
       }
     },
   },

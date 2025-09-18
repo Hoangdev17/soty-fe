@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ref, watch, nextTick, onMounted, computed } from "vue";
 import { useMessage } from "~/composables/useMessage";
-import AtomsMessageLoading from "~/components/atoms/message.loading.vue";
 
 const props = defineProps<{
   roomId: string;
@@ -13,8 +12,7 @@ const emit = defineEmits<{
   createThread: [message: any];
 }>();
 
-const { getMessages, fetchMessages, pinMessage, unpinMessage, createThread } =
-  useMessage();
+const { getMessages, fetchMessages, pinMessage, unpinMessage } = useMessage();
 const messages = computed(() => getMessages(props.roomId));
 
 // Modal state
@@ -107,6 +105,27 @@ const handleThreadClick = (message: any) => {
 const handleCreateThread = (message: any) => {
   emit("createThread", message);
 };
+
+// Helper function to parse message content with mentions
+const parseMessageContent = (content: string, replyTo?: any) => {
+  if (!content) return content;
+
+  // Parse mentions in the format <@userId>
+  return content.replace(/<@(\w+)>/g, (match, userId) => {
+    // If this is a reply and the mention is at the beginning, it's likely the reply mention
+    if (replyTo && content.startsWith(match)) {
+      return `@${replyTo.author.username}`;
+    }
+    // For other mentions, you might want to resolve the username from a user store
+    // For now, we'll just return the userId with @ prefix
+    return `@${userId}`;
+  });
+};
+
+// Helper function to check if message type indicates a reply
+const isReplyMessage = (message: any) => {
+  return message.type === 19 || message.type === "reply" || message.replyTo;
+};
 </script>
 
 <template>
@@ -127,8 +146,12 @@ const handleCreateThread = (message: any) => {
     <div
       v-for="(message, index) in messages"
       :key="message.id"
-      class="message p-3 rounded bg-dark-600 mb-2 hover:bg-dark-500 transition-colors group relative"
-      :class="{ 'mt-auto': index === 0 }"
+      class="message p-3 rounded mb-2 hover:bg-dark-500 transition-colors group relative"
+      :class="{
+        'mt-auto': index === 0,
+        'bg-cyan-50 dark:bg-cyan-700/25': isReplyMessage(message),
+        'bg-dark-600': !isReplyMessage(message),
+      }"
     >
       <!-- Reply context -->
       <div v-if="message.replyTo" class="mb-2 pl-4 border-l-2 border-gray-500">
@@ -176,7 +199,9 @@ const handleCreateThread = (message: any) => {
               <span>{{ message.threadCount || 0 }} trả lời</span>
             </div>
           </div>
-          <div class="message-content">{{ message.content }}</div>
+          <div class="message-content">
+            {{ parseMessageContent(message.content, message.replyTo) }}
+          </div>
         </div>
 
         <!-- Message actions (visible on hover) -->

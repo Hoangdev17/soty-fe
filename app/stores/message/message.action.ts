@@ -30,10 +30,16 @@ export const fetchMessagesForRoom = (
 export const replyToMessage = (
   channelId: string,
   content: string,
-  replyToMessageId: string
+  replyToMessageId: string,
+  mentionAuthor: boolean = true
 ) => {
   const messageStore = useMessageStore();
-  return messageStore.replyToMessage(channelId, content, replyToMessageId);
+  return messageStore.replyToMessage(
+    channelId,
+    content,
+    replyToMessageId,
+    mentionAuthor
+  );
 };
 
 // Pin functionality
@@ -98,4 +104,10 @@ export const fetchThreadsByChannel = (channelId: string) => {
 export const sendMessageToThread = (threadId: string, content: string) => {
   const messageStore = useMessageStore();
   return messageStore.sendMessageToThread(threadId, content);
+};
+
+// Message references functionality
+export const fetchMessageReferences = (channelId: string) => {
+  const messageStore = useMessageStore();
+  return messageStore.fetchMessageReferences(channelId);
 };
