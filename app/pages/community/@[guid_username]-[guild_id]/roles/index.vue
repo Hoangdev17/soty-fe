@@ -16,7 +16,7 @@ const createNewRole = () => {
 
 <template>
   <div class="flex items-start size-full bg-dark-900">
-    <!-- Sidebar -->
+    <!-- Sidebar setting -->
     <OrganismsSidebarSettingCommunity />
 
     <!-- Main Content -->
