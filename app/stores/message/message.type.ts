@@ -4,17 +4,18 @@ export interface Message {
   id: string;
   content: string;
   createdAt: Date;
-  type?: string;
+  type?: string | number; // Backend returns numeric type (0 = text, 19 = reply)
   timestamp?: Date;
   room: string;
   metadata?: Record<string, any>;
   channelId?: string;
+  channelName?: string;
   author?: {
     id?: string;
     username: string;
     avatar?: string;
   };
-  // Reply functionality
+  // Reply functionality - matches backend response
   replyTo?: {
     id: string;
     content: string;

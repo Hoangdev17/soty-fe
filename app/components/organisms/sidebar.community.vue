@@ -313,7 +313,7 @@ const getChannelIcon = (channelType: string) => {
     case "GROUP_DM":
       return "i-lucide-users";
     default:
-      return "i-lucide-hash"; // Default fallback
+      return "i-lucide-hash";
   }
 };
 

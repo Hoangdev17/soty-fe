@@ -71,6 +71,66 @@ export const useWebSocketStore = defineStore("websocket", {
         // Listen for custom message events
         this.connection.on("message", (data: Message) => {
           const messageStore = useMessageStore();
+
+          // Normalize reply/reference shapes from backend so frontend always gets `replyTo` with {id, content, author}
+          const normalizeReply = () => {
+            // If backend already provides replyTo, prefer it
+            if (data.replyTo) {
+              return {
+                id: data.replyTo.id,
+                content: data.replyTo.content,
+                author: {
+                  id: data.replyTo.author?.id,
+                  username: data.replyTo.author?.username || "Unknown",
+                  avatar: data.replyTo.author?.avatar,
+                },
+              };
+            }
+
+            // Some payloads include `references` array with nested messageRef / referencedMessage
+            const refs = (data as any).references || (data as any).References;
+            if (Array.isArray(refs) && refs.length > 0) {
+              const first = refs[0];
+              const refMsg =
+                first.messageRef ||
+                first.referencedMessage ||
+                first.message_ref ||
+                first.message ||
+                first.messageRef;
+              if (refMsg) {
+                const author = refMsg.author || refMsg.authorProfile || null;
+                return {
+                  id: refMsg.id,
+                  content: refMsg.content,
+                  author: {
+                    id: author?.id,
+                    username: author?.username || author?.name || "Unknown",
+                    avatar: author?.avatar,
+                  },
+                };
+              }
+            }
+
+            // Some payloads might include a `reference` object
+            const ref =
+              (data as any).reference || (data as any).referenceMessage;
+            if (ref) {
+              const refMsg = ref.messageRef || ref.referencedMessage || ref;
+              const author = refMsg.author || refMsg.authorProfile || null;
+              return {
+                id: refMsg.id,
+                content: refMsg.content,
+                author: {
+                  id: author?.id,
+                  username: author?.username || author?.name || "Unknown",
+                  avatar: author?.avatar,
+                },
+              };
+            }
+
+            return undefined;
+          };
+
           const message: Message = {
             id: data.id,
             content: data.content || (data as any).message || "",
@@ -79,11 +139,14 @@ export const useWebSocketStore = defineStore("websocket", {
             metadata: data.metadata,
             timestamp: data.timestamp ? new Date(data.timestamp) : new Date(),
             createdAt: new Date(data.createdAt),
+            channelId: data.channelId,
+            channelName: data.channelName,
             author: {
               id: data.author?.id,
               username: data.author?.username || "Unknown",
               avatar: data.author?.avatar,
             },
+            replyTo: normalizeReply(),
           };
 
           messageStore.receiveMessage(

@@ -22,8 +22,13 @@ const channelStore = useChannelStore();
 const guildStore = useCommunityStore();
 const memberStore = useMemberStore();
 
-const { leaveRoom, fetchMessages, getMessages, fetchThreadsByChannel } =
-  useMessage();
+const {
+  leaveRoom,
+  fetchMessages,
+  getMessages,
+  fetchThreadsByChannel,
+  fetchMessageReferences,
+} = useMessage();
 
 const route = useRoute();
 const channelId = route.params.channel_id as string | undefined;
