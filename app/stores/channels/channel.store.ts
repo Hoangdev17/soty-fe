@@ -5,6 +5,7 @@ import { channelActions } from "./channel.action";
 export const useChannelStore = defineStore("channel", {
   state: () => ({
     channels: [] as Channel[],
+    channelDM: [] as Channel[],
     currentChannel: null as Channel | null,
     // Loading states
     isLoading: false,
