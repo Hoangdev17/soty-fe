@@ -1,19 +1,28 @@
 <script setup lang="ts">
 import { useChannelStore } from "~/stores/channels/channel.store";
+import {
+  disconnectWebSocket,
+  initializeWebSocket,
+} from "~/stores/websocket/websocket.action";
 
 definePageMeta({
   layout: "main",
   middleware: ["required-auth"],
 });
 
+onMounted(async () => {
+  await initializeWebSocket();
+  await channelStore.fetchChannelDmById(channelId.value);
+});
+
+// onUnmounted(() => {
+//   disconnectWebSocket();
+// });
+
 const route = useRoute();
 
 const channelStore = useChannelStore();
 const channelId = computed(() => route.params.channel_id as string);
-
-onMounted(async () => {
-  channelStore.fetchChannelDmById(channelId.value);
-});
 
 const { currentChannel } = storeToRefs(useChannelStore());
 </script>
