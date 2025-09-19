@@ -1,3 +1,5 @@
+import type { Member } from "../member/member.type";
+
 export interface Permission {
   id: string;
   name: string;
@@ -17,6 +19,15 @@ export interface Role {
   permissions: string[]; // Array of permission IDs
   guildId: string;
   memberCount?: number;
+  members?: {
+    user: {
+      id: string;
+      username: string;
+      discriminator: string;
+      avatar?: string;
+    };
+    id: string;
+  }[]; // Array of member
   createdAt: string;
   updatedAt?: string;
 }

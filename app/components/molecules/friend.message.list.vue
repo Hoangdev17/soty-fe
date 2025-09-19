@@ -131,7 +131,7 @@ async function onCreateChannelDM(userIds: string[]) {
             class="flex items-center justify-between"
           >
             <span>{{ user.label }}</span>
-            <UButton size="xs" color="red" @click="removeUser(user.id)">
+            <UButton size="xs" color="error" @click="removeUser(user.id)">
               Xóa
             </UButton>
           </div>
