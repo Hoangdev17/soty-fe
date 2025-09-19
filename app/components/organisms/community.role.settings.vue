@@ -24,9 +24,6 @@ const emit = defineEmits<{
 const router = useRouter();
 const route = useRoute();
 const roleStore = useRoleStore();
-const communityStore = useCommunityStore();
-const memberStore = useMemberStore();
-
 // Reactive refs
 const isCreateModalOpen = ref(false);
 const isEditModalOpen = ref(false);
@@ -69,7 +66,6 @@ const everyoneRole = computed(() => {
 
 const isLoading = computed(() => roleStore.isLoading);
 const error = computed(() => roleStore.getError);
-const permissions = computed(() => roleStore.getAllPermissions);
 const permissionCategories = computed(() => {
   const categories = [
     "general",

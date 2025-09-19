@@ -21,6 +21,25 @@ export const roleActions = {
         method: "GET",
       });
 
+      // Update member count for each role
+      for (const role of roles) {
+        if (role.members) {
+          role.memberCount = role.members.length;
+        } else {
+          // If members array is not included, fetch member count separately
+          try {
+            const members = await this.fetchRoleMembers(guildId, role.id);
+            role.memberCount = members.length;
+          } catch (error) {
+            console.warn(
+              `Failed to fetch member count for role ${role.id}:`,
+              error
+            );
+            role.memberCount = 0;
+          }
+        }
+      }
+
       // Sort roles by position (highest first)
       roles.sort((a, b) => b.position - a.position);
 
@@ -48,6 +67,9 @@ export const roleActions = {
         method: "POST",
         body: JSON.stringify(data),
       });
+
+      // Initialize member count for new role
+      newRole.memberCount = 0;
 
       // Add to store
       if (!roleStore.roles[guildId]) {
@@ -150,7 +172,7 @@ export const roleActions = {
 
     try {
       const updatedRoles = await fetchWithAuth<Role[]>(
-        `/community/${guildId}/roles/positions`,
+        `/community/${guildId}/roles/positions/update`,
         {
           method: "PATCH",
           body: JSON.stringify({ roles: rolePositions }),
@@ -175,45 +197,40 @@ export const roleActions = {
   },
 
   // Assign roles to a member
-  async assignMemberRoles(
-    guildId: string,
-    memberId: string,
-    roleIds: string[]
-  ) {
+  async assignMemberRoles(guildId: string, memberId: string, roleId: string) {
     const { fetchWithAuth } = useFetchWithAuth();
     const roleStore = useRoleStore();
 
     try {
-      await fetchWithAuth(`/community/${guildId}/members/${memberId}/roles`, {
-        method: "PUT",
-        body: JSON.stringify({ roleIds }),
+      await fetchWithAuth(`/community/${guildId}/roles/assign`, {
+        method: "POST",
+        body: JSON.stringify({ memberId, roleId }),
       });
+
+      // Update role members in store and member count
+      if (roleStore.roles[guildId]) {
+        const roleIndex = roleStore.roles[guildId].findIndex(
+          (role) => role.id === roleId
+        );
+        if (roleIndex !== -1 && roleStore.roles[guildId][roleIndex]) {
+          // Add member to role's members array if not already present
+          if (!roleStore.roles[guildId][roleIndex].members) {
+            roleStore.roles[guildId][roleIndex].members = [];
+          }
+          // Note: In a real app, you'd fetch the member data here
+          // For now, we'll just trigger a refetch of role members
+          await this.fetchRoleMembers(guildId, roleId);
+
+          // Update member count
+          const role = roleStore.roles[guildId][roleIndex];
+          role.memberCount = role.members ? role.members.length : 0;
+        }
+      }
 
       return true;
     } catch (error) {
       roleStore.error =
         error instanceof Error ? error.message : "Failed to assign roles";
-      throw error;
-    }
-  },
-
-  // Add a single role to a member
-  async addMemberRole(guildId: string, memberId: string, roleId: string) {
-    const { fetchWithAuth } = useFetchWithAuth();
-    const roleStore = useRoleStore();
-
-    try {
-      await fetchWithAuth(
-        `/community/${guildId}/members/${memberId}/roles/${roleId}`,
-        {
-          method: "PUT",
-        }
-      );
-
-      return true;
-    } catch (error) {
-      roleStore.error =
-        error instanceof Error ? error.message : "Failed to add role";
       throw error;
     }
   },
@@ -224,17 +241,82 @@ export const roleActions = {
     const roleStore = useRoleStore();
 
     try {
-      await fetchWithAuth(
-        `/community/${guildId}/members/${memberId}/roles/${roleId}`,
-        {
-          method: "DELETE",
+      await fetchWithAuth(`/community/${guildId}/roles/remove`, {
+        method: "DELETE",
+        body: JSON.stringify({ memberId, roleId }),
+      });
+
+      // Update role members in store
+      if (roleStore.roles[guildId]) {
+        const roleIndex = roleStore.roles[guildId].findIndex(
+          (role) => role.id === roleId
+        );
+        if (roleIndex !== -1 && roleStore.roles[guildId][roleIndex]?.members) {
+          // Remove member from role's members array
+          roleStore.roles[guildId][roleIndex].members = roleStore.roles[
+            guildId
+          ][roleIndex].members!.filter((member) => member.id !== memberId);
+
+          // Update member count
+          const role = roleStore.roles[guildId][roleIndex];
+          role.memberCount = role.members ? role.members.length : 0;
         }
-      );
+      }
 
       return true;
     } catch (error) {
       roleStore.error =
         error instanceof Error ? error.message : "Failed to remove role";
+      throw error;
+    }
+  },
+
+  async fetchRoleMembers(
+    guildId: string,
+    roleId: string
+  ): Promise<
+    {
+      user: {
+        id: string;
+        username: string;
+        discriminator: string;
+        avatar?: string;
+      };
+    }[]
+  > {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const roleStore = useRoleStore();
+
+    try {
+      const members = await fetchWithAuth<
+        {
+          user: {
+            id: string;
+            username: string;
+            discriminator: string;
+            avatar?: string;
+          };
+          id: string;
+        }[]
+      >(`/community/${guildId}/roles/members?roleId=${roleId}`, {
+        method: "GET",
+      });
+
+      // Update role with members data and member count
+      if (roleStore.roles[guildId]) {
+        const roleIndex = roleStore.roles[guildId].findIndex(
+          (role) => role.id === roleId
+        );
+        if (roleIndex !== -1 && roleStore.roles[guildId][roleIndex]) {
+          roleStore.roles[guildId][roleIndex].members = members;
+          roleStore.roles[guildId][roleIndex].memberCount = members.length;
+        }
+      }
+
+      return members;
+    } catch (error) {
+      roleStore.error =
+        error instanceof Error ? error.message : "Failed to fetch role members";
       throw error;
     }
   },

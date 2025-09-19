@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import CommunityRoleSettings from "~/components/organisms/community.role.settings.vue";
+import { useCommunityStore } from "~/stores/community/community.store";
 const route = useRoute();
 const router = useRouter();
 const guildId = route.params.guild_id as string;
@@ -12,6 +13,12 @@ definePageMeta({
 const createNewRole = () => {
   router.push(`/community/@${guildUsername}-${guildId}/roles/create`);
 };
+const communityStore = useCommunityStore();
+onMounted(() => {
+  if (!communityStore.currentCommunity) {
+    communityStore.fetchCommunityById(guildId);
+  }
+});
 </script>
 
 <template>

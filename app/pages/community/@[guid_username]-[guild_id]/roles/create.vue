@@ -2,12 +2,10 @@
 import { useRoleStore } from "~/stores/roles/role.store";
 import { useCommunityStore } from "~/stores/community/community.store";
 import { useUnsavedChanges } from "~/composables/useUnsavedChanges";
-import type {
-  CreateRoleData,
-  Permission,
-} from "~/stores/roles/role.type";
+import type { CreateRoleData, Permission } from "~/stores/roles/role.type";
 import RoleIcon from "~/components/atoms/role.icon.vue";
 import UnsavedChangesBar from "~/components/atoms/unsave.change.vue";
+import RoleMemberManagement from "~/components/organisms/role.member.management.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -39,6 +37,20 @@ definePageMeta({
 const isLoading = ref(false);
 const error = ref("");
 const isSaving = ref(false);
+
+// Tab items
+const tabItems = ref([
+  {
+    label: "Settings & Permissions",
+    icon: "i-lucide-settings",
+    slot: "settings",
+  },
+  {
+    label: "Manage Members",
+    icon: "i-lucide-users",
+    slot: "members",
+  },
+]);
 
 // Unsaved changes logic
 const { hasUnsavedChanges, setUnsavedChanges } = useUnsavedChanges();
@@ -121,13 +133,7 @@ const saveRole = async () => {
     isSaving.value = true;
     error.value = "";
 
-    // Prepare create data with color saved to icon field
-    const createData = {
-      ...formData,
-      icon: formData.color, // Save color to icon field
-    };
-
-    await roleStore.createRole(guildId, createData);
+    await roleStore.createRole(guildId, formData);
 
     setUnsavedChanges(false);
 
@@ -188,10 +194,10 @@ watch(
   { deep: true }
 );
 
-// Lifecycle
-onMounted(async () => {
-  // Permissions are already available in the store state
-  // No need to fetch them separately
+onMounted(() => {
+  if (!communityStore.currentCommunity) {
+    communityStore.fetchCommunityById(guildId);
+  }
 });
 </script>
 
@@ -254,156 +260,183 @@ onMounted(async () => {
         </div>
       </div>
 
-      <!-- Role Create Form -->
-      <div v-else class="space-y-6">
-        <!-- Basic Settings -->
-        <UCard class="bg-dark-800 border-dark-700">
-          <div class="flex items-center gap-3 mb-4">
-            <RoleIcon :role-id="'new'" class="w-6 h-6" />
-            <h3 class="text-lg font-semibold text-white">Role Settings</h3>
-          </div>
-
-          <div class="space-y-4">
-            <!-- Role Name -->
-            <UFormField label="Role Name" class="w-full">
-              <UInput
-                v-model="formData.name"
-                placeholder="Enter role name"
-                class="w-full"
-              />
-            </UFormField>
-
-            <!-- Role Color -->
-            <UFormField label="Role Color" class="w-full">
-              <div class="space-y-3">
-                <!-- Current Color Display -->
-                <div class="flex items-center gap-3">
-                  <div
-                    class="w-8 h-8 rounded-full border-2 border-gray-300"
-                    :style="{ backgroundColor: formData.color }"
-                  ></div>
-                  <span class="text-white font-mono text-sm">{{
-                    formData.color
-                  }}</span>
-                </div>
-
-                <!-- Color Picker Grid -->
-                <div class="grid grid-cols-8 gap-2">
-                  <button
-                    v-for="color in colorOptions"
-                    :key="color"
-                    type="button"
-                    class="w-8 h-8 rounded border-2 transition-all hover:scale-110"
-                    :class="[
-                      formData.color === color
-                        ? 'border-white ring-2 ring-blue-500'
-                        : 'border-gray-400 hover:border-white',
-                    ]"
-                    :style="{ backgroundColor: color }"
-                    @click="formData.color = color"
-                    :title="color"
-                  />
-                </div>
-
-                <!-- Custom Color Input -->
-                <div class="flex items-center gap-2">
-                  <label class="text-sm text-gray-400">Custom:</label>
-                  <input
-                    v-model="formData.color"
-                    type="color"
-                    class="w-8 h-8 rounded border-0 cursor-pointer"
-                  />
-                  <UInput
-                    v-model="formData.color"
-                    placeholder="#ffffff"
-                    class="flex-1 max-w-32 text-xs"
-                  />
-                </div>
-              </div>
-            </UFormField>
-
-            <!-- Role Switches -->
-            <div class="space-y-3">
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-white font-medium">
-                    Display role members separately from online members
-                  </p>
-                  <p class="text-sm text-gray-400">
-                    Members with this role will appear in a separate section
-                  </p>
-                </div>
-                <USwitch v-model="formData.hoist" />
-              </div>
-
-              <div class="flex items-center justify-between">
-                <div>
-                  <p class="text-white font-medium">
-                    Allow anyone to @mention this role
-                  </p>
-                  <p class="text-sm text-gray-400">
-                    Members can mention this role in messages
-                  </p>
-                </div>
-                <USwitch v-model="formData.mentionable" />
-              </div>
-            </div>
-          </div>
-        </UCard>
-
-        <!-- Permissions -->
-        <div class="space-y-4">
-          <h3 class="text-lg font-semibold text-white mb-4">Permissions</h3>
-
-          <div
-            v-for="category in permissionCategories"
-            :key="category.name"
-            class="space-y-3"
-          >
+      <!-- Tab Navigation -->
+      <UTabs :items="tabItems" variant="link" class="mb-6">
+        <template #settings>
+          <!-- Settings & Permissions Tab Content -->
+          <div class="space-y-6">
+            <!-- Basic Settings -->
             <UCard class="bg-dark-800 border-dark-700">
-              <template #header>
-                <div class="flex items-center justify-between">
-                  <h4 class="text-base font-semibold text-white">
-                    {{ category.name }}
-                  </h4>
-                  <span
-                    class="text-xs text-gray-400 bg-dark-700 px-2 py-1 rounded"
-                  >
-                    {{ category.permissions.length }} permissions
-                  </span>
-                </div>
-              </template>
-
-              <div
-                v-if="category.permissions.length === 0"
-                class="text-gray-500 text-sm py-4"
-              >
-                No permissions in this category
+              <div class="flex items-center gap-3 mb-4">
+                <RoleIcon :role-id="'new'" class="w-6 h-6" />
+                <h3 class="text-lg font-semibold text-white">Role Settings</h3>
               </div>
 
-              <div v-else class="space-y-4">
-                <div
-                  v-for="permission in category.permissions"
-                  :key="permission.id"
-                  class="flex items-center justify-between p-3 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors"
-                >
-                  <div class="flex-1">
-                    <p class="text-white font-medium">{{ permission.name }}</p>
-                    <p class="text-sm text-gray-400 mt-1">
-                      {{ permission.description }}
-                    </p>
-                  </div>
-                  <USwitch
-                    :model-value="hasPermission(permission)"
-                    @update:model-value="togglePermission(permission)"
-                    class="ml-4"
+              <div class="space-y-4">
+                <!-- Role Name -->
+                <UFormField label="Role Name" class="w-full">
+                  <UInput
+                    v-model="formData.name"
+                    placeholder="Enter role name"
+                    class="w-full"
                   />
+                </UFormField>
+
+                <!-- Role Color -->
+                <UFormField label="Role Color" class="w-full">
+                  <div class="space-y-3">
+                    <!-- Current Color Display -->
+                    <div class="flex items-center gap-3">
+                      <div
+                        class="w-8 h-8 rounded-full border-2 border-gray-300"
+                        :style="{ backgroundColor: formData.color }"
+                      ></div>
+                      <span class="text-white font-mono text-sm">{{
+                        formData.color
+                      }}</span>
+                    </div>
+
+                    <!-- Color Picker Grid -->
+                    <div class="grid grid-cols-8 gap-2">
+                      <button
+                        v-for="color in colorOptions"
+                        :key="color"
+                        type="button"
+                        class="w-8 h-8 rounded border-2 transition-all hover:scale-110"
+                        :class="[
+                          formData.color === color
+                            ? 'border-white ring-2 ring-blue-500'
+                            : 'border-gray-400 hover:border-white',
+                        ]"
+                        :style="{ backgroundColor: color }"
+                        @click="formData.color = color"
+                        :title="color"
+                      />
+                    </div>
+
+                    <!-- Custom Color Input -->
+                    <div class="flex items-center gap-2">
+                      <label class="text-sm text-gray-400">Custom:</label>
+                      <input
+                        v-model="formData.color"
+                        type="color"
+                        class="w-8 h-8 rounded border-0 cursor-pointer"
+                      />
+                      <UInput
+                        v-model="formData.color"
+                        placeholder="#ffffff"
+                        class="flex-1 max-w-32 text-xs"
+                      />
+                    </div>
+                  </div>
+                </UFormField>
+
+                <!-- Role Switches -->
+                <div class="space-y-3">
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <p class="text-white font-medium">
+                        Display role members separately from online members
+                      </p>
+                      <p class="text-sm text-gray-400">
+                        Members with this role will appear in a separate section
+                      </p>
+                    </div>
+                    <USwitch v-model="formData.hoist" />
+                  </div>
+
+                  <div class="flex items-center justify-between">
+                    <div>
+                      <p class="text-white font-medium">
+                        Allow anyone to @mention this role
+                      </p>
+                      <p class="text-sm text-gray-400">
+                        Members can mention this role in messages
+                      </p>
+                    </div>
+                    <USwitch v-model="formData.mentionable" />
+                  </div>
                 </div>
               </div>
             </UCard>
+
+            <!-- Permissions -->
+            <div class="space-y-4">
+              <h3 class="text-lg font-semibold text-white mb-4">Permissions</h3>
+
+              <div
+                v-for="category in permissionCategories"
+                :key="category.name"
+                class="space-y-3"
+              >
+                <UCard class="bg-dark-800 border-dark-700">
+                  <template #header>
+                    <div class="flex items-center justify-between">
+                      <h4 class="text-base font-semibold text-white">
+                        {{ category.name }}
+                      </h4>
+                      <span
+                        class="text-xs text-gray-400 bg-dark-700 px-2 py-1 rounded"
+                      >
+                        {{ category.permissions.length }} permissions
+                      </span>
+                    </div>
+                  </template>
+
+                  <div
+                    v-if="category.permissions.length === 0"
+                    class="text-gray-500 text-sm py-4"
+                  >
+                    No permissions in this category
+                  </div>
+
+                  <div v-else class="space-y-4">
+                    <div
+                      v-for="permission in category.permissions"
+                      :key="permission.id"
+                      class="flex items-center justify-between p-3 rounded-lg bg-dark-700/50 hover:bg-dark-700 transition-colors"
+                    >
+                      <div class="flex-1">
+                        <p class="text-white font-medium">
+                          {{ permission.name }}
+                        </p>
+                        <p class="text-sm text-gray-400 mt-1">
+                          {{ permission.description }}
+                        </p>
+                      </div>
+                      <USwitch
+                        :model-value="hasPermission(permission)"
+                        @update:model-value="togglePermission(permission)"
+                        class="ml-4"
+                      />
+                    </div>
+                  </div>
+                </UCard>
+              </div>
+            </div>
           </div>
-        </div>
-      </div>
+        </template>
+
+        <template #members>
+          <!-- Members Tab Content -->
+          <div class="space-y-6">
+            <UCard class="bg-dark-800 border-dark-700">
+              <div class="text-center py-8">
+                <UIcon
+                  name="i-lucide-users"
+                  class="w-12 h-12 mx-auto mb-4 text-gray-500"
+                />
+                <h3 class="text-lg font-semibold text-white mb-2">
+                  Members Management
+                </h3>
+                <p class="text-gray-400">
+                  Save the role first to manage members
+                </p>
+              </div>
+            </UCard>
+          </div>
+        </template>
+      </UTabs>
     </div>
 
     <!-- Unsaved Changes Bar -->
