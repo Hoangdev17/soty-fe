@@ -44,6 +44,16 @@ definePageMeta({
   },
 });
 
+useHead({
+  title: `Soty | Settings | Edit Role`,
+  meta: [
+    {
+      name: "description",
+      content: "Đăng nhập vào Soty để kết nối với bạn bè và cộng đồng.",
+    },
+  ],
+});
+
 // Tab items
 const tabItems = ref([
   {

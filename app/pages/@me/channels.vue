@@ -8,6 +8,16 @@ definePageMeta({
   middleware: ["required-auth"],
 });
 
+useHead({
+  title: "Soty | Bạn bè",
+  meta: [
+    {
+      name: "description",
+      content: "Đăng nhập vào Soty để kết nối với bạn bè và cộng đồng.",
+    },
+  ],
+});
+
 // DÙng field 'value' để UTabs map với v-model test
 const items = ref<TabsItem[]>([
   { label: "Trực tuyến", value: "online" },

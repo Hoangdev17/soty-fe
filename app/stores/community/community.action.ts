@@ -15,6 +15,7 @@ import {
 import { useChannelStore } from "../channels/channel.store";
 import { useMessageStore } from "../message/message.store";
 import { useAuthStore } from "../auth/auth.store";
+import { useRoleStore } from "../roles/role.store";
 
 export const communityActions = {
   async fetchAllCommunity() {
@@ -50,6 +51,7 @@ export const communityActions = {
     const memberStore = useMemberStore();
     const channelStore = useChannelStore();
     const messageStore = useMessageStore();
+    const roleStore = useRoleStore();
 
     // Leave previous community room if exists
     if (communityStore.currentCommunity) {
@@ -69,6 +71,7 @@ export const communityActions = {
     );
 
     communityStore.currentCommunity = community;
+    roleStore.roles[communityId] = community.roles || [];
 
     joinRoom(`community_${communityId}`);
 
@@ -105,6 +108,7 @@ export const communityActions = {
     const communityStore = useCommunityStore();
     const channelStore = useChannelStore();
     const memberStore = useMemberStore();
+    const roleStore = useRoleStore();
 
     // Leave previous community room if exists
     if (communityStore.currentCommunity) {
@@ -120,6 +124,7 @@ export const communityActions = {
 
     communityStore.currentCommunity = community;
     channelStore.channels = community.channels;
+    roleStore.roles[communityId] = community.roles || [];
 
     memberStore.memberCount = community.memberCount;
 
@@ -220,14 +225,39 @@ export const communityActions = {
     return response;
   },
 
-  // Delete community (chỉ owner)
-  async deleteCommunity(communityId: string) {
+  // Kick member from community
+  async kickMember(communityId: string, memberId: string) {
     const { fetchWithAuth } = useFetchWithAuth();
-    return await fetchWithAuth<{ message: string }>(
-      `/communities/${communityId}`,
+    const memberStore = useMemberStore();
+
+    const response = await fetchWithAuth<{ message: string }>(
+      `/community/${communityId}/members/${memberId}/kick`,
       {
         method: "DELETE",
       }
     );
+
+    // Remove member from local store
+    memberStore.removeMember(communityId, memberId);
+
+    return response;
+  },
+
+  // Ban member from community
+  async banMember(communityId: string, memberId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const memberStore = useMemberStore();
+
+    const response = await fetchWithAuth<{ message: string }>(
+      `/community/${communityId}/members/${memberId}/ban`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    // Remove member from local store
+    memberStore.removeMember(communityId, memberId);
+
+    return response;
   },
 };

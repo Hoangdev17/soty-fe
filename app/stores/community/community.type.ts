@@ -1,4 +1,5 @@
 import type { Channel } from "../channels/channel.type";
+import type { Role } from "../roles/role.type";
 
 // Community types
 export interface Community {
@@ -18,6 +19,7 @@ export interface Community {
     username: string;
     avatar?: string;
   };
+  roles: Role[];
 
   // Các field mới từ BE
   available: boolean;

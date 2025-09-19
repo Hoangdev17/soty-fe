@@ -10,6 +10,16 @@ definePageMeta({
   middleware: ["required-auth"],
 });
 
+useHead({
+  title: `Soty | #Settings | Roles`,
+  meta: [
+    {
+      name: "description",
+      content: "Đăng nhập vào Soty để kết nối với bạn bè và cộng đồng.",
+    },
+  ],
+});
+
 const createNewRole = () => {
   router.push(`/community/@${guildUsername}-${guildId}/roles/create`);
 };

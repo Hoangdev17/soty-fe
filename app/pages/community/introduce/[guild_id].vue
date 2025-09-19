@@ -19,8 +19,26 @@ const authStore = useAuthStore();
 const memberStore = useMemberStore();
 
 const guildId = route.params.guild_id as string;
-const { currentCommunity, isLoadingCurrentCommunity } =
-  storeToRefs(communityStore);
+const { currentCommunity } = storeToRefs(communityStore);
+
+const { data: communityData } = await useAsyncData(`community-${guildId}`, () =>
+  communityStore.fetchCommunityById(guildId)
+);
+
+// Set currentCommunity from fetched data
+if (communityData.value) {
+  communityStore.currentCommunity = communityData.value;
+}
+
+useHead({
+  title: `Soty | ${currentCommunity?.value?.name || "Cộng đồng"} | Introduce`,
+  meta: [
+    {
+      name: "description",
+      content: "Đăng nhập vào Soty để kết nối với bạn bè và cộng đồng.",
+    },
+  ],
+});
 
 // Local loading state
 const isPageLoading = ref(true);

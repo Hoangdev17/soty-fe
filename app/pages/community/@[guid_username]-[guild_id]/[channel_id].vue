@@ -5,7 +5,6 @@ import { useChannelStore } from "~/stores/channels/channel.store";
 import { useCommunityStore } from "~/stores/community/community.store";
 import { useMessage } from "~/composables/useMessage";
 import { useMemberStore } from "~/stores/member/member.store";
-import { useAuthStore } from "~/stores/auth/auth.store";
 import { ChannelType } from "~/stores/channels/channel.type";
 import ChannelLoading from "~/components/organisms/channel.loading.vue";
 import TextChannel from "~/components/organisms/text.channel.vue";
@@ -22,18 +21,44 @@ const channelStore = useChannelStore();
 const guildStore = useCommunityStore();
 const memberStore = useMemberStore();
 
-const {
-  leaveRoom,
-  fetchMessages,
-  getMessages,
-  fetchThreadsByChannel,
-  fetchMessageReferences,
-} = useMessage();
+const { leaveRoom, fetchMessages, getMessages, fetchThreadsByChannel } =
+  useMessage();
 
 const route = useRoute();
 const channelId = route.params.channel_id as string | undefined;
 const guildId = route.params.guild_id as string | undefined;
+
+// Fetch community data before rendering
+const { data: communityData } = await useAsyncData(`community-${guildId}`, () =>
+  guildStore.fetchCommunityById(guildId || "")
+);
+
+// Fetch channel data before rendering
+const { data: channelData } = await useAsyncData(
+  `channel-${guildId}-${channelId}`,
+  () => channelStore.fetchChannelById(guildId || "", channelId || "")
+);
+
+// Set currentCommunity and currentChannel from fetched data
+if (communityData.value) {
+  guildStore.currentCommunity = communityData.value;
+}
+if (channelData.value) {
+  channelStore.currentChannel = channelData.value;
+}
+
 const { currentChannel } = storeToRefs(channelStore);
+const { currentCommunity } = storeToRefs(guildStore);
+
+useHead({
+  title: `Soty | #${currentChannel?.value?.name} | ${currentCommunity?.value?.name}`,
+  meta: [
+    {
+      name: "description",
+      content: "Đăng nhập vào Soty để kết nối với bạn bè và cộng đồng.",
+    },
+  ],
+});
 
 const isPageLoading = ref(true);
 const messageLoading = ref(false);
@@ -51,8 +76,8 @@ const hasMessages = computed(() => {
 onMounted(async () => {
   if (!guildId || !channelId) return;
 
-  await guildStore.fetchCommunityById(guildId);
-  const channel = await channelStore.fetchChannelById(guildId, channelId);
+  // Community and channel are already fetched, just fetch additional data
+  const channel = channelStore.currentChannel;
 
   if (
     channel?.type === ChannelType.GUILD_FORUM ||
@@ -172,7 +197,7 @@ const isOpenSlideoverMember = ref(false);
   />
   <OrganismsThreadChannel
     v-else-if="isThread"
-    :threadId="channelId"
+    :threadId="channelId!"
     @toggleMemberPanel="isOpenSlideoverMember = !isOpenSlideoverMember"
     @closeMemberPanel="isOpenSlideoverMember = false"
   />
