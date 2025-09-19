@@ -10,6 +10,16 @@ definePageMeta({
   middleware: [requiredAuth],
 });
 
+useHead({
+  title: `Soty | Discover Communities`,
+  meta: [
+    {
+      name: "description",
+      content: "Đăng nhập vào Soty để kết nối với bạn bè và cộng đồng.",
+    },
+  ],
+});
+
 const communityStore = useCommunityStore();
 const memberStore = useMemberStore();
 const { communitiesAll, isLoadingCommunities } = storeToRefs(communityStore);

@@ -12,10 +12,31 @@ const router = useRouter();
 const communityStore = useCommunityStore();
 const channelStore = useChannelStore();
 
+const guildId = ref(route.params.guild_id as string | undefined);
+
+// Fetch community data before rendering
+const { data: communityData } = await useAsyncData(
+  `community-${guildId.value}`,
+  () => communityStore.fetchCommunityById(guildId.value || "")
+);
+
+// Set currentCommunity from fetched data
+if (communityData.value) {
+  communityStore.currentCommunity = communityData.value;
+}
+
 const currentCommunity = computed(() => communityStore.currentCommunity);
 const { memberCount } = storeToRefs(useMemberStore());
 
-const guildId = ref(route.params.guild_id as string | undefined);
+useHead({
+  title: `Soty | ${currentCommunity?.value?.name} | Settings`,
+  meta: [
+    {
+      name: "description",
+      content: "Đăng nhập vào Soty để kết nối với bạn bè và cộng đồng.",
+    },
+  ],
+});
 
 // Watcher để cập nhật guildId khi route thay đổi
 watch(
@@ -261,11 +282,9 @@ const handleUploadError = (error: string) => {
   // You can add toast notification here
 };
 
+// Community is already fetched, no need to fetch again in onMounted
 onMounted(async () => {
-  const guildId = route.params.guild_id as string;
-  if (guildId && !currentCommunity.value) {
-    await communityStore.fetchCommunityById(guildId);
-  }
+  // Additional initialization if needed
 });
 </script>
 

@@ -5,7 +5,6 @@ import { useUnsavedChanges } from "~/composables/useUnsavedChanges";
 import type { CreateRoleData, Permission } from "~/stores/roles/role.type";
 import RoleIcon from "~/components/atoms/role.icon.vue";
 import UnsavedChangesBar from "~/components/atoms/unsave.change.vue";
-import RoleMemberManagement from "~/components/organisms/role.member.management.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -31,6 +30,16 @@ definePageMeta({
       next();
     }
   },
+});
+
+useHead({
+  title: `Soty | Settings | Create Role`,
+  meta: [
+    {
+      name: "description",
+      content: "Đăng nhập vào Soty để kết nối với bạn bè và cộng đồng.",
+    },
+  ],
 });
 
 // Reactive refs

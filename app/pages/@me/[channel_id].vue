@@ -1,30 +1,43 @@
 <script setup lang="ts">
 import { useChannelStore } from "~/stores/channels/channel.store";
-import {
-  disconnectWebSocket,
-  initializeWebSocket,
-} from "~/stores/websocket/websocket.action";
+import { initializeWebSocket } from "~/stores/websocket/websocket.action";
 
 definePageMeta({
   layout: "main",
   middleware: ["required-auth"],
 });
 
-onMounted(async () => {
-  await initializeWebSocket();
-  await channelStore.fetchChannelDmById(channelId.value);
-});
-
-// onUnmounted(() => {
-//   disconnectWebSocket();
-// });
-
 const route = useRoute();
-
 const channelStore = useChannelStore();
 const channelId = computed(() => route.params.channel_id as string);
 
+// Fetch channel data before rendering
+const { data: channelData } = await useAsyncData(
+  `channel-${channelId.value}`,
+  () => channelStore.fetchChannelDmById(channelId.value)
+);
+
+// Set currentChannel from fetched data
+if (channelData.value) {
+  channelStore.currentChannel = channelData.value;
+}
+
 const { currentChannel } = storeToRefs(useChannelStore());
+
+useHead({
+  title: `Soty | ${currentChannel?.value?.name || "Tin nhắn"}`,
+  meta: [
+    {
+      name: "description",
+      content: "Đăng nhập vào Soty để kết nối với bạn bè và cộng đồng.",
+    },
+  ],
+});
+
+onMounted(async () => {
+  await initializeWebSocket();
+  // Channel is already fetched, no need to fetch again
+});
 </script>
 
 <template>

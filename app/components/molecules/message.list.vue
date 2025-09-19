@@ -282,7 +282,6 @@ const isReplyMessage = (message: any) => {
           >
             <UButton
               size="xs"
-              color="gray"
               variant="ghost"
               class="p-1 hover:bg-dark-400"
               @click="handleReply(message)"
@@ -293,7 +292,6 @@ const isReplyMessage = (message: any) => {
             <UButton
               v-if="!message.pinned"
               size="xs"
-              color="gray"
               variant="ghost"
               class="p-1 hover:bg-dark-400"
               @click="handlePin(message)"
@@ -304,7 +302,7 @@ const isReplyMessage = (message: any) => {
             <UButton
               v-else
               size="xs"
-              color="yellow"
+              color="warning"
               variant="ghost"
               class="p-1 hover:bg-yellow-600"
               @click="handleUnpin(message)"
@@ -314,7 +312,6 @@ const isReplyMessage = (message: any) => {
             </UButton>
             <UButton
               size="xs"
-              color="gray"
               variant="ghost"
               class="p-1 hover:bg-dark-400"
               @click="handleCreateThread(message)"

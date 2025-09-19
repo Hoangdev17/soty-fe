@@ -31,6 +31,17 @@ watchEffect(() => {
   // Check if we're in roles section
   if (path.includes("/roles")) {
     section.value = "roles";
+  } else if (path.includes("/settings/members")) {
+    section.value = "members";
+  } else if (path.includes("/settings/moderation")) {
+    section.value = "moderation";
+  } else if (path.includes("/settings/audit-log")) {
+    section.value = "audit-log";
+  } else if (path.includes("/settings/integrations")) {
+    section.value = "integrations";
+  } else if (pathSegments.length === 4) {
+    // /community/@name-id/settings
+    section.value = "overview";
   } else if (pathSegments.length > 4) {
     // /community/@name-id/settings/section
     section.value = pathSegments[pathSegments.length - 1] || "overview";
@@ -84,7 +95,6 @@ const menuItems = computed<MenuItem[][]>(() => [
       icon: "i-lucide-users",
       to: `/community/@${currentCommunity.value?.name}-${currentCommunity.value?.id}/settings/members`,
       active: section.value === "members",
-      disabled: true,
     },
   ],
   [

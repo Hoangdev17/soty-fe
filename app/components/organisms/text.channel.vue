@@ -2,7 +2,6 @@
 import { useRoute } from "vue-router";
 import { useMemberStore } from "~/stores/member/member.store";
 import { useAuthStore } from "~/stores/auth/auth.store";
-import { useMessage } from "~/composables/useMessage";
 import type { Channel } from "~/stores/channels/channel.type";
 import ThreadPanel from "~/components/organisms/thread.panel.vue";
 import PinnedMessagesPopover from "~/components/organisms/pinned.messages.popover.vue";
@@ -177,7 +176,7 @@ const handleCreateThreadFromMessage = (message: any) => {
           <UPopover>
             <UButton
               class="p-1 text-[#b9bbbe] hover:text-white"
-              color="transparent"
+              variant="ghost"
             >
               <UIcon name="i-lucide-pin" class="w-5 h-5" />
             </UButton>
@@ -190,7 +189,7 @@ const handleCreateThreadFromMessage = (message: any) => {
           <UPopover v-model:open="isThreadPopoverOpen">
             <UButton
               class="p-1 text-[#b9bbbe] hover:text-white"
-              color="transparent"
+              variant="ghost"
             >
               <UIcon name="i-lucide-spool" class="w-5 h-5" />
             </UButton>
@@ -205,7 +204,7 @@ const handleCreateThreadFromMessage = (message: any) => {
           </UPopover>
           <UButton
             class="p-1 text-[#b9bbbe] hover:text-white"
-            color="transparent"
+            variant="ghost"
             @click="toggleMemberPanel"
           >
             <UIcon name="i-lucide-users-round" class="w-5 h-5" />
@@ -259,7 +258,7 @@ const handleCreateThreadFromMessage = (message: any) => {
         >
           <MoleculesMessageInput
             :channelId="channelId"
-            :replyTo="replyToMessage"
+            :replyTo="replyToMessage!"
             @reply-sent="handleReplySent"
             @reply-cancelled="handleReplyCancelled"
           />
@@ -287,7 +286,7 @@ const handleCreateThreadFromMessage = (message: any) => {
           <div class="flex items-center gap-2">
             <UButton
               @click="refreshMembers"
-              color="transparent"
+              variant="ghost"
               class="text-[#b9bbbe] hover:text-white p-1"
               :loading="memberStore.isLoading"
               size="sm"
@@ -296,7 +295,7 @@ const handleCreateThreadFromMessage = (message: any) => {
             </UButton>
             <UButton
               @click="closeMemberPanel"
-              color="transparent"
+              variant="ghost"
               class="text-[#b9bbbe] hover:text-white p-1"
             >
               <UIcon name="i-lucide-x" class="w-5 h-5" />

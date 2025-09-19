@@ -26,6 +26,12 @@ export interface Role {
       discriminator: string;
       avatar?: string;
     };
+    member?: {
+      id: string;
+      username: string;
+      discriminator: string;
+      avatar?: string;
+    };
     id: string;
   }[]; // Array of member
   createdAt: string;
@@ -209,16 +215,16 @@ export const DEFAULT_PERMISSIONS: Permission[] = [
     category: "management",
   },
   {
-    id: "VIEW_AUDIT_LOG",
-    name: "View Audit Log",
-    description: "Can view server audit logs",
-    category: "management",
+    id: "PRIORITY_SPEAKER",
+    name: "Priority Speaker",
+    description: "Can be given priority when speaking",
+    category: "voice",
   },
   {
-    id: "MODERATE_MEMBERS",
-    name: "Moderate Members",
-    description: "Can timeout and moderate members",
-    category: "management",
+    id: "STREAM",
+    name: "Stream",
+    description: "Can stream video in voice channels",
+    category: "voice",
   },
 
   // Advanced permissions
@@ -353,6 +359,7 @@ export class GuildPermissions {
     GuildPermissions.CONNECT |
     GuildPermissions.SPEAK |
     GuildPermissions.USE_VAD |
+    GuildPermissions.PRIORITY_SPEAKER |
     GuildPermissions.STREAM |
     GuildPermissions.USE_SLASH_COMMANDS;
 

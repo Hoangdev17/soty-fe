@@ -9,10 +9,16 @@ import { useChannelStore } from "~/stores/channels/channel.store";
 import { useMessage } from "~/composables/useMessage";
 import { leaveRoom } from "~/stores/websocket/websocket.action";
 import InviteModal from "~/components/molecules/invite.modal.vue";
+import { useAuthStore } from "~/stores/auth/auth.store";
+import { useRoleStore } from "~/stores/roles/role.store";
+import { useMemberStore } from "~/stores/member/member.store";
 
 const route = useRoute();
 const communityStore = useCommunityStore();
 const channelStore = useChannelStore();
+const authStore = useAuthStore();
+const roleStore = useRoleStore();
+const memberStore = useMemberStore();
 const { fetchThreadsByChannel } = useMessage();
 
 // Function to fetch threads for all channels
@@ -32,47 +38,22 @@ const itemsNavigates = ref<NavigationMenuItem[][]>([
       label: "Sự kiện",
       icon: "i-lucide-users",
       to: "/@me/channels",
+      disabled: false,
     },
     {
       label: "Nâng cấp máy chủ",
       icon: "i-lucide-store",
       to: "/community",
+      disabled: false,
     },
     {
       label: "Giới thiệu về community",
       icon: "i-lucide-store",
       to: "/community/introduce/" + (guildId.value || ""),
+      disabled: false, // Always enabled
     },
   ],
 ]);
-watch(
-  () => route.params.guild_id,
-  (newGuildId) => {
-    guildId.value = newGuildId as string | undefined;
-
-    // Cập nhật itemsNavigates để to được tính toán lại
-    itemsNavigates.value = [
-      [
-        {
-          label: "Sự kiện",
-          icon: "i-lucide-users",
-          to: "/@me/channels",
-        },
-        {
-          label: "Nâng cấp máy chủ",
-          icon: "i-lucide-store",
-          to: "/community",
-        },
-        {
-          label: "Giới thiệu về community",
-          icon: "i-lucide-store",
-          to: "/community/introduce/" + (guildId.value || ""),
-        },
-      ],
-    ];
-  },
-  { immediate: true }
-);
 
 const isCreating = ref(false);
 const isCreatingChannel = ref(false); // Track if this client is creating a channel
@@ -209,6 +190,8 @@ onMounted(async () => {
     await channelStore.fetchAllChannelsByGuildId(
       communityStore.currentCommunity.id
     );
+    await roleStore.fetchRoles(communityStore.currentCommunity.id);
+    await memberStore.fetchMembers(communityStore.currentCommunity.id);
     await fetchAllThreads();
   }
   // Close dropdown when clicking outside (event listener attached in setup)
@@ -241,57 +224,62 @@ const items = computed<DropdownMenuItem[][]>(() => [
       label: "Mời mọi người",
       icon: "i-lucide-user-plus",
       onSelect: () => {
+        if (!isMember.value) return; // Only allow members to invite
         isInviteModalOpen.value = true;
       },
-      disabled: !communityStore.currentCommunity,
+      disabled: !communityStore.currentCommunity || !isMember.value,
     },
-    {
-      label: "Cài đặt máy chủ",
-      icon: "i-lucide-settings",
-      to: communityStore.currentCommunity
-        ? `/community/@${communityStore.currentCommunity.name}-${communityStore.currentCommunity.id}/settings`
-        : undefined,
-      disabled: !communityStore.currentCommunity,
-    },
+    ...(canManageServer.value
+      ? [
+          {
+            label: "Cài đặt máy chủ",
+            icon: "i-lucide-settings",
+            to: communityStore.currentCommunity
+              ? `/community/@${communityStore.currentCommunity.name}-${communityStore.currentCommunity.id}/settings`
+              : undefined,
+            disabled: !communityStore.currentCommunity,
+          },
+        ]
+      : []),
     {
       label: "Tạo kênh",
       icon: "i-lucide-circle-plus",
       onSelect: () => {
         openCreateChannelModal();
       },
-      disabled: !communityStore.currentCommunity,
+      disabled: !communityStore.currentCommunity || !isMember.value,
     },
     {
       label: "Tạo danh mục",
       icon: "i-lucide-folder-plus",
-      disabled: !communityStore.currentCommunity,
+      disabled: !communityStore.currentCommunity || !isMember.value,
     },
     {
       label: "Tạo sự kiện",
       icon: "i-lucide-calendar-1",
-      disabled: !communityStore.currentCommunity,
+      disabled: !communityStore.currentCommunity || !isMember.value,
     },
     {
       label: "Chủ đề đang hoạt động",
       icon: "i-lucide-message-circle",
-      disabled: !communityStore.currentCommunity,
+      disabled: !communityStore.currentCommunity || !isMember.value,
     },
     {
       label: "Thư mục App",
       icon: "i-lucide-gamepad-2",
-      disabled: !communityStore.currentCommunity,
+      disabled: !communityStore.currentCommunity || !isMember.value,
     },
   ],
   [
     {
       label: "Cài đặt thông báo",
       icon: "i-lucide-bell-ring",
-      disabled: !communityStore.currentCommunity,
+      disabled: !communityStore.currentCommunity || !isMember.value,
     },
     {
       label: "Cài đặt bảo mật",
       icon: "i-lucide-shield-half",
-      disabled: !communityStore.currentCommunity,
+      disabled: !communityStore.currentCommunity || !isMember.value,
     },
   ],
 ]);
@@ -310,6 +298,124 @@ const itemChannelType = ref<RadioGroupItem[]>([
     description: "Perfect for teams of 2-10 people.",
   },
 ]);
+
+// Computed properties
+const isMember = computed(() => {
+  if (!communityStore.currentCommunity?.id || !authStore.user?.id) {
+    return false;
+  }
+
+  const guildId = communityStore.currentCommunity.id;
+  const userId = authStore.user.id;
+
+  // Get all members for this guild
+  const members = memberStore.getMembersByGuild(guildId);
+
+  // Check if user is a member
+  return members.some(
+    (member: any) =>
+      member.member?.user?.id === userId ||
+      member.member?.id === userId ||
+      member.user?.id === userId ||
+      member.id === userId ||
+      member.memberId === userId
+  );
+});
+
+const canManageServer = computed(() => {
+  if (!communityStore.currentCommunity?.id || !authStore.user?.id) {
+    return false;
+  }
+
+  const guildId = communityStore.currentCommunity.id;
+  const userId = authStore.user.id;
+
+  // Get all roles for this guild
+  const allRoles = roleStore.getRolesByGuild(guildId);
+
+  // Find roles that this user has
+  const userRoles = allRoles.filter((role) => {
+    if (!role.members) return false;
+
+    const hasUser = role.members.some((member: any) => {
+      return member.member?.user?.id === userId;
+    });
+
+    return hasUser;
+  });
+
+  // Check if user has ADMINISTRATOR or MANAGE_GUILD permission
+  const hasPermission = userRoles.some(
+    (role) =>
+      role.permissions?.includes("ADMINISTRATOR") ||
+      role.permissions?.includes("MANAGE_GUILD")
+  );
+
+  return hasPermission;
+});
+
+// Watch for isMember changes to update navigation items
+watch(
+  () => isMember.value,
+  (newIsMember) => {
+    itemsNavigates.value = [
+      [
+        {
+          label: "Sự kiện",
+          icon: "i-lucide-users",
+          to: "/@me/channels",
+          disabled: !newIsMember,
+        },
+        {
+          label: "Nâng cấp máy chủ",
+          icon: "i-lucide-store",
+          to: "/community",
+          disabled: !newIsMember,
+        },
+        {
+          label: "Giới thiệu về community",
+          icon: "i-lucide-store",
+          to: "/community/introduce/" + (guildId.value || ""),
+          disabled: false, // Always enabled
+        },
+      ],
+    ];
+  },
+  { immediate: true }
+);
+
+// Watch for route params changes to update navigation items
+watch(
+  () => route.params.guild_id,
+  (newGuildId) => {
+    guildId.value = newGuildId as string | undefined;
+    // Update itemsNavigates with current disabled state
+    const currentIsMember = isMember.value;
+    itemsNavigates.value = [
+      [
+        {
+          label: "Sự kiện",
+          icon: "i-lucide-users",
+          to: "/@me/channels",
+          disabled: !currentIsMember,
+        },
+        {
+          label: "Nâng cấp máy chủ",
+          icon: "i-lucide-store",
+          to: "/community",
+          disabled: !currentIsMember,
+        },
+        {
+          label: "Giới thiệu về community",
+          icon: "i-lucide-store",
+          to: "/community/introduce/" + (guildId.value || ""),
+          disabled: false, // Always enabled
+        },
+      ],
+    ];
+  },
+  { immediate: true }
+);
 
 // Function to get icon for channel type
 const getChannelIcon = (channelType: string) => {
@@ -340,7 +446,11 @@ const getChannelIcon = (channelType: string) => {
 };
 
 const itemsChannel = computed<NavigationMenuItem[][]>(() => {
-  if (!channelStore.channels || channelStore.channels.length === 0) {
+  if (
+    !channelStore.channels ||
+    channelStore.channels.length === 0 ||
+    !isMember.value
+  ) {
     return [];
   }
 
@@ -377,6 +487,7 @@ const newChannel = ref({
 
 // Hàm mở modal
 const openCreateChannelModal = () => {
+  if (!isMember.value) return; // Only allow members to create channels
   isCreateChannelModalOpen.value = true;
 };
 
