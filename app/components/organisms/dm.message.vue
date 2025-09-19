@@ -5,11 +5,6 @@ import { useAuthStore } from "~/stores/auth/auth.store";
 import { useRoute } from "vue-router";
 import { useMessageStore } from "~/stores/message/message.store";
 
-definePageMeta({
-  layout: "main",
-  middleware: ["required-auth"],
-});
-
 const messageStore = useMessageStore();
 
 const route = useRoute();
@@ -36,8 +31,6 @@ const dmRecipient = computed(() => {
     ? currentChannel.value.recipients
     : null;
 });
-
-console.log("dmrecipient", dmRecipient.value);
 
 const hasMessages = computed(() => {
   const messages = messageStore.getMessagesByRoom(channelId.value);
@@ -90,7 +83,7 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="channel-page flex h-full bg-dark-800">
+  <div class="channel-page flex h-full bg-dar k-800">
     <!-- Main Chat Area -->
     <div
       class="flex-1 flex flex-col transition-all duration-300 min-w-0"
@@ -119,7 +112,7 @@ onMounted(async () => {
         <div class="ml-auto flex items-center space-x-3">
           <UButton
             class="p-1 text-[#b9bbbe] hover:text-white"
-            color="transparent"
+            variant="ghost"
             @click="toggleUserProfile"
           >
             <UIcon name="i-lucide-user" class="w-5 h-5" />
@@ -172,7 +165,7 @@ onMounted(async () => {
         >
           <MoleculesMessageInput
             :channelId="channelId"
-            :replyTo="replyToMessage"
+            :replyTo="replyToMessage || undefined"
             @reply-sent="handleReplySent"
             @reply-cancelled="handleReplyCancelled"
           />
@@ -193,7 +186,7 @@ onMounted(async () => {
           </h3>
           <UButton
             @click="closeUserProfile"
-            color="transparent"
+            variant="ghost"
             class="text-[#b9bbbe] hover:text-white p-1"
           >
             <UIcon name="i-lucide-x" class="w-5 h-5" />
@@ -236,7 +229,7 @@ onMounted(async () => {
             >
               Add Friend
             </UButton>
-            <UButton color="red" variant="soft" block icon="i-lucide-user-x">
+            <UButton color="error" variant="soft" block icon="i-lucide-user-x">
               Block User
             </UButton>
           </div>
