@@ -6,12 +6,14 @@ import type {
 } from "@nuxt/ui";
 import { useCommunityStore } from "~/stores/community/community.store";
 import { useChannelStore } from "~/stores/channels/channel.store";
-import { useMessage } from "~/composables/useMessage";
 import { leaveRoom } from "~/stores/websocket/websocket.action";
 import InviteModal from "~/components/molecules/invite.modal.vue";
+import CreateCategoryModal from "~/components/molecules/create.category.modal.vue";
+import CreateChannelModal from "~/components/molecules/create.channel.modal.vue";
 import { useAuthStore } from "~/stores/auth/auth.store";
 import { useRoleStore } from "~/stores/roles/role.store";
 import { useMemberStore } from "~/stores/member/member.store";
+import type { Member } from "~/stores/member/member.type";
 
 const route = useRoute();
 const communityStore = useCommunityStore();
@@ -19,93 +21,172 @@ const channelStore = useChannelStore();
 const authStore = useAuthStore();
 const roleStore = useRoleStore();
 const memberStore = useMemberStore();
-const { fetchThreadsByChannel } = useMessage();
 
-// Function to fetch threads for all channels
-const fetchAllThreads = async () => {
-  if (channelStore.channels && channelStore.channels.length > 0) {
-    for (const channel of channelStore.channels) {
-      if (channel.type === "GUILD_TEXT" || channel.type === "GUILD_NEWS") {
-        await fetchThreadsByChannel(channel.id);
-      }
-    }
-  }
-};
 const guildId = ref(route.params.guild_id as string | undefined);
-const itemsNavigates = ref<NavigationMenuItem[][]>([
+const { currentCommunity } = storeToRefs(communityStore);
+
+const isInviteModalOpen = ref(false);
+const isCreateCategoryModalOpen = ref(false);
+const isCreateChannelModalOpen = ref(false);
+const selectedCategoryId = ref<string>("");
+const expandedCategories = ref<Set<string>>(new Set());
+const serverName = ref(communityStore.currentCommunity?.name || "My Server");
+const showDropdown = ref(false);
+
+const itemsNavigates = computed<NavigationMenuItem[][]>(() => [
   [
     {
       label: "Sự kiện",
       icon: "i-lucide-users",
       to: "/@me/channels",
-      disabled: false,
+      // disabled: !communityStore.currentCommunity || !isMember.value,
+      disabled: true,
     },
     {
       label: "Nâng cấp máy chủ",
       icon: "i-lucide-store",
       to: "/community",
-      disabled: false,
+      // disabled: !communityStore.currentCommunity || !isMember.value,
+      disabled: true,
     },
     {
       label: "Giới thiệu về community",
       icon: "i-lucide-store",
-      to: "/community/introduce/" + (guildId.value || ""),
-      disabled: false, // Always enabled
+      to: "/community/introduce/" + currentCommunity.value?.id,
+      disabled: false,
     },
   ],
 ]);
 
-const isCreating = ref(false);
-const isCreatingChannel = ref(false); // Track if this client is creating a channel
-const creatingChannelName = ref(""); // Track the name of the channel being created
+const items = computed<DropdownMenuItem[][]>(() => [
+  [
+    {
+      label: "Nâng cấp máy chủ",
+      type: "label",
+    },
+  ],
+  [
+    {
+      label: "Mời mọi người",
+      icon: "i-lucide-user-plus",
+      onSelect: () => {
+        if (!isMember.value) return;
+        isInviteModalOpen.value = true;
+      },
+      disabled: !communityStore.currentCommunity || !isMember.value,
+    },
+    ...(canManageServer.value
+      ? [
+          {
+            label: "Cài đặt máy chủ",
+            icon: "i-lucide-settings",
+            to: communityStore.currentCommunity
+              ? `/community/@${communityStore.currentCommunity.name}-${communityStore.currentCommunity.id}/settings`
+              : undefined,
+            disabled: !communityStore.currentCommunity,
+          },
+        ]
+      : []),
+    ...(canManageServer.value
+      ? [
+          {
+            label: "Tạo kênh",
+            icon: "i-lucide-circle-plus",
+            onSelect: () => {
+              openCreateChannelModal();
+            },
+            disabled: !communityStore.currentCommunity || !isMember.value,
+          },
+        ]
+      : []),
 
-// Watch for new channels being added to navigate only for creator
-watch(
-  () => channelStore.channels?.length,
-  async (newLength, oldLength) => {
-    if (newLength !== oldLength) {
-      // Refetch threads when channels change
-      await fetchAllThreads();
-    }
+    ...(canManageServer.value
+      ? [
+          {
+            label: "Tạo danh mục",
+            icon: "i-lucide-folder-plus",
+            onSelect: () => {
+              openCreateCategoryModal();
+            },
+            disabled: !communityStore.currentCommunity || !isMember.value,
+          },
+        ]
+      : []),
+    ...(canManageServer.value
+      ? [
+          {
+            label: "Tạo sự kiện",
+            icon: "i-lucide-calendar-1",
+            onSelect: () => {},
+            // disabled: !communityStore.currentCommunity || !isMember.value,
+            disabled: true,
+          },
+        ]
+      : []),
+    {
+      label: "Thư mục App",
+      icon: "i-lucide-gamepad-2",
+      // disabled: !communityStore.currentCommunity || !isMember.value,
+      disabled: true,
+    },
+  ],
+  [
+    {
+      label: "Cài đặt thông báo",
+      icon: "i-lucide-bell-ring",
+      // disabled: !communityStore.currentCommunity || !isMember.value,
+      disabled: true,
+    },
+  ],
+]);
 
-    if (
-      newLength > oldLength &&
-      isCreatingChannel.value &&
-      creatingChannelName.value
-    ) {
-      // Find the newly created channel
-      const newestChannel = channelStore.channels?.find(
-        (channel) => channel.name === creatingChannelName.value
+onMounted(async () => {
+  if (communityStore?.currentCommunity?.id) {
+    // Chỉ fetch channels nếu chưa có channels (tránh override từ fetchCommunityById)
+    if (!channelStore.channels || channelStore.channels.length === 0) {
+      await channelStore.fetchAllChannelsByGuildId(
+        communityStore.currentCommunity.id
       );
-
-      if (newestChannel && communityStore.currentCommunity) {
-        // Set as current channel and navigate
-        channelStore.currentChannel = newestChannel;
-
-        const newUrl = `/community/@${communityStore.currentCommunity.name}-${communityStore.currentCommunity.id}/${newestChannel.id}`;
-
-        // Navigate to the new channel
-        navigateTo(newUrl);
-
-        // Reset flags
-        isCreatingChannel.value = false;
-        creatingChannelName.value = "";
-      }
     }
   }
-);
 
-// Invite modal state
-const isInviteModalOpen = ref(false);
+  // Initialize expanded categories
+  if (channelStore.channels) {
+    const categories = channelStore.channels.filter(
+      (c: any) => c.type === "GUILD_CATEGORY"
+    );
+    categories.forEach((category: any) => {
+      expandedCategories.value.add(category.id);
+    });
+    expandedCategories.value = new Set(expandedCategories.value);
+  }
+});
 
-// Ref for the form
-const channelForm = ref<HTMLFormElement>();
+const toggleCategory = (categoryId: string) => {
+  if (expandedCategories.value.has(categoryId)) {
+    expandedCategories.value.delete(categoryId);
+  } else {
+    expandedCategories.value.add(categoryId);
+  }
 
-// Reactive server name
-const serverName = ref(communityStore.currentCommunity?.name || "My Server");
+  expandedCategories.value = new Set(expandedCategories.value);
+};
 
-// Dropdown state
-const showDropdown = ref(false);
+// Function to check if category is expanded
+const isCategoryExpanded = (categoryId: string) => {
+  return expandedCategories.value.has(categoryId);
+};
+
+// Function to get current channel ID from route
+const getCurrentChannelId = () => {
+  const pathParts = route.path.split("/");
+  return pathParts[pathParts.length - 1];
+};
+
+// Computed property for current channel ID
+const currentChannelId = computed(() => {
+  return getCurrentChannelId();
+});
 
 // Handle dropdown menu item clicks
 const handleMenuClick = (item: any) => {
@@ -129,77 +210,6 @@ watch(
   { immediate: true }
 );
 
-// Watch route changes to update currentCommunity
-watch(
-  () => route.path,
-  async (newPath) => {
-    if (newPath.startsWith("/community/")) {
-      // Extract community ID từ URL
-      const pathParts = newPath.split("/");
-      const communitySlug = pathParts[pathParts.length - 1];
-
-      if (communitySlug) {
-        // Handle both formats: @name-id or name-id
-        let cleanSlug = communitySlug;
-        if (cleanSlug.startsWith("@")) {
-          cleanSlug = cleanSlug.substring(1);
-        }
-
-        const lastDashIndex = cleanSlug.lastIndexOf("-");
-        if (lastDashIndex !== -1) {
-          const communityId = cleanSlug.substring(lastDashIndex + 1);
-
-          // Validate that communityId is a valid format (should be numeric or UUID-like)
-          if (
-            communityId &&
-            (communityId.match(/^\d+$/) || communityId.match(/^[a-f0-9-]+$/i))
-          ) {
-            // Tìm community trong list hiện có
-            const community = communityStore.communities.find(
-              (c: any) => c.id == communityId
-            );
-
-            if (community) {
-              // Use existing community
-              communityStore.currentCommunity = community;
-            } else {
-              // Fetch từ API nếu không có trong list
-              try {
-                await communityStore.fetchCommunityById(communityId);
-              } catch (error) {
-                console.error("Error fetching community:", error);
-                // Reset về default nếu không tìm thấy
-                communityStore.currentCommunity = null;
-                serverName.value = "My Server";
-              }
-            }
-          }
-        }
-      }
-    } else if (newPath === "/@me/channels") {
-      // Reset khi về home
-      communityStore.currentCommunity = null;
-      serverName.value = "My Server";
-    }
-  },
-  { immediate: true }
-);
-
-onMounted(async () => {
-  if (communityStore?.currentCommunity?.id) {
-    await channelStore.fetchAllChannelsByGuildId(
-      communityStore.currentCommunity.id
-    );
-    await roleStore.fetchRoles(communityStore.currentCommunity.id);
-    await memberStore.fetchMembers(communityStore.currentCommunity.id);
-    await fetchAllThreads();
-  }
-  // Close dropdown when clicking outside (event listener attached in setup)
-  if (communityStore?.currentCommunity?.id) {
-    // noop - setup complete
-  }
-});
-
 // Close dropdown when clicking outside - handler declared at setup scope
 const handleClickOutside = (event: MouseEvent) => {
   const target = event.target as Element;
@@ -211,93 +221,6 @@ const handleClickOutside = (event: MouseEvent) => {
     showDropdown.value = false;
   }
 };
-
-const items = computed<DropdownMenuItem[][]>(() => [
-  [
-    {
-      label: "Nâng cấp máy chủ",
-      type: "label",
-    },
-  ],
-  [
-    {
-      label: "Mời mọi người",
-      icon: "i-lucide-user-plus",
-      onSelect: () => {
-        if (!isMember.value) return; // Only allow members to invite
-        isInviteModalOpen.value = true;
-      },
-      disabled: !communityStore.currentCommunity || !isMember.value,
-    },
-    ...(canManageServer.value
-      ? [
-          {
-            label: "Cài đặt máy chủ",
-            icon: "i-lucide-settings",
-            to: communityStore.currentCommunity
-              ? `/community/@${communityStore.currentCommunity.name}-${communityStore.currentCommunity.id}/settings`
-              : undefined,
-            disabled: !communityStore.currentCommunity,
-          },
-        ]
-      : []),
-    {
-      label: "Tạo kênh",
-      icon: "i-lucide-circle-plus",
-      onSelect: () => {
-        openCreateChannelModal();
-      },
-      disabled: !communityStore.currentCommunity || !isMember.value,
-    },
-    {
-      label: "Tạo danh mục",
-      icon: "i-lucide-folder-plus",
-      disabled: !communityStore.currentCommunity || !isMember.value,
-    },
-    {
-      label: "Tạo sự kiện",
-      icon: "i-lucide-calendar-1",
-      disabled: !communityStore.currentCommunity || !isMember.value,
-    },
-    {
-      label: "Chủ đề đang hoạt động",
-      icon: "i-lucide-message-circle",
-      disabled: !communityStore.currentCommunity || !isMember.value,
-    },
-    {
-      label: "Thư mục App",
-      icon: "i-lucide-gamepad-2",
-      disabled: !communityStore.currentCommunity || !isMember.value,
-    },
-  ],
-  [
-    {
-      label: "Cài đặt thông báo",
-      icon: "i-lucide-bell-ring",
-      disabled: !communityStore.currentCommunity || !isMember.value,
-    },
-    {
-      label: "Cài đặt bảo mật",
-      icon: "i-lucide-shield-half",
-      disabled: !communityStore.currentCommunity || !isMember.value,
-    },
-  ],
-]);
-
-const itemChannelType = ref<RadioGroupItem[]>([
-  {
-    label: "TEXT",
-    icon: "i-lucide-hash",
-    value: "GUILD_TEXT",
-    description: "Tailored for indie hackers, freelancers and solo founders.",
-  },
-  {
-    label: "Voice",
-    icon: "i-lucide-volume-2",
-    value: "GUILD_VOICE",
-    description: "Perfect for teams of 2-10 people.",
-  },
-]);
 
 // Computed properties
 const isMember = computed(() => {
@@ -312,14 +235,7 @@ const isMember = computed(() => {
   const members = memberStore.getMembersByGuild(guildId);
 
   // Check if user is a member
-  return members.some(
-    (member: any) =>
-      member.member?.user?.id === userId ||
-      member.member?.id === userId ||
-      member.user?.id === userId ||
-      member.id === userId ||
-      member.memberId === userId
-  );
+  return members.some((member: Member) => member.user?.id === userId);
 });
 
 const canManageServer = computed(() => {
@@ -330,89 +246,49 @@ const canManageServer = computed(() => {
   const guildId = communityStore.currentCommunity.id;
   const userId = authStore.user.id;
 
-  // Get all roles for this guild
-  const allRoles = roleStore.getRolesByGuild(guildId);
+  // Lấy member object an toàn
+  const membersList = memberStore.getMembersByGuild(guildId) || [];
+  const member = membersList.find((m: Member) => m.userId === userId);
+  const memberId = member?.id;
 
-  // Find roles that this user has
-  const userRoles = allRoles.filter((role) => {
-    if (!role.members) return false;
+  if (!memberId) return false;
 
-    const hasUser = role.members.some((member: any) => {
-      return member.member?.user?.id === userId;
+  // đảm bảo luôn là mảng
+  const allRoles = roleStore.getRolesByGuild(guildId) || [];
+
+  const userRoles = allRoles.filter((role: any) => {
+    const roleMembers = role?.members || [];
+    return roleMembers.some((member: any) => {
+      return member?.memberId === memberId;
     });
-
-    return hasUser;
   });
 
-  // Check if user has ADMINISTRATOR or MANAGE_GUILD permission
+  // đảm bảo permissions tồn tại trước khi gọi includes
   const hasPermission = userRoles.some(
-    (role) =>
-      role.permissions?.includes("ADMINISTRATOR") ||
-      role.permissions?.includes("MANAGE_GUILD")
+    (role: any) =>
+      (role?.permissions || []).includes("ADMINISTRATOR") ||
+      (role?.permissions || []).includes("MANAGE_GUILD")
   );
 
   return hasPermission;
 });
 
-// Watch for isMember changes to update navigation items
+// Watch for channels changes to update expanded categories
 watch(
-  () => isMember.value,
-  (newIsMember) => {
-    itemsNavigates.value = [
-      [
-        {
-          label: "Sự kiện",
-          icon: "i-lucide-users",
-          to: "/@me/channels",
-          disabled: !newIsMember,
-        },
-        {
-          label: "Nâng cấp máy chủ",
-          icon: "i-lucide-store",
-          to: "/community",
-          disabled: !newIsMember,
-        },
-        {
-          label: "Giới thiệu về community",
-          icon: "i-lucide-store",
-          to: "/community/introduce/" + (guildId.value || ""),
-          disabled: false, // Always enabled
-        },
-      ],
-    ];
-  },
-  { immediate: true }
-);
+  () => channelStore.channels,
+  (newChannels) => {
+    if (newChannels && newChannels.length > 0) {
+      const categories = newChannels.filter(
+        (c: any) => c.type === "GUILD_CATEGORY"
+      );
+      const newExpanded = new Set(expandedCategories.value);
 
-// Watch for route params changes to update navigation items
-watch(
-  () => route.params.guild_id,
-  (newGuildId) => {
-    guildId.value = newGuildId as string | undefined;
-    // Update itemsNavigates with current disabled state
-    const currentIsMember = isMember.value;
-    itemsNavigates.value = [
-      [
-        {
-          label: "Sự kiện",
-          icon: "i-lucide-users",
-          to: "/@me/channels",
-          disabled: !currentIsMember,
-        },
-        {
-          label: "Nâng cấp máy chủ",
-          icon: "i-lucide-store",
-          to: "/community",
-          disabled: !currentIsMember,
-        },
-        {
-          label: "Giới thiệu về community",
-          icon: "i-lucide-store",
-          to: "/community/introduce/" + (guildId.value || ""),
-          disabled: false, // Always enabled
-        },
-      ],
-    ];
+      categories.forEach((category: any) => {
+        newExpanded.add(category.id);
+      });
+
+      expandedCategories.value = newExpanded;
+    }
   },
   { immediate: true }
 );
@@ -454,18 +330,68 @@ const itemsChannel = computed<NavigationMenuItem[][]>(() => {
     return [];
   }
 
-  // Tạo items động từ channels và threads
+  // Separate categories and channels
+  const categories = channelStore.channels.filter(
+    (channel: any) => channel.type === "GUILD_CATEGORY"
+  );
+  const channels = channelStore.channels.filter(
+    (channel: any) => channel.type !== "GUILD_CATEGORY"
+  );
+
   const channelItems: NavigationMenuItem[] = [];
 
-  channelStore.channels.forEach((channel: any) => {
-    // Add the main channel
+  // Group channels by category
+  const channelsByCategory = channels.reduce((acc: any, channel: any) => {
+    const categoryId = channel.parentId || "no-category";
+    if (!acc[categoryId]) {
+      acc[categoryId] = [];
+    }
+    acc[categoryId].push(channel);
+    return acc;
+  }, {});
+
+  // Sort categories by position
+  const sortedCategories = categories.sort(
+    (a: any, b: any) => (a.position || 0) - (b.position || 0)
+  );
+
+  // Add channels without category first
+  if (channelsByCategory["no-category"]) {
+    channelsByCategory["no-category"]
+      .sort((a: any, b: any) => (a.position || 0) - (b.position || 0))
+      .forEach((channel: any) => {
+        channelItems.push({
+          label: channel.name || "Kênh không tên",
+          icon: getChannelIcon(channel.type),
+          to: `/community/@${communityStore.currentCommunity?.name}-${communityStore.currentCommunity?.id}/${channel.id}`,
+        });
+      });
+  }
+
+  // Add categories with their channels
+  sortedCategories.forEach((category: any) => {
+    // Add category header (not clickable)
     channelItems.push({
-      label: channel.name || "Kênh không tên",
-      icon: getChannelIcon(channel.type),
-      to: `/community/@${communityStore.currentCommunity?.name}-${communityStore.currentCommunity?.id}/${channel.id}`,
+      label: category.name,
+      icon: getChannelIcon(category.type),
+      disabled: true,
+      class:
+        "category-header font-semibold text-gray-400 text-xs uppercase tracking-wider",
     });
 
-    // Add threads for this channel as children
+    // Add channels in this category
+    if (channelsByCategory[category.id]) {
+      channelsByCategory[category.id]
+        .sort((a: any, b: any) => (a.position || 0) - (b.position || 0))
+        .forEach((channel: any) => {
+          channelItems.push({
+            label: channel.name || "Kênh không tên",
+            icon: getChannelIcon(channel.type),
+            to: `/community/@${communityStore.currentCommunity?.name}-${communityStore.currentCommunity?.id}/${channel.id}`,
+            class: "channel-item ml-4",
+          });
+        });
+    }
   });
 
   return [channelItems];
@@ -477,67 +403,93 @@ onUnmounted(() => {
   }
 });
 
-const isCreateChannelModalOpen = ref(false);
-
-// Reactive data cho form
-const newChannel = ref({
-  name: "",
-  type: "GUILD_TEXT", // Mặc định là text
-});
-
 // Hàm mở modal
 const openCreateChannelModal = () => {
   if (!isMember.value) return; // Only allow members to create channels
+  selectedCategoryId.value = ""; // Reset category selection
   isCreateChannelModalOpen.value = true;
 };
 
-// Hàm đóng modal
-const closeCreateChannelModal = () => {
-  isCreateChannelModalOpen.value = false;
-  newChannel.value = { name: "", type: "GUILD_TEXT" };
+const openCreateChannelInCategory = (categoryId: string) => {
+  if (!isMember.value) return;
+  selectedCategoryId.value = categoryId;
+  isCreateChannelModalOpen.value = true;
 };
 
-// Hàm tạo kênh
-const createChannel = async () => {
-  if (!newChannel.value.name.trim() || !communityStore.currentCommunity?.id)
-    return;
+const openCreateCategoryModal = () => {
+  if (!isMember.value) return; // Only allow members to create categories
+  isCreateCategoryModalOpen.value = true;
+};
 
-  isCreating.value = true;
-  isCreatingChannel.value = true; // Set flag that this client is creating
-  creatingChannelName.value = newChannel.value.name; // Store the channel name
+// Callback functions for modal events
+const onCategoryCreated = (category: any) => {
+  console.log("Category created:", category);
+  // Refresh channels list is handled by the store action
+};
 
-  try {
-    await channelStore.createChannel({
-      name: newChannel.value.name,
-      type: newChannel.value.type,
-      guildId: communityStore.currentCommunity.id,
-    });
+const onChannelCreated = (channel: any) => {
+  console.log("Channel created:", channel);
+  // Navigation and refresh is handled by the existing watcher and store
+};
 
-    // Close modal immediately, let watcher handle navigation
-    closeCreateChannelModal();
+// Computed properties for channel hierarchy
+const channelsWithoutCategory = computed(() => {
+  if (!channelStore.channels || !isMember.value) return [];
 
-    // Set timeout to reset flags if no response after 10 seconds
-    setTimeout(() => {
-      if (isCreatingChannel.value) {
-        isCreatingChannel.value = false;
-        creatingChannelName.value = "";
-      }
-    }, 10000);
-  } catch (error) {
-    console.error("Error creating channel:", error);
-    // Reset flags on error
-    isCreatingChannel.value = false;
-    creatingChannelName.value = "";
-  } finally {
-    isCreating.value = false;
+  return channelStore.channels
+    .filter(
+      (channel: any) =>
+        channel.type !== "GUILD_CATEGORY" &&
+        (!channel.parentId || channel.parentId === null)
+    )
+    .sort((a: any, b: any) => (a.position || 0) - (b.position || 0));
+});
+
+const sortedCategories = computed(() => {
+  if (!channelStore.channels || !isMember.value) return [];
+
+  return channelStore.channels
+    .filter((channel: any) => channel.type === "GUILD_CATEGORY")
+    .sort((a: any, b: any) => (a.position || 0) - (b.position || 0));
+});
+
+// Methods for channel navigation and context menus
+const navigateToChannel = (channel: any) => {
+  if (!communityStore.currentCommunity) return;
+
+  const url = `/community/@${communityStore.currentCommunity.name}-${communityStore.currentCommunity.id}/${channel.id}`;
+  navigateTo(url);
+
+  // Update current channel
+  channelStore.currentChannel = channel;
+
+  // Expand category if channel is in one
+  if (channel.parentId) {
+    expandedCategories.value.add(channel.parentId);
+    expandedCategories.value = new Set(expandedCategories.value);
   }
+};
+
+const getChannelsInCategory = (categoryId: string) => {
+  if (!channelStore.channels) return [];
+
+  return channelStore.channels
+    .filter(
+      (channel: any) =>
+        channel.type !== "GUILD_CATEGORY" && channel.parentId === categoryId
+    )
+    .sort((a: any, b: any) => (a.position || 0) - (b.position || 0));
+};
+
+const showCategoryContextMenu = (event: MouseEvent, categoryId: string) => {
+  openCreateChannelInCategory(categoryId);
 };
 </script>
 
 <template>
   <div class="flex flex-col h-full bg-dark-800 text-white w-60 relative">
     <!-- Header section with Discord-style colors -->
-    <div class="flex-shrink-0 px-4 pt-4 pb-2">
+    <div class="flex-shrink-0 px-4 pt-4 pb-1 border-[#202225] border-b">
       <!-- Server Header -->
       <div class="relative">
         <header
@@ -599,63 +551,126 @@ const createChannel = async () => {
     <!-- Scrollable channels section -->
     <div class="flex-1 overflow-y-auto scrollbar-hide">
       <div class="px-4 pb-20">
-        <UNavigationMenu orientation="vertical" :items="itemsChannel" />
+        <!-- Custom channel hierarchy -->
+        <div
+          v-if="
+            channelStore.channels &&
+            channelStore.channels.length > 0 &&
+            isMember
+          "
+          class="space-y-1"
+        >
+          <!-- Channels without category -->
+          <template
+            v-for="channel in channelsWithoutCategory"
+            :key="channel.id"
+          >
+            <div
+              class="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-600/30 cursor-pointer group transition-colors"
+              :class="{
+                'bg-white/10 text-white': currentChannelId === channel.id,
+              }"
+              @click="navigateToChannel(channel)"
+            >
+              <UIcon
+                :name="getChannelIcon(channel.type)"
+                class="w-4 h-4 text-gray-400"
+                :class="{ 'text-white': currentChannelId === channel.id }"
+              />
+              <span
+                class="text-gray-200 text-sm truncate"
+                :class="{ 'text-white': currentChannelId === channel.id }"
+                >{{ channel.name }}</span
+              >
+            </div>
+          </template>
+
+          <!-- Categories with their channels -->
+          <template v-for="category in sortedCategories" :key="category.id">
+            <div class="mt-4 first:mt-0">
+              <!-- Category header -->
+              <div
+                class="flex items-center justify-between px-2 py-1 group hover:bg-gray-600/20 rounded cursor-pointer"
+                @click="toggleCategory(category.id)"
+                @contextmenu.prevent="
+                  showCategoryContextMenu($event, category.id)
+                "
+              >
+                <div class="flex items-center gap-2">
+                  <UIcon
+                    name="i-lucide-chevron-down"
+                    class="w-3 h-3 text-gray-500 transition-transform"
+                    :class="{ 'rotate-180': !isCategoryExpanded(category.id) }"
+                  />
+                  <span
+                    class="text-xs uppercase font-semibold text-gray-400 tracking-wider"
+                  >
+                    {{ category.name }}
+                  </span>
+                </div>
+                <UIcon
+                  name="i-lucide-plus"
+                  class="w-3 h-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-gray-300"
+                  @click.stop="openCreateChannelInCategory(category.id)"
+                />
+              </div>
+
+              <!-- Channels in this category -->
+              <template
+                v-for="channel in getChannelsInCategory(category.id)"
+                :key="channel.id"
+              >
+                <div
+                  v-show="isCategoryExpanded(category.id)"
+                  class="flex items-center gap-2 px-6 py-1 rounded hover:bg-gray-600/30 cursor-pointer group transition-colors ml-2"
+                  :class="{
+                    'bg-white/10 text-white': currentChannelId === channel.id,
+                  }"
+                  @click="navigateToChannel(channel)"
+                >
+                  <UIcon
+                    :name="getChannelIcon(channel.type)"
+                    class="w-4 h-4 text-gray-400"
+                    :class="{ 'text-white': currentChannelId === channel.id }"
+                  />
+                  <span
+                    class="text-gray-200 text-sm truncate"
+                    :class="{ 'text-white': currentChannelId === channel.id }"
+                    >{{ channel.name }}</span
+                  >
+                </div>
+              </template>
+            </div>
+          </template>
+        </div>
+
+        <!-- Fallback to navigation menu if needed -->
+        <UNavigationMenu
+          v-else
+          orientation="vertical"
+          :items="itemsChannel"
+          @update:model-value="
+            console.log('Navigation menu items:', itemsChannel)
+          "
+        />
       </div>
     </div>
   </div>
-  <!-- Modal tạo kênh -->
-  <UModal v-model:open="isCreateChannelModalOpen" class="max-w-md">
-    <template #header>
-      <div class="flex items-center gap-2">
-        <UIcon name="i-lucide-hash" class="w-5 h-5 text-primary" />
-        <h3 class="text-lg font-semibold">Tạo kênh mới</h3>
-      </div>
-    </template>
-    <template #body>
-      <form ref="channelForm" @submit.prevent="createChannel" class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium mb-1">Tên kênh</label>
-          <UInput
-            v-model="newChannel.name"
-            placeholder="Ví dụ: general"
-            required
-            :disabled="isCreating"
-            class="w-full"
-          />
-        </div>
-        <div>
-          <label class="block text-sm font-medium mb-1">Loại kênh</label>
-          <URadioGroup
-            v-model="newChannel.type"
-            color="primary"
-            variant="card"
-            :items="itemChannelType"
-            :disabled="isCreating"
-          />
-        </div>
-      </form>
-    </template>
-    <template #footer>
-      <div class="flex justify-end gap-2">
-        <UButton
-          variant="outline"
-          color="neutral"
-          @click="closeCreateChannelModal"
-          :disabled="isCreating"
-        >
-          Hủy
-        </UButton>
-        <UButton
-          color="primary"
-          @click="channelForm?.requestSubmit()"
-          :loading="isCreating"
-          :disabled="!newChannel.name.trim()"
-        >
-          Tạo kênh
-        </UButton>
-      </div>
-    </template>
-  </UModal>
+  <!-- Create Category Modal -->
+  <CreateCategoryModal
+    v-model:open="isCreateCategoryModalOpen"
+    :guild-id="communityStore.currentCommunity?.id"
+    @created="onCategoryCreated"
+  />
+
+  <!-- Create Channel Modal -->
+  <CreateChannelModal
+    v-model:open="isCreateChannelModalOpen"
+    :guild-id="communityStore.currentCommunity?.id"
+    :default-parent-id="selectedCategoryId"
+    @created="onChannelCreated"
+  />
+
   <!-- Invite Modal -->
   <InviteModal
     v-model:open="isInviteModalOpen"

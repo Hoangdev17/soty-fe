@@ -279,7 +279,7 @@ export const roleActions = {
       user: {
         id: string;
         username: string;
-        discriminator: string;
+        globalName: string;
         avatar?: string;
       };
     }[]
@@ -293,7 +293,7 @@ export const roleActions = {
           user: {
             id: string;
             username: string;
-            discriminator: string;
+            globalName: string;
             avatar?: string;
           };
           id: string;

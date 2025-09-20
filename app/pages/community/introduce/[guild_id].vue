@@ -50,12 +50,13 @@ const isFetchingCommunity = ref(false);
 
 // Fetch community data only if not already loaded
 onMounted(async () => {
-  if (guildId) {
+  if (
+    guildId &&
+    (!currentCommunity.value || currentCommunity.value.id !== guildId)
+  ) {
     await communityStore.fetchCommunityById(guildId);
-
-    // Fetch members
-    await memberStore.fetchMembersViaWebSocket(guildId);
   }
+  await memberStore.fetchMembersViaWebSocket(guildId);
   isPageLoading.value = false;
 });
 

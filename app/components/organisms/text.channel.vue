@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { useRoute } from "vue-router";
 import { useMemberStore } from "~/stores/member/member.store";
+import { useRoleStore } from "~/stores/roles/role.store";
 import { useAuthStore } from "~/stores/auth/auth.store";
 import type { Channel } from "~/stores/channels/channel.type";
 import ThreadPanel from "~/components/organisms/thread.panel.vue";
 import PinnedMessagesPopover from "~/components/organisms/pinned.messages.popover.vue";
 import ThreadListPopover from "~/components/organisms/thread.list.popover.vue";
 import CreateThreadPanel from "~/components/organisms/create.thread.panel.vue";
+import type { ContextMenuItem } from "@nuxt/ui";
 
 interface Props {
   channelId: string;
@@ -18,7 +20,21 @@ interface Props {
 
 const props = defineProps<Props>();
 
+const items = ref<ContextMenuItem[][]>([
+  [
+    {
+      label: "Hồ sơ",
+      icon: "i-lucide-user",
+    },
+    {
+      label: "Nhắn tin",
+      icon: "i-lucide-message-circle",
+    },
+  ],
+]);
+
 const memberStore = useMemberStore();
+const roleStore = useRoleStore();
 const authStore = useAuthStore();
 const route = useRoute();
 
@@ -144,6 +160,133 @@ const handleCreateThreadFromMessage = (message: any) => {
   isThreadPopoverOpen.value = false;
   selectedMessageForThread.value = message;
   isCreateThreadPanelOpen.value = true;
+};
+
+// Computed properties for members grouped by role
+const guildMembers = computed(() => {
+  if (!route.params.guild_id) return [];
+  return memberStore.getMembersByGuild(route.params.guild_id as string);
+});
+
+const guildRoles = computed(() => {
+  if (!route.params.guild_id) return [];
+  return roleStore.getRolesByGuild(route.params.guild_id as string);
+});
+
+const membersByRole = computed(() => {
+  if (!guildMembers.value.length || !guildRoles.value.length) return {};
+
+  const result: Record<string, any[]> = {};
+
+  // Sort roles by position (highest first), but with special handling for permissions
+  const sortedRoles = [...guildRoles.value].sort((a, b) => {
+    // Special case: @everyone should always be last regardless of position
+    if (a.name === "@everyone") return 1;
+    if (b.name === "@everyone") return -1;
+
+    // Prioritize roles with ADMINISTRATOR permission
+    const aHasAdmin = a.permissions?.includes("ADMINISTRATOR") || false;
+    const bHasAdmin = b.permissions?.includes("ADMINISTRATOR") || false;
+
+    if (aHasAdmin && !bHasAdmin) return -1;
+    if (!aHasAdmin && bHasAdmin) return 1;
+
+    // Then sort by position (highest first)
+    return b.position - a.position;
+  });
+
+  // Initialize result with all roles
+  sortedRoles.forEach((role) => {
+    if (role.id) {
+      result[role.id] = [];
+    }
+  });
+
+  // Group members by their roles based on role.members array
+  sortedRoles.forEach((role) => {
+    if (!role.id || !role.members) return;
+
+    role.members.forEach((roleMember: any) => {
+      // Find the actual member object by memberId
+      const member = guildMembers.value.find(
+        (m) => m.id === roleMember.memberId
+      );
+      if (member && result[role.id]) {
+        // Check if member is already in a higher priority role
+        const alreadyAssigned = Object.keys(result).some((roleId) => {
+          if (roleId === role.id) return false;
+          const assignedRole = sortedRoles.find((r) => r.id === roleId);
+          if (!assignedRole) return false;
+
+          // Check if this role has higher priority
+          const currentRoleIndex = sortedRoles.findIndex(
+            (r) => r.id === role.id
+          );
+          const assignedRoleIndex = sortedRoles.findIndex(
+            (r) => r.id === roleId
+          );
+
+          return (
+            assignedRoleIndex < currentRoleIndex &&
+            result[roleId] &&
+            result[roleId].some((m) => m.id === member.id)
+          );
+        });
+
+        if (!alreadyAssigned) {
+          // Remove from lower priority roles
+          Object.keys(result).forEach((roleId) => {
+            if (roleId !== role.id && result[roleId]) {
+              result[roleId] = result[roleId].filter((m) => m.id !== member.id);
+            }
+          });
+
+          if (result[role.id]) {
+            result[role.id]!.push(member);
+          }
+        }
+      }
+    });
+  });
+
+  console.log("Members by Role:", result);
+  return result;
+});
+
+// Get roles with members for display
+const rolesWithMembers = computed(() => {
+  const roles = guildRoles.value.filter((role) => {
+    if (!role.id) return false;
+    const roleMembers = membersByRole.value[role.id];
+    return roleMembers && roleMembers.length > 0;
+  });
+
+  // Sort with same priority logic: ADMIN first, then position, @everyone last
+  return roles.sort((a, b) => {
+    // Special case: @everyone should always be last
+    if (a.name === "@everyone") return 1;
+    if (b.name === "@everyone") return -1;
+
+    // Prioritize roles with ADMINISTRATOR permission
+    const aHasAdmin = a.permissions?.includes("ADMINISTRATOR") || false;
+    const bHasAdmin = b.permissions?.includes("ADMINISTRATOR") || false;
+
+    if (aHasAdmin && !bHasAdmin) return -1;
+    if (!aHasAdmin && bHasAdmin) return 1;
+
+    // Then sort by position (highest first)
+    return b.position - a.position;
+  });
+});
+
+// Computed property to get member status
+const getMemberStatus = (member: any) => {
+  // You can customize this based on your member data structure
+  // For now, return a default online status
+  return {
+    color: "success" as const,
+    text: "●",
+  };
 };
 </script>
 
@@ -321,39 +464,67 @@ const handleCreateThreadFromMessage = (message: any) => {
             <p class="text-red-400 text-sm mt-2">{{ memberStore.getError }}</p>
           </div>
 
-          <div v-else class="space-y-1">
+          <div v-else class="space-y-3">
+            <!-- Display members grouped by role -->
             <div
-              v-for="member in memberStore.getMembersByGuild(route.params.guild_id as string || '')"
-              :key="member.id"
-              class="flex items-center gap-3 p-2 rounded-md hover:bg-dark-700 transition-colors"
+              v-for="role in rolesWithMembers"
+              :key="role.id"
+              class="space-y-2"
             >
-              <UAvatar
-                :src="member.avatar"
-                :alt="member.nickname || member.user?.username"
-                size="sm"
-                class="flex-shrink-0"
-              />
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  <span class="text-white font-medium text-sm truncate">
-                    {{ member.nickname || member.user?.username }}
-                  </span>
-                  <span
-                    v-if="member.user?.id === authStore.user?.id"
-                    class="text-xs text-green-400 font-medium"
-                  >
-                    Bạn
-                  </span>
-                </div>
-                <div class="flex items-center gap-1 text-xs text-gray-400">
-                  <UIcon
-                    name="i-lucide-crown"
-                    v-if="member.permissions?.includes('ADMIN')"
-                    class="w-3 h-3 text-yellow-400"
-                  />
-                  <span>{{ member.user?.username }}</span>
-                </div>
+              <!-- Role header -->
+              <div class="flex items-center gap-2 px-2 py-1">
+                <div
+                  class="w-3 h-3 rounded-full flex-shrink-0"
+                  :style="{ backgroundColor: role.color }"
+                ></div>
+                <span
+                  class="text-xs font-semibold text-gray-400 uppercase tracking-wider"
+                >
+                  {{ role.name }} — {{ membersByRole[role.id!]?.length || 0 }}
+                </span>
               </div>
+
+              <!-- Members in this role -->
+              <UContextMenu
+                :items="items"
+                :ui="{
+                  content: 'w-48',
+                }"
+                class="space-y-1 ml-2"
+              >
+                <div
+                  v-for="member in membersByRole[role.id!]"
+                  :key="member.id"
+                  class="flex items-center gap-3 p-2 rounded-md hover:bg-dark-700 transition-colors"
+                >
+                  <UAvatar
+                    :src="member.avatar"
+                    :alt="member.nickname || member.user?.username"
+                    size="md"
+                    :chip="{
+                      color: 'success',
+                      position: 'bottom-right',
+                    }"
+                    class="flex-shrink-0"
+                  />
+                  <div class="flex-1 min-w-0">
+                    <div class="flex items-center gap-2">
+                      <span class="text-white font-medium text-sm truncate">
+                        {{ member.nickname || member.user?.username }}
+                      </span>
+                      <span
+                        v-if="member.user?.id === authStore.user?.id"
+                        class="text-xs text-green-400 font-medium"
+                      >
+                        Bạn
+                      </span>
+                    </div>
+                    <div class="flex items-center gap-1 text-xs text-gray-400">
+                      <span>{{ member.user?.username }}</span>
+                    </div>
+                  </div>
+                </div>
+              </UContextMenu>
             </div>
           </div>
         </div>
@@ -431,5 +602,29 @@ const handleCreateThreadFromMessage = (message: any) => {
 /* Ensure the immediate flex child can shrink so inner flex children can scroll */
 .channel-page > .flex-1 {
   min-height: 0;
+}
+
+/* Custom avatar chip positioning */
+:deep(.u-avatar-chip) {
+  bottom: 0 !important;
+  right: 0 !important;
+  transform: translate(25%, 25%) !important;
+}
+
+/* Status indicator styles */
+.status-online {
+  background-color: #23a559;
+}
+
+.status-offline {
+  background-color: #80848e;
+}
+
+.status-idle {
+  background-color: #f39c12;
+}
+
+.status-dnd {
+  background-color: #f04747;
 }
 </style>

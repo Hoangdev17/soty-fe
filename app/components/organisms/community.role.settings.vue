@@ -1,12 +1,9 @@
 <script setup lang="ts">
 import { useRoleStore } from "~/stores/roles/role.store";
-import { useCommunityStore } from "~/stores/community/community.store";
-import { useMemberStore } from "~/stores/member/member.store";
 import type {
   Role,
   CreateRoleData,
   UpdateRoleData,
-  Permission,
 } from "~/stores/roles/role.type";
 import RoleIcon from "../atoms/role.icon.vue";
 
@@ -90,12 +87,12 @@ onMounted(async () => {
 });
 
 // Methods
-const closeRoles = () => {
-  // Navigate back to community page
+const closeSettings = async () => {
+  // Navigate to community page with current community name
   const guildId = route.params.guild_id as string;
+
   router.push(`/community/introduce/${guildId}`);
 };
-
 const openCreateModal = () => {
   createForm.value = {
     name: "",
@@ -327,7 +324,7 @@ const handleDrop = async (event: DragEvent, targetRoleId: string) => {
     <!-- Close button (fixed position) -->
     <div class="fixed top-4 right-4 z-10 flex flex-col items-center gap-1">
       <UButton
-        @click="closeRoles"
+        @click="closeSettings"
         class="w-9 h-9 rounded-full bg-dark-800 hover:bg-dark-700 transition-colors flex items-center justify-center border border-dark-600"
         title="Đóng Roles"
       >

@@ -17,16 +17,92 @@ export const channelActions = {
     return channels;
   },
 
-  async createChannel(data: { guildId: string; name: string; type: string }) {
-    const { createChannel } = useWebSocket();
+  async createChannel(data: {
+    guildId: string;
+    name: string;
+    type: string;
+    parentId?: string;
+    topic?: string;
+    nsfw?: boolean;
+    rateLimitPerUser?: number;
+  }) {
+    const { fetchWithAuth } = useFetchWithAuth();
 
-    return createChannel({
-      guildId: data.guildId,
+    // Chỉ gửi những trường có giá trị thực sự
+    const payload: any = {
       name: data.name,
-      type: data.type as any,
-      nsfw: false,
-      manageable: true,
+      type: data.type,
+    };
+
+    if (
+      data.parentId &&
+      typeof data.parentId === "string" &&
+      data.parentId.trim() !== ""
+    ) {
+      payload.parentId = data.parentId.trim();
+    }
+
+    if (
+      data.topic &&
+      typeof data.topic === "string" &&
+      data.topic.trim() !== ""
+    ) {
+      payload.topic = data.topic.trim();
+    }
+
+    if (data.nsfw === true) {
+      payload.nsfw = true;
+    }
+
+    if (
+      typeof data.rateLimitPerUser === "number" &&
+      data.rateLimitPerUser > 0
+    ) {
+      payload.rateLimitPerUser = data.rateLimitPerUser;
+    }
+
+    const res = await fetchWithAuth<Channel>(`/channels/${data.guildId}`, {
+      method: "POST",
+      body: JSON.stringify(payload),
     });
+
+    const channelStore = useChannelStore();
+    channelStore.channels.push(res);
+
+    // Join WebSocket room for this new channel
+    joinRoom(`channel_${res.id}`);
+
+    return res;
+  },
+
+  async createCategory(data: {
+    guildId: string;
+    name: string;
+    topic?: string;
+    parentId?: string;
+    position?: number;
+  }) {
+    const { fetchWithAuth } = useFetchWithAuth();
+
+    const categoryData = {
+      name: data.name,
+      topic: data.topic,
+      position: data.position === -1 ? undefined : data.position,
+      parentId: data.parentId,
+    };
+
+    const category = await fetchWithAuth<Channel>(
+      `/channels/${data.guildId}/categories`,
+      {
+        method: "POST",
+        body: JSON.stringify(categoryData),
+      }
+    );
+
+    const channelStore = useChannelStore();
+    channelStore.channels.push(category);
+
+    return category;
   },
 
   async fetchChannelById(guildId: string, channelId: string) {
