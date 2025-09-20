@@ -29,11 +29,11 @@ export type Channel = {
   viewAble: boolean;
   rateLimitPerUser: number | null;
 
-  recipients: {
+  recipients?: {
     id: string;
     username: string;
     avatar: string | null;
-  };
+  }[];
 
   maxMembers: number | null;
 

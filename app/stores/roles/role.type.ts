@@ -20,10 +20,10 @@ export interface Role {
   guildId: string;
   memberCount?: number;
   members?: {
-    user: {
+    user?: {
       id: string;
       username: string;
-      discriminator: string;
+      globalName: string;
       avatar?: string;
     };
     member?: {

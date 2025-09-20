@@ -72,6 +72,7 @@ export const communityActions = {
 
     communityStore.currentCommunity = community;
     roleStore.roles[communityId] = community.roles || [];
+    channelStore.channels = community.channels;
 
     joinRoom(`community_${communityId}`);
 
@@ -125,7 +126,6 @@ export const communityActions = {
     communityStore.currentCommunity = community;
     channelStore.channels = community.channels;
     roleStore.roles[communityId] = community.roles || [];
-
     memberStore.memberCount = community.memberCount;
 
     joinRoom(`community_${communityId}`);

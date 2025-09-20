@@ -1,4 +1,7 @@
 <script setup lang="ts">
+import { useRouter, useRoute } from "vue-router";
+// ...existing code...
+
 import { useMemberStore } from "~/stores/member/member.store";
 import { useCommunityStore } from "~/stores/community/community.store";
 import { useAuthStore } from "~/stores/auth/auth.store";
@@ -46,7 +49,14 @@ const filteredMembers = computed(() => {
       .includes(memberSearchQuery.value.toLowerCase())
   );
 });
+const router = useRouter();
+const route = useRoute();
 
+const closeMemberSettings = () => {
+  // Navigate back to community settings or previous page
+  const guildId = route.params.guild_id as string;
+  router.push(`/community/@${route.params.guid_username}-${guildId}/settings`);
+};
 // Check if current user can kick/ban
 const canKickMembers = computed(() => {
   // TODO: Implement permission check based on user's roles
@@ -164,7 +174,18 @@ const getMemberRoles = (member: any) => {
 </script>
 
 <template>
-  <div class="space-y-6 bg-dark-900">
+  <div class="space-y-6 bg-dark-900 relative">
+    <!-- Close button (fixed position) -->
+    <div class="fixed top-4 right-4 z-10 flex flex-col items-center gap-1">
+      <UButton
+        @click="closeMemberSettings"
+        class="w-9 h-9 rounded-full bg-dark-800 hover:bg-dark-700 transition-colors flex items-center justify-center border border-dark-600"
+        title="Đóng Member Settings"
+      >
+        <UIcon name="i-lucide-x" class="w-4 h-4 text-white" />
+      </UButton>
+      <span class="text-xs text-gray-400 font-medium">ESC</span>
+    </div>
     <!-- Members Management Header -->
     <div class="flex items-center justify-between">
       <div>

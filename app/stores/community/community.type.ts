@@ -20,6 +20,14 @@ export interface Community {
     avatar?: string;
   };
   roles: Role[];
+  members?: {
+    user?: {
+      id: string;
+      username: string;
+      globalName: string;
+      avatar?: string;
+    };
+  };
 
   // Các field mới từ BE
   available: boolean;

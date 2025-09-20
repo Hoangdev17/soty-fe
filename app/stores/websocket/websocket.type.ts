@@ -93,6 +93,7 @@ export interface CreateChannelPayload {
   type: ChannelType;
   manageable: boolean;
   rateLimitPerUser?: number;
+  parentId?: string;
   viewAble?: boolean;
   recipients?: string[];
   maxMembers?: number;
@@ -113,11 +114,11 @@ export interface ChannelCreatedData {
     type: ChannelType;
     viewAble: boolean;
     rateLimitPerUser: number | null;
-    recipients: {
+    recipients?: {
       id: string;
       username: string;
       avatar: string | null;
-    };
+    }[]; // Sửa từ object thành array để khớp với Channel type
     maxMembers: number | null;
     createdAt: Date;
     updatedAt: Date;
