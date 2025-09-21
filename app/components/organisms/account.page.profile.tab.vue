@@ -2,9 +2,19 @@
 import { useAuthStore } from "~/stores/auth/auth.store";
 import UnsavedChangesBar from "../atoms/unsave.change.vue";
 import UploadButton from "../molecules/upload.button.vue";
+import AvatarDecorationModal from "../molecules/avatar.decoration.modal.vue";
 
 const authStore = useAuthStore();
 const user = computed(() => authStore.userInfo);
+
+// Get current avatar effect
+const currentAvatarEffect = computed(() => {
+  if (!user.value?.avatarEffectId) return null;
+  return authStore.decoration.find((d) => d.id === user.value?.avatarEffectId);
+});
+
+// Modal state
+const isDecorationModalOpen = ref(false);
 
 const state = reactive({
   globalName: "",
@@ -74,6 +84,15 @@ watch(
   { immediate: true }
 );
 
+// Load avatar decorations on mount
+onMounted(async () => {
+  try {
+    await authStore.fetchAvatarDecorations();
+  } catch (error) {
+    console.error("Failed to load avatar decorations:", error);
+  }
+});
+
 // Save changes function
 const saveChanges = async () => {
   try {
@@ -122,6 +141,21 @@ const handleUploadError = (error: string) => {
   console.error("Upload failed:", error);
   // TODO: Add error notification
 };
+
+// Avatar decoration methods
+const openDecorationModal = () => {
+  isDecorationModalOpen.value = true;
+};
+
+const handleDecorationUpdated = async (decoration: any) => {
+  console.log("Avatar decoration updated:", decoration);
+  // Refresh user data to get updated avatar effect
+  try {
+    await authStore.initializeAuth();
+  } catch (error) {
+    console.error("Failed to refresh user data:", error);
+  }
+};
 </script>
 
 <template>
@@ -162,12 +196,13 @@ const handleUploadError = (error: string) => {
       <p class="uppercase text-sm font-semibold">DECORATE AVATAR</p>
       <div class="flex items-center gap-x-2 w-full">
         <UButton
-          icon="i-lucide-plus"
+          icon="i-lucide-palette"
           label="Decorate avatar"
           color="neutral"
           variant="outline"
           size="lg"
           class="w-full justify-center"
+          @click="openDecorationModal"
         />
       </div>
       <USeparator class="w-full" />
@@ -276,7 +311,7 @@ const handleUploadError = (error: string) => {
 
       <!-- Profile Card -->
       <div
-        class="w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg overflow-hidden border border-gray-200 dark:border-gray-700"
+        class="w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
       >
         <!-- Banner Section -->
         <div class="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative">
@@ -292,19 +327,31 @@ const handleUploadError = (error: string) => {
         <!-- Avatar Section -->
         <div class="relative px-6 pb-6">
           <div class="flex items-start -mt-12 mb-4">
-            <div
-              class="w-20 h-20 bg-gray-300 dark:bg-gray-600 rounded-full border-4 border-white dark:border-gray-800 flex items-center justify-center overflow-hidden"
-            >
+            <!-- Avatar Container -->
+            <div class="relative w-20 h-20 flex items-center justify-center">
+              <!-- Avatar -->
+              <div
+                class="relative w-full h-full rounded-full border-4 border-white dark:border-gray-800 overflow-hidden"
+              >
+                <img
+                  v-if="state.avatar"
+                  :src="state.avatar"
+                  :alt="state.globalName || user?.globalName || 'Avatar'"
+                  class="w-full h-full object-cover"
+                />
+                <UIcon
+                  v-else
+                  name="i-lucide-user"
+                  class="w-8 h-8 text-gray-500 dark:text-gray-400"
+                />
+              </div>
+
+              <!-- Avatar Effect Overlay (căn giữa & ra ngoài border) -->
               <img
-                v-if="state.avatar"
-                :src="state.avatar"
-                :alt="state.globalName || user?.globalName || 'Avatar'"
-                class="w-full h-full object-cover"
-              />
-              <UIcon
-                v-else
-                name="i-lucide-user"
-                class="w-8 h-8 text-gray-500 dark:text-gray-400"
+                v-if="currentAvatarEffect?.metadata?.link"
+                :src="currentAvatarEffect.metadata.link"
+                class="absolute top-1/2 left-1/2 w-full h-full -translate-x-1/2 -translate-y-1/2 scale-110 object-contain pointer-events-none z-10"
+                alt="Avatar effect"
               />
             </div>
           </div>
@@ -344,5 +391,13 @@ const handleUploadError = (error: string) => {
     description="Your changes will be lost if you navigate away."
     @save="saveChanges"
     @reset="resetChanges"
+  />
+
+  <!-- Avatar Decoration Modal -->
+  <AvatarDecorationModal
+    v-model:open="isDecorationModalOpen"
+    :user-id="user?.id"
+    :current-avatar="user?.avatar || undefined"
+    @updated="handleDecorationUpdated"
   />
 </template>

@@ -16,6 +16,9 @@ import { useChannelStore } from "../channels/channel.store";
 import { useMessageStore } from "../message/message.store";
 import { useAuthStore } from "../auth/auth.store";
 import { useRoleStore } from "../roles/role.store";
+import { useWebSocketStore } from "../websocket/websocket.store";
+import { useRoute } from "vue-router";
+import { navigateTo } from "#app";
 
 export const communityActions = {
   async fetchAllCommunity() {
@@ -185,12 +188,13 @@ export const communityActions = {
     }
   },
 
-  // Leave community
+  // Leave community (member)
   async leaveCommunity(communityId: string) {
     const { fetchWithAuth } = useFetchWithAuth();
     const memberStore = useMemberStore();
     const channelStore = useChannelStore();
     const messageStore = useMessageStore();
+    const wsStore = useWebSocketStore();
 
     const response = await fetchWithAuth<{ message: string }>(
       `/communities/${communityId}/leave`,
@@ -199,10 +203,73 @@ export const communityActions = {
       }
     );
 
-    // Reset all stores when leaving community
+    // Remove community from local store
+    const communityStore = useCommunityStore();
+    communityStore.removeCommunity(communityId);
+
+    // Clear all related data
     memberStore.clearAllMembers();
     channelStore.clearChannels();
     messageStore.clearAllMessages();
+
+    // Clear WebSocket unread data for this community
+    wsStore.clearUnreadCache(communityId);
+
+    // Clear community-channel mappings and leave WebSocket rooms
+    Object.keys(wsStore.channelToCommunity).forEach((channelId) => {
+      if (wsStore.channelToCommunity[channelId] === communityId) {
+        delete wsStore.channelToCommunity[channelId];
+        wsStore.clearUnread(channelId);
+        // Leave WebSocket room for this channel
+        leaveRoom(`channel_${channelId}`);
+      }
+    });
+
+    // Leave community room if exists
+    leaveRoom(`community_${communityId}`);
+
+    return response;
+  },
+
+  // Delete community (owner only)
+  async deleteCommunity(communityId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const memberStore = useMemberStore();
+    const channelStore = useChannelStore();
+    const messageStore = useMessageStore();
+    const wsStore = useWebSocketStore();
+
+    const response = await fetchWithAuth<{ message: string }>(
+      `/community/${communityId}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    // Remove community from local store
+    const communityStore = useCommunityStore();
+    communityStore.removeCommunity(communityId);
+
+    // Clear all related data
+    memberStore.clearAllMembers();
+    channelStore.clearChannels();
+    messageStore.clearAllMessages();
+
+    // Clear WebSocket unread data for this community
+    wsStore.clearUnreadCache(communityId);
+
+    // Clear community-channel mappings and leave WebSocket rooms
+    Object.keys(wsStore.channelToCommunity).forEach((channelId) => {
+      if (wsStore.channelToCommunity[channelId] === communityId) {
+        delete wsStore.channelToCommunity[channelId];
+        wsStore.clearUnread(channelId);
+        // Leave WebSocket room for this channel
+        leaveRoom(`channel_${channelId}`);
+      }
+    });
+
+    // Leave community room if exists
+    leaveRoom(`community_${communityId}`);
 
     return response;
   },

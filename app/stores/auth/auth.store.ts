@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import type { User } from "./auth.type";
+import type { Decorations, User } from "./auth.type";
 import { authActions } from "./auth.action";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
 import { initializeSocketIO } from "~/stores/websocket/websocket.action";
@@ -8,6 +8,8 @@ export const useAuthStore = defineStore("auth", {
   state: () => ({
     user: null as User | null,
     token: null as string | null,
+    decoration: [] as Decorations[],
+    profileDecoration: [] as Decorations[],
     isAuthenticated: false,
     isInitialized: false,
     isLoading: false,
@@ -58,7 +60,6 @@ export const useAuthStore = defineStore("auth", {
           }
         } else if (token) {
           await this.verifyToken(token);
-        } else {
         }
       } catch (error) {
         this.clearAuthData();

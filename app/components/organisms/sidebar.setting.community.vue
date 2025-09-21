@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useCommunityStore } from "~/stores/community/community.store";
+import DeleteCommunityModal from "~/components/molecules/delete.community.modal.vue";
 
 const communityStore = useCommunityStore();
 const currentCommunity = computed(() => communityStore.currentCommunity);
@@ -21,8 +22,12 @@ type MenuItem = {
   type?: string;
   onSelect?: () => void;
 };
+
 const route = useRoute();
 const section = ref();
+
+// Delete community modal
+const isDeleteModalOpen = ref(false);
 
 watchEffect(() => {
   const pathSegments = route.path.split("/").filter(Boolean);
@@ -132,6 +137,19 @@ const menuItems = computed<MenuItem[][]>(() => [
       disabled: true,
     },
   ],
+  [
+    {
+      label: "DANGER ZONE",
+      class: "font-bold text-sm text-red-400",
+      type: "label",
+    },
+    {
+      label: "Delete Server",
+      icon: "i-lucide-trash-2",
+      onSelect: () => (isDeleteModalOpen.value = true),
+      class: "text-red-400 hover:text-red-300",
+    },
+  ],
 ]);
 </script>
 
@@ -203,6 +221,7 @@ const menuItems = computed<MenuItem[][]>(() => [
               class="flex items-center gap-2 px-2 py-2 rounded-md w-full text-sm"
               :class="{
                 'opacity-50 cursor-not-allowed': item.disabled,
+                [item.class || '']: item.class,
               }"
               @click="item.onSelect"
             >
@@ -213,5 +232,12 @@ const menuItems = computed<MenuItem[][]>(() => [
         </div>
       </div>
     </div>
+
+    <!-- Delete Community Confirmation Modal -->
+    <DeleteCommunityModal
+      :community="currentCommunity"
+      :open="isDeleteModalOpen"
+      @update:open="isDeleteModalOpen = $event"
+    />
   </div>
 </template>
