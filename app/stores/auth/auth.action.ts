@@ -1,4 +1,4 @@
-import type { User } from "./auth.type";
+import type { Decorations, User } from "./auth.type";
 import { useAuthStore } from "./auth.store";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
 import {
@@ -97,5 +97,39 @@ export const authActions = {
   async logout() {
     const store = useAuthStore();
     await store.logout();
+  },
+
+  async fetchAvatarDecorations() {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const response = await fetchWithAuth<{
+      decorator: Decorations[];
+      limit: number;
+      offset: number;
+      total: number;
+    }>("/collectibles/getAll?assetType=1", {
+      method: "GET",
+    });
+
+    const store = useAuthStore();
+    store.decoration = response.decorator;
+
+    return response.decorator;
+  },
+
+  async fetchProfileDecorations() {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const response = await fetchWithAuth<{
+      decorator: Decorations[];
+      limit: number;
+      offset: number;
+      total: number;
+    }>("/collectibles/getAll?assetType=2", {
+      method: "GET",
+    });
+
+    const store = useAuthStore();
+    store.profileDecoration = response.decorator;
+
+    return response.decorator;
   },
 };

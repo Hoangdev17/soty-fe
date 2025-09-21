@@ -43,6 +43,12 @@ onMounted(() => {
   });
 });
 
+function handleLogout() {
+  const authStore = useAuthStore();
+  authStore.logout();
+  navigateTo("/login");
+}
+
 type MenuItem = {
   label: string;
   icon?: string;
@@ -146,7 +152,9 @@ const items = computed<MenuItem[][]>(() => [
     {
       label: "Logout",
       icon: "lucide-log-out",
-      onSelect: () => {},
+      onSelect: () => {
+        handleLogout();
+      },
     },
   ],
 ]);
@@ -183,7 +191,7 @@ const items = computed<MenuItem[][]>(() => [
               <UButton
                 v-if="item.to"
                 :to="item.to"
-                :color="item.active ? 'primary' : 'gray'"
+                :color="item.active ? 'primary' : 'neutral'"
                 variant="ghost"
                 class="flex items-center gap-2 px-2 py-1.5 rounded-md w-full text-sm justify-start"
                 :class="{

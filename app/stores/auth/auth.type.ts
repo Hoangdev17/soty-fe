@@ -79,6 +79,8 @@ export interface User {
   globalName: string | null;
   bio: string | null;
   avatar: string | null;
+  avatarEffectId: string | null;
+  profileEffectId: string | null;
   banner: string | null;
   accentColor: string | null;
   hexAccentColor: string | null;
@@ -99,4 +101,35 @@ export interface User {
 export interface LoginResponse {
   token: string;
   user: User;
+}
+
+export interface DecoratorCollection {
+  id: string;
+  userId: string;
+  assetId: string;
+  isActive: boolean;
+  purchasePrice: number;
+  acquiredAt: Date;
+  expiresAt: Date | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface Decorations {
+  id: string;
+  assetType: number; // 0: nameplate; 1: avatarDecoration; 2: profile_effects
+  name: string;
+  description?: string;
+  price: number;
+  salePrice: number;
+  metadata: any; // Json type
+  expiresAt?: Date;
+  isDeleted: boolean;
+  deletedAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+
+  collections: DecoratorCollection[];
+  User?: User;
+  userId?: string;
 }

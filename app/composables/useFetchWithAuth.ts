@@ -64,6 +64,7 @@ export function useFetchWithAuth() {
     try {
       const refreshToken = localStorage.getItem("refreshToken");
       if (!refreshToken) {
+        authStore.logout();
         return false;
       }
 
@@ -74,6 +75,7 @@ export function useFetchWithAuth() {
       });
 
       if (!res.ok) {
+        authStore.logout();
         return false;
       }
 
@@ -85,6 +87,7 @@ export function useFetchWithAuth() {
       return true;
     } catch (error) {
       console.log("🔄 Refresh token error:", error);
+      authStore.logout();
       return false;
     }
   }
