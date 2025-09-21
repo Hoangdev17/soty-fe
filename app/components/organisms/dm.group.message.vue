@@ -49,7 +49,6 @@ watch(channelId, async (newChannelId, oldChannelId) => {
   if (newChannelId && newChannelId !== oldChannelId) {
     try {
       await messageStore.fetchMessages(newChannelId);
-      console.log("Messages loaded for new channel:", newChannelId);
     } catch (error) {
       console.error("Error loading messages for new channel:", error);
     }

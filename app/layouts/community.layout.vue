@@ -3,14 +3,9 @@ import SidebarDefaultLayout from "~/components/organisms/sidebar.defaut.layout.v
 import SidebarCommunity from "~/components/organisms/sidebar.community.vue";
 import FloatingUserCard from "~/components/organisms/floating.user.card.vue";
 import { initializeWebSocket } from "../stores/websocket/websocket.action";
-import { disconnectWebSocket } from "../stores/websocket/websocket.action";
 
 onMounted(() => {
   initializeWebSocket();
-});
-
-onUnmounted(() => {
-  disconnectWebSocket();
 });
 </script>
 

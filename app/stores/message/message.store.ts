@@ -629,5 +629,85 @@ export const useMessageStore = defineStore("message", {
         // Don't throw error as this is optional enhancement
       }
     },
+
+    // Get unread count for a channel or thread (same API)
+    async getUnreadCount(channelOrThreadId: string) {
+      try {
+        const { fetchWithAuth } = useFetchWithAuth();
+
+        const response = await fetchWithAuth<{
+          channelId: string;
+          unreadCount: number;
+        }>(`/messages/channels/${channelOrThreadId}/unread-count`, {
+          method: "GET",
+        });
+
+        return response;
+      } catch (error) {
+        console.error("Error getting unread count:", error);
+        throw error;
+      }
+    },
+
+    // Mark channel or thread as read via API (same endpoint for both)
+    async markChannelAsRead(channelOrThreadId: string) {
+      try {
+        const { fetchWithAuth } = useFetchWithAuth();
+
+        const response = await fetchWithAuth<{
+          success: boolean;
+          lastReadMessageId: string | null;
+          unreadCount: number;
+        }>(`/messages/${channelOrThreadId}/read`, {
+          method: "POST",
+        });
+
+        return response;
+      } catch (error) {
+        console.error("Error marking channel/thread as read:", error);
+        throw error;
+      }
+    },
+
+    // Get community unread count (all channels in a guild)
+    async getCommunityUnreadCount(guildId: string) {
+      try {
+        const { fetchWithAuth } = useFetchWithAuth();
+
+        const response = await fetchWithAuth<{
+          guildId: string;
+          totalUnreadCount: number;
+        }>(`/messages/communities/${guildId}/unread-count`, {
+          method: "GET",
+        });
+
+        return response;
+      } catch (error) {
+        console.error("Error getting community unread count:", error);
+        throw error;
+      }
+    },
+
+    // Get unread counts for all channels in a community
+    async getCommunityChannelsUnreadCount(guildId: string) {
+      try {
+        const { fetchWithAuth } = useFetchWithAuth();
+
+        const response = await fetchWithAuth<{
+          guildId: string;
+          channels: Array<{
+            channelId: string;
+            unreadCount: number;
+          }>;
+        }>(`/messages/communities/${guildId}/channels-unread-count`, {
+          method: "GET",
+        });
+
+        return response;
+      } catch (error) {
+        console.error("Error getting community channels unread count:", error);
+        throw error;
+      }
+    },
   },
 });

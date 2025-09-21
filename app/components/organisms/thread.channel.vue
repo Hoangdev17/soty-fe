@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { ref, computed, watch, onBeforeUnmount } from "vue";
+import { ref, computed, watch, onBeforeUnmount, onMounted } from "vue";
 import { useRoute } from "vue-router";
 import { useMessage } from "~/composables/useMessage";
 import { useChannelStore } from "~/stores/channels/channel.store";
-import { leaveRoom } from "~/stores/websocket/websocket.action";
+import { useMessageStore } from "~/stores/message/message.store";
+import { useWebSocketStore } from "~/stores/websocket/websocket.store";
 
 interface Props {
   threadId: string;
@@ -11,6 +12,8 @@ interface Props {
 
 const props = defineProps<Props>();
 const channelStore = useChannelStore();
+const messageStore = useMessageStore();
+const wsStore = useWebSocketStore();
 
 const route = useRoute();
 const { getThread, fetchThread, getMessages, joinRoom } = useMessage();
@@ -22,20 +25,92 @@ const channelId = channelStore.currentChannel?.id;
 // Thread messages
 const threadMessages = computed(() => getMessages(props.threadId));
 
+// Latest message ID for read receipts
+const lastMessageId = computed(() => {
+  const msgs = threadMessages.value;
+  return msgs && msgs.length > 0 ? msgs[msgs.length - 1]?.id : null;
+});
+
+// Unread count for this thread
+const unreadCount = computed(() => {
+  return wsStore.getUnreadCount(props.threadId);
+});
+
 // Reply state
 const replyToMessage = ref(null);
+
+// Function to send read receipt when opening thread
+const sendReadReceiptForThread = async () => {
+  // Get last read message from localStorage first, then fallback to latest message
+  const lastReadFromStorage = wsStore.getLastReadMessageId(props.threadId);
+  const messageIdToSend = lastReadFromStorage || lastMessageId.value;
+
+  if (props.threadId && messageIdToSend) {
+    try {
+      await wsStore.sendReadReceipt(props.threadId, messageIdToSend);
+    } catch (error) {
+      console.error("❌ Failed to send read receipt on thread open:", error);
+    }
+  }
+};
+
+// Handle scrolled to bottom from message list
+const handleScrolledToBottom = async () => {
+  if (props.threadId) {
+    const lastReadFromStorage = wsStore.getLastReadMessageId(props.threadId);
+    const messageIdToSend = lastReadFromStorage || lastMessageId.value;
+
+    if (messageIdToSend) {
+      try {
+        await wsStore.sendReadReceipt(props.threadId, messageIdToSend);
+      } catch (error) {
+        console.error(
+          "❌ Failed to send read receipt on scroll to bottom in thread:",
+          error
+        );
+      }
+    }
+  }
+};
 
 // Load thread data when threadId changes
 watch(
   () => props.threadId,
-  async (newThreadId) => {
+  async (newThreadId, oldThreadId) => {
     if (newThreadId && channelId) {
       await fetchThread(channelId, newThreadId);
       joinRoom(newThreadId);
+
+      // Send read receipt when switching to new thread
+      if (newThreadId !== oldThreadId) {
+        // Get last read message from localStorage first, then fallback to latest message
+        const lastReadFromStorage = wsStore.getLastReadMessageId(newThreadId);
+        const messageIdToSend =
+          lastReadFromStorage || messageStore.getLatestMessage(newThreadId)?.id;
+
+        if (messageIdToSend) {
+          try {
+            await wsStore.sendReadReceipt(newThreadId, messageIdToSend);
+          } catch (error) {
+            console.error(
+              "❌ Failed to send read receipt on thread switch:",
+              error
+            );
+          }
+        }
+      }
     }
   },
   { immediate: true }
 );
+
+onMounted(() => {
+  sendReadReceiptForThread();
+
+  if (unreadCount.value > 0) {
+    wsStore.clearUnread(props.threadId);
+  }
+});
 
 // Handle reply from message list
 const handleReply = (message: any) => {
@@ -50,13 +125,6 @@ const handleReplySent = () => {
 const handleReplyCancelled = () => {
   replyToMessage.value = null;
 };
-
-// Leave thread room when component unmounts
-onBeforeUnmount(() => {
-  if (props.threadId) {
-    leaveRoom(props.threadId);
-  }
-});
 </script>
 
 <template>
@@ -115,6 +183,7 @@ onBeforeUnmount(() => {
           :roomId="threadId"
           class="flex-1 min-h-0"
           @reply="handleReply"
+          @scrolled-to-bottom="handleScrolledToBottom"
         />
       </div>
 
@@ -122,7 +191,7 @@ onBeforeUnmount(() => {
       <div class="message-input-area p-4 border-t border-dark-700">
         <MoleculesMessageInput
           :channelId="threadId"
-          :replyTo="replyToMessage"
+          :replyTo="replyToMessage!"
           @reply-sent="handleReplySent"
           @reply-cancelled="handleReplyCancelled"
         />

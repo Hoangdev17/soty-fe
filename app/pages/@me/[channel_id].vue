@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import { useChannelStore } from "~/stores/channels/channel.store";
-import { initializeWebSocket } from "~/stores/websocket/websocket.action";
+import { useAuthStore } from "~/stores/auth/auth.store";
+import { useWebSocketStore } from "~/stores/websocket/websocket.store";
+import { useInitializeForDM } from "~/composables/useInitializeForDM";
 
 definePageMeta({
   layout: "main",
@@ -35,7 +37,9 @@ useHead({
 });
 
 onMounted(async () => {
-  await initializeWebSocket();
+  const { initializeForDM } = useInitializeForDM();
+  await initializeForDM();
+
   // Channel is already fetched, no need to fetch again
 });
 </script>

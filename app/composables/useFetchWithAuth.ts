@@ -64,7 +64,6 @@ export function useFetchWithAuth() {
     try {
       const refreshToken = localStorage.getItem("refreshToken");
       if (!refreshToken) {
-        console.log("🔄 No refresh token found");
         return false;
       }
 

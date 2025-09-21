@@ -13,6 +13,7 @@ const emit = defineEmits<{
   reply: [message: any];
   threadClick: [threadId: string];
   createThread: [message: any];
+  scrolledToBottom: [];
 }>();
 
 const { getMessages, fetchMessages, pinMessage, unpinMessage } = useMessage();
@@ -79,6 +80,12 @@ const scrollToBottom = async () => {
 const handleScroll = async () => {
   const el = listContainer.value;
   if (!el || loadingMore.value || !hasMore.value) return;
+
+  // Check if scrolled to bottom (within 10px)
+  const isAtBottom = el.scrollHeight - el.scrollTop - el.clientHeight <= 10;
+  if (isAtBottom) {
+    emit("scrolledToBottom");
+  }
 
   // If scrolled to top (within 50px), load more
   if (el.scrollTop <= 50) {

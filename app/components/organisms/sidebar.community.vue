@@ -1,19 +1,16 @@
 <script setup lang="ts">
-import type {
-  DropdownMenuItem,
-  NavigationMenuItem,
-  RadioGroupItem,
-} from "@nuxt/ui";
+import type { DropdownMenuItem, NavigationMenuItem } from "@nuxt/ui";
 import { useCommunityStore } from "~/stores/community/community.store";
 import { useChannelStore } from "~/stores/channels/channel.store";
-import { leaveRoom } from "~/stores/websocket/websocket.action";
 import InviteModal from "~/components/molecules/invite.modal.vue";
 import CreateCategoryModal from "~/components/molecules/create.category.modal.vue";
 import CreateChannelModal from "~/components/molecules/create.channel.modal.vue";
 import { useAuthStore } from "~/stores/auth/auth.store";
 import { useRoleStore } from "~/stores/roles/role.store";
 import { useMemberStore } from "~/stores/member/member.store";
+import { useMessageStore } from "~/stores/message/message.store";
 import type { Member } from "~/stores/member/member.type";
+import { useWebSocketStore } from "~/stores/websocket/websocket.store";
 
 const route = useRoute();
 const communityStore = useCommunityStore();
@@ -21,6 +18,8 @@ const channelStore = useChannelStore();
 const authStore = useAuthStore();
 const roleStore = useRoleStore();
 const memberStore = useMemberStore();
+const messageStore = useMessageStore();
+const wsStore = useWebSocketStore();
 
 const guildId = ref(route.params.guild_id as string | undefined);
 const { currentCommunity } = storeToRefs(communityStore);
@@ -148,6 +147,26 @@ onMounted(async () => {
         communityStore.currentCommunity.id
       );
     }
+
+    // Fetch unread counts for all channels in this community
+    try {
+      const { getCommunityChannelsUnreadCount } = await import(
+        "~/stores/message/message.action"
+      );
+      const unreadData = await getCommunityChannelsUnreadCount(
+        communityStore.currentCommunity.id
+      );
+
+      // Sync unread counts with WebSocket store
+      if (unreadData.channels) {
+        wsStore.syncUnreadCountsFromAPI(unreadData.channels);
+      }
+    } catch (error) {
+      console.error(
+        "❌ Failed to fetch community channels unread count:",
+        error
+      );
+    }
   }
 
   // Initialize expanded categories
@@ -160,6 +179,42 @@ onMounted(async () => {
     });
     expandedCategories.value = new Set(expandedCategories.value);
   }
+
+  setTimeout(() => {
+    // Ensure unread state is restored
+    wsStore.restoreUnreadState();
+
+    // Flag to track if unread state has been restored
+    let unreadStateRestored = false;
+
+    // Watch for message store changes to restore unread state
+    watch(
+      () => messageStore.messages,
+      (newMessages) => {
+        if (
+          newMessages &&
+          Object.keys(newMessages).length > 0 &&
+          !unreadStateRestored
+        ) {
+          wsStore.restoreUnreadState();
+          unreadStateRestored = true;
+        }
+      },
+      { immediate: true, deep: true }
+    );
+
+    // Also try to restore immediately in case messages are already loaded
+    setTimeout(() => {
+      if (
+        messageStore.messages &&
+        Object.keys(messageStore.messages).length > 0 &&
+        !unreadStateRestored
+      ) {
+        wsStore.restoreUnreadState();
+        unreadStateRestored = true;
+      }
+    }, 1000);
+  }, 500);
 });
 
 const toggleCategory = (categoryId: string) => {
@@ -397,12 +452,6 @@ const itemsChannel = computed<NavigationMenuItem[][]>(() => {
   return [channelItems];
 });
 
-onUnmounted(() => {
-  if (guildId.value) {
-    leaveRoom(`community_${guildId.value}`);
-  }
-});
-
 // Hàm mở modal
 const openCreateChannelModal = () => {
   if (!isMember.value) return; // Only allow members to create channels
@@ -422,15 +471,9 @@ const openCreateCategoryModal = () => {
 };
 
 // Callback functions for modal events
-const onCategoryCreated = (category: any) => {
-  console.log("Category created:", category);
-  // Refresh channels list is handled by the store action
-};
+const onCategoryCreated = (category: any) => {};
 
-const onChannelCreated = (channel: any) => {
-  console.log("Channel created:", channel);
-  // Navigation and refresh is handled by the existing watcher and store
-};
+const onChannelCreated = (channel: any) => {};
 
 // Computed properties for channel hierarchy
 const channelsWithoutCategory = computed(() => {
@@ -452,6 +495,34 @@ const sortedCategories = computed(() => {
     .filter((channel: any) => channel.type === "GUILD_CATEGORY")
     .sort((a: any, b: any) => (a.position || 0) - (b.position || 0));
 });
+
+// Get unread count for a channel (reactive version)
+const getUnreadCount = (channelId: string) => {
+  // Access the reactive object directly to trigger reactivity
+  const count = wsStore.unreadByChannel[channelId]?.size || 0;
+  return count;
+};
+
+// Computed property to track all unread counts (for reactivity)
+const allUnreadCounts = computed(() => {
+  const counts: Record<string, number> = {};
+  if (channelStore.channels) {
+    channelStore.channels.forEach((channel: any) => {
+      if (channel.id) {
+        // Access reactive object directly in computed
+        counts[channel.id] = wsStore.unreadByChannel[channel.id]?.size || 0;
+      }
+    });
+  }
+  return counts;
+});
+
+// Watch for unread changes to debug
+watch(
+  () => wsStore.unreadByChannel,
+  (newUnread) => {},
+  { deep: true, immediate: true }
+);
 
 // Methods for channel navigation and context menus
 const navigateToChannel = (channel: any) => {
@@ -572,6 +643,14 @@ const showCategoryContextMenu = (event: MouseEvent, categoryId: string) => {
               }"
               @click="navigateToChannel(channel)"
             >
+              <!-- Unread indicator bar -->
+              <div
+                v-if="(allUnreadCounts[channel.id] || 0) > 0"
+                class="w-1 h-4 bg-white rounded-full flex-shrink-0"
+              ></div>
+              <!-- Spacer when no unread -->
+              <div v-else class="w-1 flex-shrink-0"></div>
+
               <UIcon
                 :name="getChannelIcon(channel.type)"
                 class="w-4 h-4 text-gray-400"
@@ -628,6 +707,14 @@ const showCategoryContextMenu = (event: MouseEvent, categoryId: string) => {
                   }"
                   @click="navigateToChannel(channel)"
                 >
+                  <!-- Unread indicator bar -->
+                  <div
+                    v-if="getUnreadCount(channel.id) > 0"
+                    class="w-1 h-4 bg-white rounded-full flex-shrink-0"
+                  ></div>
+                  <!-- Spacer when no unread -->
+                  <div v-else class="w-1 flex-shrink-0"></div>
+
                   <UIcon
                     :name="getChannelIcon(channel.type)"
                     class="w-4 h-4 text-gray-400"
@@ -649,9 +736,7 @@ const showCategoryContextMenu = (event: MouseEvent, categoryId: string) => {
           v-else
           orientation="vertical"
           :items="itemsChannel"
-          @update:model-value="
-            console.log('Navigation menu items:', itemsChannel)
-          "
+          @update:model-value=""
         />
       </div>
     </div>

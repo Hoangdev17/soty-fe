@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import FloatingUserCard from "~/components/organisms/floating.user.card.vue";
 import HomeDefautLayout from "~/components/organisms/sidebar.defaut.layout.vue";
+import { initializeWebSocket } from "~/stores/websocket/websocket.action";
+
+// Initialize WebSocket for @me routes and ensure persistent connection
+onMounted(() => {
+  initializeWebSocket();
+});
 </script>
 
 <template>
