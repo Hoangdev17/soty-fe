@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import requiredAuth from "~/middleware/required.auth";
 import { useAuthStore } from "~/stores/auth/auth.store";
+import FloatingUserCard from "~/components/organisms/floating.user.card.vue";
 
 definePageMeta({
   middleware: [requiredAuth],
@@ -238,5 +239,8 @@ const items = computed<MenuItem[][]>(() => [
 
       <NuxtPage />
     </div>
+
+    <!-- Floating User Card -->
+    <FloatingUserCard class="mb-3 ml-2" />
   </div>
 </template>

@@ -99,37 +99,119 @@ export const authActions = {
     await store.logout();
   },
 
-  async fetchAvatarDecorations() {
+  async fetchAvatarDecorations(offset?: number, limit?: number) {
     const { fetchWithAuth } = useFetchWithAuth();
     const response = await fetchWithAuth<{
       decorator: Decorations[];
       limit: number;
       offset: number;
       total: number;
-    }>("/collectibles/getAll?assetType=1", {
+    }>(`/collectibles/getAll?assetType=1&offset=${offset}&limit=${limit}`, {
       method: "GET",
     });
 
     const store = useAuthStore();
-    store.decoration = response.decorator;
+    store.decoration.push(...response.decorator);
 
     return response.decorator;
   },
 
-  async fetchProfileDecorations() {
+  async fetchAvatarDecorationById(id: string) {
+    const store = useAuthStore();
+    const { fetchWithAuth } = useFetchWithAuth();
+
+    if (!id) return null;
+
+    // Try single-item endpoint first
+    try {
+      const single = await fetchWithAuth<Decorations>(`/collectibles/${id}`, {
+        method: "GET",
+      });
+
+      store.decoration.push(single);
+      return single;
+    } catch (e) {}
+  },
+
+  async fetchProfileDecorations(offset?: number, limit?: number) {
     const { fetchWithAuth } = useFetchWithAuth();
     const response = await fetchWithAuth<{
       decorator: Decorations[];
       limit: number;
       offset: number;
       total: number;
-    }>("/collectibles/getAll?assetType=2", {
+    }>(`/collectibles/getAll?assetType=2&offset=${offset}&limit=${limit}`, {
       method: "GET",
     });
 
     const store = useAuthStore();
-    store.profileDecoration = response.decorator;
+    store.profileDecoration.push(...response.decorator);
 
     return response.decorator;
+  },
+
+  // Find one profile decoration by id (similar to avatar helper)
+  async fetchProfileDecorationById(id: string) {
+    const store = useAuthStore();
+    const { fetchWithAuth } = useFetchWithAuth();
+
+    if (!id) return null;
+
+    const existing = store.profileDecoration.find(
+      (d: any) => String(d.id) === String(id)
+    );
+    if (existing) return existing;
+
+    // Try direct endpoint
+    try {
+      const single = await fetchWithAuth<Decorations>(`/collectibles/${id}`, {
+        method: "GET",
+      });
+
+      store.profileDecoration.push(single);
+    } catch (e) {}
+  },
+
+  async fetchNameTagDecorations(offset?: number, limit?: number) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const response = await fetchWithAuth<{
+      decorator: Decorations[];
+      limit: number;
+      offset: number;
+      total: number;
+    }>(`/collectibles/getAll?assetType=0&offset=${offset}&limit=${limit}`, {
+      method: "GET",
+    });
+
+    const store = useAuthStore();
+    store.nameTagDecoration.push(...response.decorator);
+
+    return response.decorator;
+  },
+
+  // Find one nametag decoration by id
+  async fetchNameTagDecorationById(id: string) {
+    const store = useAuthStore();
+    const { fetchWithAuth } = useFetchWithAuth();
+
+    if (!id) return null;
+
+    const existing = store.nameTagDecoration.find(
+      (d: any) => String(d.id) === String(id)
+    );
+    if (existing) return existing;
+
+    // Try direct endpoint
+    try {
+      const single = await fetchWithAuth<Decorations>(`/collectibles/${id}`, {
+        method: "GET",
+      });
+
+      store.nameTagDecoration.push(single);
+      return single;
+    } catch (e) {
+      console.error("Failed to fetch nametag decoration by ID:", e);
+      return null;
+    }
   },
 };
