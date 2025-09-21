@@ -111,3 +111,39 @@ export const fetchMessageReferences = (channelId: string) => {
   const messageStore = useMessageStore();
   return messageStore.fetchMessageReferences(channelId);
 };
+
+// Get unread count functionality (works for both channels and threads)
+export const getUnreadCount = (channelOrThreadId: string) => {
+  const messageStore = useMessageStore();
+  return messageStore.getUnreadCount(channelOrThreadId);
+};
+
+// Mark channel/thread as read functionality (works for both channels and threads)
+export const markChannelAsRead = (channelOrThreadId: string) => {
+  const messageStore = useMessageStore();
+  return messageStore.markChannelAsRead(channelOrThreadId);
+};
+
+// Alias for thread readability
+export const markThreadAsRead = (threadId: string) => {
+  const messageStore = useMessageStore();
+  return messageStore.markChannelAsRead(threadId);
+};
+
+// Alias for thread readability
+export const getThreadUnreadCount = (threadId: string) => {
+  const messageStore = useMessageStore();
+  return messageStore.getUnreadCount(threadId);
+};
+
+// Get community unread count functionality
+export const getCommunityUnreadCount = (guildId: string) => {
+  const messageStore = useMessageStore();
+  return messageStore.getCommunityUnreadCount(guildId);
+};
+
+// Get community channels unread count functionality
+export const getCommunityChannelsUnreadCount = (guildId: string) => {
+  const messageStore = useMessageStore();
+  return messageStore.getCommunityChannelsUnreadCount(guildId);
+};

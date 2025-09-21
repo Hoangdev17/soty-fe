@@ -3,7 +3,6 @@ import requiredAuth from "~/middleware/required.auth";
 import { useCommunityStore } from "~/stores/community/community.store";
 import { useAuthStore } from "~/stores/auth/auth.store";
 import { useMemberStore } from "~/stores/member/member.store";
-import { leaveRoom } from "~/stores/websocket/websocket.action";
 import CommunityLoading from "~/components/organisms/community.loading.vue";
 import CommunityBanner from "~/components/organisms/community.banner.vue";
 import InviteModal from "~/components/molecules/invite.modal.vue";
@@ -67,9 +66,6 @@ watch(
     if (newGuildId && newGuildId !== oldGuildId) {
       // Tránh multiple fetch cùng lúc
       if (isFetchingCommunity.value) {
-        console.log(
-          `⏳ Introduce Page: Already fetching community, skipping...`
-        );
         return;
       }
 
@@ -93,12 +89,6 @@ watch(
     }
   }
 );
-
-onUnmounted(() => {
-  if (guildId) {
-    leaveRoom(`community_${guildId}`);
-  }
-});
 
 // Join community
 const joinCommunity = async () => {

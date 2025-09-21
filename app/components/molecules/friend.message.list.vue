@@ -1,10 +1,13 @@
 <script lang="ts" setup>
 import { ref, computed, onMounted } from "vue";
 import { useChannelStore } from "~/stores/channels/channel.store";
+import { useWebSocketStore } from "~/stores/websocket/websocket.store";
+import { useMessageStore } from "~/stores/message/message.store";
 import { navigateTo } from "#app";
 import { storeToRefs } from "pinia";
 
 const channelStore = useChannelStore();
+const wsStore = useWebSocketStore();
 const { channelDM } = storeToRefs(channelStore);
 const route = useRoute();
 
@@ -53,6 +56,67 @@ async function onCreateChannelDM(userIds: string[]) {
   state.value.isOpenModal = false;
   state.value.addedUsers = [];
 }
+
+// Computed property để tính unread count cho mỗi DM channel
+const getUnreadCount = (channelId: string) => {
+  return wsStore.unreadByChannel[channelId]?.size || 0;
+};
+
+// Computed property để track tất cả unread counts (cho reactivity)
+const allUnreadCounts = computed(() => {
+  const counts: Record<string, number> = {};
+  if (channelDM.value) {
+    channelDM.value.forEach((channel: any) => {
+      if (channel.id) {
+        counts[channel.id] = wsStore.unreadByChannel[channel.id]?.size || 0;
+      }
+    });
+  }
+  return counts;
+});
+
+// Function để handle click vào DM channel
+const handleDMChannelClick = async (channel: any) => {
+  // Navigate to channel first (don't await)
+  navigateTo(`/@me/${channel.id}`);
+
+  // Mark as read in background if channel has unread messages
+  if ((allUnreadCounts.value[channel.id] || 0) > 0) {
+    // Try to get last read message ID, or get the latest message from message store
+    let lastReadMessageId = wsStore.getLastReadMessageId(channel.id);
+
+    if (!lastReadMessageId) {
+      // If no last read, get the latest message from message store
+      const messageStore = useMessageStore();
+      const messages = messageStore.messages[channel.id];
+      if (messages && messages.length > 0) {
+        // Get the last message ID
+        const lastMessage = messages[messages.length - 1];
+        if (lastMessage?.id) {
+          lastReadMessageId = lastMessage.id;
+        }
+      }
+    }
+
+    if (lastReadMessageId) {
+      // Mark as read in background without blocking navigation
+      setTimeout(async () => {
+        try {
+          await wsStore.sendReadReceipt(channel.id, lastReadMessageId);
+        } catch (error) {
+          console.warn(
+            `⚠️ Failed to mark DM channel ${channel.id} as read:`,
+            error
+          );
+        }
+      }, 100); // Small delay to ensure navigation completes first
+    } else {
+      console.warn(
+        `⚠️ Cannot mark channel ${channel.id} as read: no message ID found`
+      );
+    }
+  }
+};
 </script>
 
 <template>
@@ -79,12 +143,20 @@ async function onCreateChannelDM(userIds: string[]) {
             'bg-neutral-800 text-white': route.params.channel_id === channel.id,
             'text-neutral-400': route.params.id !== channel.id,
           }"
-          @click="navigateTo(`/@me/${channel.id}`)"
+          @click="handleDMChannelClick(channel)"
         >
+          <!-- Unread indicator bar -->
+          <div
+            v-if="(allUnreadCounts[channel.id] || 0) > 0"
+            class="w-1 h-4 bg-white rounded-full flex-shrink-0"
+          ></div>
+          <!-- Spacer when no unread -->
+          <div v-else class="w-1 flex-shrink-0"></div>
+
           <UAvatar
             :src="
-              Array.isArray(channel.recipients)
-                ? channel.recipients[0]?.avatar
+              Array.isArray(channel.recipients) && channel.recipients[0]?.avatar
+                ? channel.recipients[0].avatar
                 : undefined
             "
             :alt="channel.name || 'DM Channel'"

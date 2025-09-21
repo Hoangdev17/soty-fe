@@ -59,10 +59,8 @@ export const useAuthStore = defineStore("auth", {
         } else if (token) {
           await this.verifyToken(token);
         } else {
-          console.log("🔐 No token found in localStorage");
         }
       } catch (error) {
-        console.log("🔐 Auth initialization failed:", error);
         this.clearAuthData();
       } finally {
         this.isLoading = false;
@@ -91,7 +89,6 @@ export const useAuthStore = defineStore("auth", {
         // Check if token has exp claim and if it's expired
         return payload.exp && payload.exp < currentTime;
       } catch (error) {
-        console.log("Error decoding token:", error);
         return true;
       }
     },
@@ -108,12 +105,10 @@ export const useAuthStore = defineStore("auth", {
             await fetchWithAuth<User>("/auth/me");
             return;
           } catch (refreshError) {
-            console.log("🔄 Token refresh failed:", refreshError);
             await this.logout();
             return;
           }
         } else {
-          console.log("🔐 No refresh token available");
           await this.logout();
           return;
         }
@@ -137,20 +132,13 @@ export const useAuthStore = defineStore("auth", {
         // Try to refresh token first
         const refreshToken = localStorage.getItem("refreshToken");
         if (refreshToken) {
-          console.log(
-            "🔄 Attempting to refresh token after verification failure..."
-          );
           try {
             const { fetchWithAuth } = useFetchWithAuth();
             // This will trigger the refresh logic in useFetchWithAuth
             await fetchWithAuth<User>("/auth/me");
-            console.log(
-              "🔄 Token refreshed successfully after verification failure"
-            );
+
             return;
-          } catch (refreshError) {
-            console.log("🔄 Token refresh also failed:", refreshError);
-          }
+          } catch (refreshError) {}
         }
 
         // If refresh failed or no refresh token, logout

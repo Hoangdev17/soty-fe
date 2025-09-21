@@ -11,6 +11,7 @@ import TextChannel from "~/components/organisms/text.channel.vue";
 import VoiceChannel from "~/components/organisms/voice.channel.vue";
 import SeminarChannel from "~/components/organisms/seminar.channel.vue";
 import DmChannel from "~/components/organisms/dm.channel.vue";
+import { joinRoom } from "~/stores/websocket/websocket.action";
 
 definePageMeta({
   layout: "community-layout",
@@ -21,8 +22,7 @@ const channelStore = useChannelStore();
 const guildStore = useCommunityStore();
 const memberStore = useMemberStore();
 
-const { leaveRoom, fetchMessages, getMessages, fetchThreadsByChannel } =
-  useMessage();
+const { fetchMessages, getMessages, fetchThreadsByChannel } = useMessage();
 
 const route = useRoute();
 const channelId = route.params.channel_id as string | undefined;
@@ -95,6 +95,8 @@ onMounted(async () => {
   // Fetch threads for the channel
   await fetchThreadsByChannel(channelId);
 
+  await joinRoom(`channel_${channelId}`);
+
   messageLoading.value = false;
   isPageLoading.value = false;
 });
@@ -106,7 +108,6 @@ watch(
     if (newGuildId && newGuildId !== oldGuildId) {
       // Tránh multiple fetch cùng lúc
       if (isFetchingCommunity.value) {
-        console.log(`⏳ Channel Page: Already fetching community, skipping...`);
         return;
       }
       isFetchingCommunity.value = true;
@@ -147,15 +148,6 @@ watch(
     }
   }
 );
-
-onUnmounted(() => {
-  if (channelId) {
-    leaveRoom(`channel_${channelId}`);
-  }
-  if (guildId) {
-    leaveRoom(`community_${guildId}`);
-  }
-});
 
 const isOpenSlideoverMember = ref(false);
 </script>

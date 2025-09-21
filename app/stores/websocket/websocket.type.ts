@@ -51,6 +51,24 @@ export interface WebSocketState {
   messages: WebSocketMessage[];
   reconnectAttempts: number;
   maxReconnectAttempts: number;
+  // Unread messages state
+  unreadByChannel: Record<string, Set<string>>;
+  isUnreadStateRestored: boolean;
+  joinedRooms: Set<string>;
+  // messageId -> timestamp (ms) để hỗ trợ partial clear theo lastRead timestamp
+  messageTimestamps: Record<string, number>;
+  // channelId -> communityId (nếu channel thuộc community)
+  channelToCommunity: Record<string, string | undefined>;
+  // Cache để tránh fetch unread quá nhiều lần
+  unreadCacheByChannel: Record<string, { count: number; lastFetched: number }>;
+  unreadCacheByCommunity: Record<
+    string,
+    { count: number; lastFetched: number }
+  >;
+  // Flag để chỉ init unread 1 lần
+  isUnreadInitialized: boolean;
+  // Track toast shown for messages to prevent duplicates
+  toastShownForMessages: Set<string>;
 }
 
 export interface GetMembersPayload {

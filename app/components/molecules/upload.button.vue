@@ -93,7 +93,6 @@ const handleFileUpload = async () => {
 
     // Đóng modal sau 1.5 giây
     setTimeout(() => {
-      console.log("🎉 Emitting success event with URL:", data.url);
       emit("success", data.url);
       selectedFile.value = null;
       closeModal();

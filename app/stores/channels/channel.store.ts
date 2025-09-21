@@ -23,9 +23,7 @@ export const useChannelStore = defineStore("channel", {
     ...channelActions,
 
     setChannels(channels: Channel[]) {
-      console.log("Setting channels via action:", channels);
       this.channels = [...channels];
-      console.log("Channels set:", this.channels);
 
       // Force reactivity update
       this.$patch({ channels: [...channels] });

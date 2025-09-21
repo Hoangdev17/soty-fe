@@ -2,6 +2,7 @@ import { useChannelStore } from "./channel.store";
 import type { Channel } from "./channel.type";
 import { joinRoom, leaveRoom } from "../websocket/websocket.action";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
+import { useWebSocketStore } from "../websocket/websocket.store";
 
 export const channelActions = {
   async fetchAllChannelsByGuildId(guildId: string) {
@@ -13,6 +14,16 @@ export const channelActions = {
 
     const channelStore = useChannelStore();
     channelStore.channels = channels;
+
+    // Set channel to community mapping for WebSocket store
+    const wsStore = useWebSocketStore();
+    const mappings: Record<string, string> = {};
+    channels.forEach((channel) => {
+      if (channel.id) {
+        mappings[channel.id] = guildId;
+      }
+    });
+    wsStore.setChannelMappings(mappings);
 
     return channels;
   },
@@ -69,6 +80,10 @@ export const channelActions = {
     const channelStore = useChannelStore();
     channelStore.channels.push(res);
 
+    // Set channel to community mapping for WebSocket store
+    const wsStore = useWebSocketStore();
+    wsStore.setChannelToCommunityMapping(res.id, data.guildId);
+
     // Join WebSocket room for this new channel
     joinRoom(`channel_${res.id}`);
 
@@ -102,17 +117,16 @@ export const channelActions = {
     const channelStore = useChannelStore();
     channelStore.channels.push(category);
 
+    // Set channel to community mapping for WebSocket store
+    const wsStore = useWebSocketStore();
+    wsStore.setChannelToCommunityMapping(category.id, data.guildId);
+
     return category;
   },
 
   async fetchChannelById(guildId: string, channelId: string) {
     const { fetchWithAuth } = useFetchWithAuth();
     const channelStore = useChannelStore();
-
-    // Leave previous channel room if exists
-    if (channelStore.currentChannel) {
-      leaveRoom(`channel_${channelStore.currentChannel.id}`);
-    }
 
     const channel = await fetchWithAuth<Channel>(
       `/channels/${guildId}/${channelId}`,
@@ -122,6 +136,10 @@ export const channelActions = {
     );
 
     channelStore.currentChannel = channel;
+
+    // Set channel to community mapping for WebSocket store
+    const wsStore = useWebSocketStore();
+    wsStore.setChannelToCommunityMapping(channelId, guildId);
 
     // Join WebSocket room for this channel
     joinRoom(`channel_${channelId}`);
@@ -133,12 +151,23 @@ export const channelActions = {
     const { fetchWithAuth } = useFetchWithAuth();
     const channelStore = useChannelStore();
 
-    const channel = await fetchWithAuth<Channel[]>(`/dm/channels`, {
+    const channels = await fetchWithAuth<Channel[]>(`/dm/channels`, {
       method: "GET",
     });
 
-    channelStore.channelDM = channel;
-    return channel;
+    channelStore.channelDM = channels;
+
+    // Set channel to community mapping for WebSocket store (DM channels don't belong to communities)
+    const wsStore = useWebSocketStore();
+    const mappings: Record<string, string> = {};
+    channels.forEach((channel) => {
+      if (channel.id) {
+        mappings[channel.id] = "dm"; // Use "dm" as communityId for DM channels
+      }
+    });
+    wsStore.setChannelMappings(mappings);
+
+    return channels;
   },
 
   async createChannelDm(userIds: string[]) {
@@ -152,17 +181,16 @@ export const channelActions = {
 
     channelStore.channelDM.push(channelDM);
 
+    // Set channel to community mapping for WebSocket store (DM channels don't belong to communities)
+    const wsStore = useWebSocketStore();
+    wsStore.setChannelToCommunityMapping(channelDM.id, "dm"); // Use "dm" as communityId for DM channels
+
     return channelDM;
   },
 
   async fetchChannelDmById(channelId: string) {
     const { fetchWithAuth } = useFetchWithAuth();
     const channelStore = useChannelStore();
-
-    // Leave previous channel room if exists
-    if (channelStore.currentChannel) {
-      leaveRoom(`channel_${channelStore.currentChannel.id}`);
-    }
 
     const channelDM = await fetchWithAuth<Channel>(
       `/dm/channels/${channelId}`,
@@ -172,6 +200,10 @@ export const channelActions = {
     );
 
     channelStore.currentChannel = channelDM;
+
+    // Set channel to community mapping for WebSocket store (DM channels don't belong to communities)
+    const wsStore = useWebSocketStore();
+    wsStore.setChannelToCommunityMapping(channelId, "dm"); // Use "dm" as communityId for DM channels
 
     // Join WebSocket room for this channel
     joinRoom(`channel_${channelId}`);

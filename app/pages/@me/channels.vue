@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import type { TabsItem } from "@nuxt/ui";
 import { ref } from "vue";
-import { useCommunityStore } from "~/stores/community/community.store";
+import { useAuthStore } from "~/stores/auth/auth.store";
+import { useWebSocketStore } from "~/stores/websocket/websocket.store";
+import { useInitializeForDM } from "~/composables/useInitializeForDM";
 
 definePageMeta({
   layout: "main",
@@ -29,6 +31,12 @@ const items = ref<TabsItem[]>([
 const isOpenSlideover = ref(false);
 // Khởi tạo selected từ items[0].value cho chắc
 const selected = ref(items?.value[0]?.value);
+
+// Initialize WebSocket and join user room for DM notifications
+onMounted(async () => {
+  const { initializeForDM } = useInitializeForDM();
+  await initializeForDM();
+});
 </script>
 
 <template>

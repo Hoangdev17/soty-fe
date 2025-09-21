@@ -3,12 +3,15 @@ import { useRoute } from "vue-router";
 import { useMemberStore } from "~/stores/member/member.store";
 import { useRoleStore } from "~/stores/roles/role.store";
 import { useAuthStore } from "~/stores/auth/auth.store";
+import { useMessageStore } from "~/stores/message/message.store";
 import type { Channel } from "~/stores/channels/channel.type";
 import ThreadPanel from "~/components/organisms/thread.panel.vue";
 import PinnedMessagesPopover from "~/components/organisms/pinned.messages.popover.vue";
 import ThreadListPopover from "~/components/organisms/thread.list.popover.vue";
 import CreateThreadPanel from "~/components/organisms/create.thread.panel.vue";
 import type { ContextMenuItem } from "@nuxt/ui";
+import { onMounted, onBeforeUnmount, watch, computed } from "vue";
+import { useWebSocketStore } from "~/stores/websocket/websocket.store";
 
 interface Props {
   channelId: string;
@@ -38,6 +41,15 @@ const roleStore = useRoleStore();
 const authStore = useAuthStore();
 const route = useRoute();
 
+// Add message store
+const messageStore = useMessageStore();
+
+// Global messages for unread tracking
+const wsStore = useWebSocketStore();
+
+// Expose unread count for template
+const unreadCount = computed(() => wsStore.getUnreadCount(props.channelId));
+
 // Reply state
 const replyToMessage = ref(null);
 
@@ -64,6 +76,114 @@ const emit = defineEmits<{
   toggleMemberPanel: [];
   closeMemberPanel: [];
 }>();
+
+// Track user activity for read receipts
+const isUserActive = ref(false);
+const activityTimeout = ref<NodeJS.Timeout | null>(null);
+
+// Function to set user as active
+const setUserActive = () => {
+  isUserActive.value = true;
+
+  // Clear existing timeout
+  if (activityTimeout.value) {
+    clearTimeout(activityTimeout.value);
+  }
+
+  // Set timeout to reset active state after 5 seconds of inactivity
+  activityTimeout.value = setTimeout(() => {
+    isUserActive.value = false;
+  }, 5000);
+};
+
+// Function to reset user activity
+const resetUserActivity = () => {
+  isUserActive.value = false;
+  if (activityTimeout.value) {
+    clearTimeout(activityTimeout.value);
+    activityTimeout.value = null;
+  }
+};
+
+// Get last message ID from message store
+const lastMessageId = computed(() => {
+  const latestMessage = messageStore.getLatestMessage(props.channelId);
+  return latestMessage?.id || null;
+});
+
+onMounted(() => {
+  wsStore.restoreUnreadState();
+});
+
+// Function to send read receipt when opening channel
+const sendReadReceiptForChannel = async () => {
+  // Get last read message from localStorage first, then fallback to latest message
+  const lastReadFromStorage = wsStore.getLastReadMessageId(props.channelId);
+  const messageIdToSend = lastReadFromStorage || lastMessageId.value;
+
+  if (props.channelId && messageIdToSend) {
+    try {
+      await wsStore.sendReadReceipt(props.channelId, messageIdToSend);
+    } catch (error) {
+      console.error("❌ Failed to send read receipt on channel open:", error);
+    }
+  }
+};
+
+onMounted(() => {
+  sendReadReceiptForChannel();
+
+  // If there are unread messages, also clear them immediately
+  if (unreadCount.value > 0) {
+    wsStore.clearUnread(props.channelId);
+  }
+});
+
+// Handle scrolled to bottom from message list
+const handleScrolledToBottom = async () => {
+  if (props.channelId) {
+    // When user scrolls to bottom, they've read all messages
+    // Use last message ID or last read from cache
+    const lastReadFromStorage = wsStore.getLastReadMessageId(props.channelId);
+    const messageIdToSend = lastReadFromStorage || lastMessageId.value;
+
+    if (messageIdToSend) {
+      try {
+        await wsStore.sendReadReceipt(props.channelId, messageIdToSend);
+      } catch (error) {
+        console.error(
+          "❌ Failed to send read receipt on scroll to bottom:",
+          error
+        );
+      }
+    }
+  }
+};
+
+// Watch channel change to mark as read
+watch(
+  () => props.channelId,
+  async (newId, oldId) => {
+    if (newId && newId !== oldId) {
+      // Get last read message from localStorage first, then fallback to latest message
+      const lastReadFromStorage = wsStore.getLastReadMessageId(newId);
+      const messageIdToSend =
+        lastReadFromStorage || messageStore.getLatestMessage(newId)?.id;
+
+      if (messageIdToSend) {
+        try {
+          await wsStore.sendReadReceipt(newId, messageIdToSend);
+        } catch (error) {
+          console.error(
+            "❌ Failed to send read receipt on channel switch:",
+            error
+          );
+        }
+      }
+    }
+  },
+  { immediate: false }
+);
 
 const toggleMemberPanel = () => {
   if (isThreadPanelOpen.value || isCreateThreadPanelOpen.value) {
@@ -92,6 +212,11 @@ const handleReplySent = () => {
 
 const handleReplyCancelled = () => {
   replyToMessage.value = null;
+};
+
+// Handle user activity from message input
+const handleUserActive = () => {
+  setUserActive();
 };
 
 // Handle thread
@@ -249,7 +374,6 @@ const membersByRole = computed(() => {
     });
   });
 
-  console.log("Members by Role:", result);
   return result;
 });
 
@@ -385,6 +509,7 @@ const getMemberStatus = (member: any) => {
           @reply="handleReply"
           @threadClick="handleThreadClick"
           @createThread="handleCreateThreadFromMessage"
+          @scrolled-to-bottom="handleScrolledToBottom"
         />
       </div>
 
@@ -404,6 +529,7 @@ const getMemberStatus = (member: any) => {
             :replyTo="replyToMessage!"
             @reply-sent="handleReplySent"
             @reply-cancelled="handleReplyCancelled"
+            @user-active="handleUserActive"
           />
         </div>
       </div>

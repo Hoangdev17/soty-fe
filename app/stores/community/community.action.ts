@@ -52,12 +52,6 @@ export const communityActions = {
     const channelStore = useChannelStore();
     const messageStore = useMessageStore();
     const roleStore = useRoleStore();
-
-    // Leave previous community room if exists
-    if (communityStore.currentCommunity) {
-      leaveRoom(`community_${communityStore.currentCommunity.id}`);
-    }
-
     // Reset all stores when switching communities
     memberStore.clearAllMembers();
     channelStore.clearChannels();
@@ -89,11 +83,6 @@ export const communityActions = {
       body: JSON.stringify(data),
     });
 
-    // Leave current community room if exists
-    if (communityStore.currentCommunity) {
-      leaveRoom(`community_${communityStore.currentCommunity.id}`);
-    }
-
     communityStore.communities.push(newCommunity);
     communityStore.currentCommunity = newCommunity;
 
@@ -110,11 +99,6 @@ export const communityActions = {
     const channelStore = useChannelStore();
     const memberStore = useMemberStore();
     const roleStore = useRoleStore();
-
-    // Leave previous community room if exists
-    if (communityStore.currentCommunity) {
-      leaveRoom(`community_${communityStore.currentCommunity.id}`);
-    }
 
     const community = await fetchWithAuth<Community>(
       `/community/${communityId}`,
@@ -219,8 +203,6 @@ export const communityActions = {
     memberStore.clearAllMembers();
     channelStore.clearChannels();
     messageStore.clearAllMessages();
-
-    leaveRoom(`community_${communityId}`);
 
     return response;
   },

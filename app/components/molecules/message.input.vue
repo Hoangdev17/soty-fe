@@ -34,6 +34,18 @@ const { sendMessage, sendMessageToThread, replyToMessage, isLoading } =
   useMessage();
 const messageText = ref("");
 
+const handleInput = () => {
+  emit("user-active");
+};
+
+const handleFocus = () => {
+  emit("user-active");
+};
+
+const handleKeyDown = () => {
+  emit("user-active");
+};
+
 const handleSendMessage = async () => {
   if (!messageText.value.trim()) return;
 
@@ -81,6 +93,7 @@ const cancelReply = () => {
 const emit = defineEmits<{
   "reply-sent": [];
   "reply-cancelled": [];
+  "user-active": [];
 }>();
 </script>
 
@@ -99,11 +112,10 @@ const emit = defineEmits<{
           </span>
         </div>
         <UButton
-          size="xs"
-          color="gray"
+          @click="cancelReply"
           variant="ghost"
           class="p-1 hover:bg-gray-600"
-          @click="cancelReply"
+          size="xs"
         >
           <UIcon name="i-lucide-x" class="w-4 h-4" />
         </UButton>
@@ -119,7 +131,7 @@ const emit = defineEmits<{
     >
       <!-- Nút thêm (+) -->
       <UButton
-        color="transparent"
+        variant="ghost"
         size="sm"
         class="mr-3 text-[#b9bbbe] hover:text-white"
         type="button"
@@ -136,12 +148,15 @@ const emit = defineEmits<{
         variant="none"
         size="lg"
         class="flex-1 !bg-transparent !ring-0 text-[#dcddde] placeholder-[#72767d]"
+        @input="handleInput"
+        @focus="handleFocus"
+        @keydown="handleKeyDown"
       />
 
       <!-- Action buttons -->
       <div class="input-actions flex items-center space-x-2 ml-3">
         <UButton
-          color="transparent"
+          variant="ghost"
           size="sm"
           class="text-[#b9bbbe] hover:text-white"
           type="button"
@@ -150,7 +165,7 @@ const emit = defineEmits<{
         </UButton>
 
         <UButton
-          color="transparent"
+          variant="ghost"
           size="sm"
           class="text-[#b9bbbe] hover:text-white"
           type="button"
@@ -160,7 +175,7 @@ const emit = defineEmits<{
 
         <!-- Nút gửi tin nhắn -->
         <UButton
-          color="transparent"
+          variant="ghost"
           size="sm"
           class="text-[#b9bbbe] hover:text-white"
           type="submit"

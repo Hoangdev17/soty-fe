@@ -10,6 +10,9 @@ export interface Message {
   metadata?: Record<string, any>;
   channelId?: string;
   channelName?: string;
+  guildId?: string;
+  guildName?: string;
+  status?: "UNREAD" | "READ" | "SEEN" | "failed";
   author?: {
     id?: string;
     username: string;
