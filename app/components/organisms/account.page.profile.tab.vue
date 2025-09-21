@@ -3,6 +3,9 @@ import { useAuthStore } from "~/stores/auth/auth.store";
 import UnsavedChangesBar from "../atoms/unsave.change.vue";
 import UploadButton from "../molecules/upload.button.vue";
 import AvatarDecorationModal from "../molecules/avatar.decoration.modal.vue";
+import ProfileDecorationModal from "../molecules/profile.decoration.modal.vue";
+import NametagDecorationModal from "../molecules/nametag.decoration.modal.vue";
+import ProfilePreviewCard from "./profile.preview.card.vue";
 
 const authStore = useAuthStore();
 const user = computed(() => authStore.userInfo);
@@ -13,8 +16,70 @@ const currentAvatarEffect = computed(() => {
   return authStore.decoration.find((d) => d.id === user.value?.avatarEffectId);
 });
 
+// Get current profile effect
+const currentProfileEffect = computed(() => {
+  if (!user.value?.profileEffectId) return null;
+
+  const found = authStore.profileDecoration.find((d) => {
+    return d.id === user.value?.profileEffectId;
+  });
+
+  return found;
+});
+
+// Get current nametag
+const currentNametag = computed(() => {
+  if (!user.value?.nameplateId) return null;
+  return authStore.nameTagDecoration.find(
+    (d) => d.id === user.value?.nameplateId
+  );
+});
+
+// Get profile effect style
+const profileEffectStyle = computed(() => {
+  if (!currentProfileEffect.value?.metadata?.effects) return {};
+
+  const effects = currentProfileEffect.value.metadata.effects;
+  const introEffect = effects.find((e: any) => !e.loop);
+  const loopEffect = effects.find((e: any) => e.loop);
+
+  if (!introEffect && !loopEffect) return {};
+
+  // Calculate durations
+  const introDuration = introEffect?.duration || 0;
+  const loopStart = loopEffect?.start || 0;
+  const loopDuration = loopEffect?.duration || 0;
+  const totalDuration = Math.max(
+    introDuration + loopStart + loopDuration,
+    8000
+  );
+
+  const style: any = {
+    backgroundSize: "cover",
+    backgroundPosition: "center",
+    backgroundRepeat: "no-repeat",
+  };
+
+  if (introEffect) {
+    style["--intro-src"] = `url(${introEffect.src})`;
+    style.backgroundImage = `url(${introEffect.src})`;
+  }
+
+  if (loopEffect) {
+    style["--loop-src"] = `url(${loopEffect.src})`;
+  }
+
+  style.animation = `profile-effect ${totalDuration}ms infinite`;
+  style.animationDelay = introEffect ? `${introEffect.start}ms` : "0ms";
+  style.animationFillMode = "forwards";
+
+  return style;
+});
+
 // Modal state
 const isDecorationModalOpen = ref(false);
+const isProfileDecorationModalOpen = ref(false);
+const isNametagDecorationModalOpen = ref(false);
 
 const state = reactive({
   globalName: "",
@@ -84,14 +149,47 @@ watch(
   { immediate: true }
 );
 
-// Load avatar decorations on mount
-onMounted(async () => {
-  try {
-    await authStore.fetchAvatarDecorations();
-  } catch (error) {
-    console.error("Failed to load avatar decorations:", error);
-  }
-});
+watch(
+  () => user.value?.avatarEffectId,
+  async (id) => {
+    if (!id) return;
+    const found = authStore.decoration.find(
+      (d: any) => String(d.id) === String(id)
+    );
+    if (!found) {
+      await authStore.fetchAvatarDecorationById(String(id));
+    }
+  },
+  { immediate: true }
+);
+
+watch(
+  () => user.value?.profileEffectId,
+  async (id) => {
+    if (!id) return;
+    const found = authStore.profileDecoration.find(
+      (d: any) => String(d.id) === String(id)
+    );
+    if (!found) {
+      await authStore.fetchProfileDecorationById(String(id));
+    }
+  },
+  { immediate: true }
+);
+
+watch(
+  () => user.value?.nameplateId,
+  async (id) => {
+    if (!id) return;
+    const found = authStore.nameTagDecoration.find(
+      (d: any) => String(d.id) === String(id)
+    );
+    if (!found) {
+      await authStore.fetchNameTagDecorationById(String(id));
+    }
+  },
+  { immediate: true }
+);
 
 // Save changes function
 const saveChanges = async () => {
@@ -110,12 +208,8 @@ const saveChanges = async () => {
     originalState.avatar = state.avatar;
     originalState.banner = state.banner;
     originalState.bio = state.bio;
-
-    // Show success notification
-    // TODO: Add notification
   } catch (error) {
     console.error("Failed to save changes:", error);
-    // TODO: Add error notification
   }
 };
 
@@ -139,7 +233,6 @@ const handleBannerUploadSuccess = (url: string) => {
 
 const handleUploadError = (error: string) => {
   console.error("Upload failed:", error);
-  // TODO: Add error notification
 };
 
 // Avatar decoration methods
@@ -148,10 +241,37 @@ const openDecorationModal = () => {
 };
 
 const handleDecorationUpdated = async (decoration: any) => {
-  console.log("Avatar decoration updated:", decoration);
-  // Refresh user data to get updated avatar effect
   try {
     await authStore.initializeAuth();
+    await authStore.fetchAvatarDecorations();
+  } catch (error) {
+    console.error("Failed to refresh user data:", error);
+  }
+};
+
+// Profile decoration methods
+const openProfileDecorationModal = () => {
+  isProfileDecorationModalOpen.value = true;
+};
+
+const handleProfileDecorationUpdated = async (decoration: any) => {
+  try {
+    await authStore.initializeAuth();
+    await authStore.fetchProfileDecorations();
+  } catch (error) {
+    console.error("Failed to refresh user data:", error);
+  }
+};
+
+// Nametag decoration methods
+const openNametagDecorationModal = () => {
+  isNametagDecorationModalOpen.value = true;
+};
+
+const handleNametagDecorationUpdated = async (decoration: any) => {
+  try {
+    await authStore.initializeAuth();
+    await authStore.fetchNameTagDecorations();
   } catch (error) {
     console.error("Failed to refresh user data:", error);
   }
@@ -207,15 +327,16 @@ const handleDecorationUpdated = async (decoration: any) => {
       </div>
       <USeparator class="w-full" />
 
-      <p class="uppercase text-sm font-semibold w-full">AVATAR EFFECT</p>
+      <p class="uppercase text-sm font-semibold w-full">PROFILE EFFECT</p>
       <div class="flex items-center gap-x-2 w-full">
         <UButton
           icon="i-lucide-plus"
-          label="Avatar effect"
+          label="Profile effect"
           color="neutral"
           variant="outline"
           size="lg"
           class="w-full justify-center"
+          @click="openProfileDecorationModal"
         />
       </div>
       <USeparator class="w-full" />
@@ -223,12 +344,13 @@ const handleDecorationUpdated = async (decoration: any) => {
       <p class="uppercase text-sm font-semibold w-full">NAME TAG</p>
       <div class="flex items-center gap-x-2 w-full">
         <UButton
-          icon="i-lucide-plus"
+          icon="i-lucide-tag"
           label="Name tag"
           color="neutral"
           variant="outline"
           size="lg"
           class="w-full justify-center"
+          @click="openNametagDecorationModal"
         />
       </div>
       <USeparator class="w-full" />
@@ -306,82 +428,22 @@ const handleDecorationUpdated = async (decoration: any) => {
     </div>
 
     <!-- Preview Card Section -->
-    <div class="flex flex-col items-start gap-y-4 w-full max-w-sm">
-      <p class="uppercase text-sm font-semibold text-gray-600">PREVIEW</p>
-
-      <!-- Profile Card -->
-      <div
-        class="w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
-      >
-        <!-- Banner Section -->
-        <div class="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative">
-          <div class="absolute inset-0 bg-black opacity-10"></div>
-          <img
-            v-if="state.banner"
-            :src="state.banner"
-            alt="Banner"
-            class="w-full h-full object-cover"
-          />
-        </div>
-
-        <!-- Avatar Section -->
-        <div class="relative px-6 pb-6">
-          <div class="flex items-start -mt-12 mb-4">
-            <!-- Avatar Container -->
-            <div class="relative w-20 h-20 flex items-center justify-center">
-              <!-- Avatar -->
-              <div
-                class="relative w-full h-full rounded-full border-4 border-white dark:border-gray-800 overflow-hidden"
-              >
-                <img
-                  v-if="state.avatar"
-                  :src="state.avatar"
-                  :alt="state.globalName || user?.globalName || 'Avatar'"
-                  class="w-full h-full object-cover"
-                />
-                <UIcon
-                  v-else
-                  name="i-lucide-user"
-                  class="w-8 h-8 text-gray-500 dark:text-gray-400"
-                />
-              </div>
-
-              <!-- Avatar Effect Overlay (căn giữa & ra ngoài border) -->
-              <img
-                v-if="currentAvatarEffect?.metadata?.link"
-                :src="currentAvatarEffect.metadata.link"
-                class="absolute top-1/2 left-1/2 w-full h-full -translate-x-1/2 -translate-y-1/2 scale-110 object-contain pointer-events-none z-10"
-                alt="Avatar effect"
-              />
-            </div>
-          </div>
-
-          <!-- Profile Info -->
-          <div class="space-y-3">
-            <div>
-              <h2 class="text-xl font-bold text-gray-900 dark:text-white">
-                {{ state.globalName || user?.globalName || "Display Name" }}
-              </h2>
-              <p class="text-gray-600 dark:text-gray-400 text-sm">
-                @{{ state.username || user?.username || "username" }}
-              </p>
-            </div>
-
-            <!-- Biography -->
-            <div class="pt-2">
-              <p
-                class="text-gray-700 dark:text-gray-300 text-sm leading-relaxed"
-              >
-                {{
-                  state.bio ||
-                  "Your biography will appear here. Add some details about yourself to make your profile more interesting!"
-                }}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
+    <ProfilePreviewCard
+      :key="`${user?.avatarEffectId || 'no-avatar'}-${
+        user?.profileEffectId || 'no-profile'
+      }`"
+      :user="user || undefined"
+      :state="{
+        avatar: state.avatar || user?.avatar,
+        banner: state.banner || user?.banner,
+        globalName: state.globalName || user?.globalName,
+        username: state.username || user?.username,
+        bio: state.bio || user?.bio,
+      }"
+      :currentProfileEffect="currentProfileEffect || undefined"
+      :currentAvatarEffect="currentAvatarEffect || undefined"
+      :profileEffectStyle="profileEffectStyle"
+    />
   </div>
 
   <!-- Unsaved Changes Bar-->
@@ -400,4 +462,37 @@ const handleDecorationUpdated = async (decoration: any) => {
     :current-avatar="user?.avatar || undefined"
     @updated="handleDecorationUpdated"
   />
+
+  <!-- Profile Decoration Modal -->
+  <ProfileDecorationModal
+    v-model:open="isProfileDecorationModalOpen"
+    :user-id="user?.id"
+    :current-profile-effect="user?.profileEffectId || undefined"
+    @updated="handleProfileDecorationUpdated"
+  />
+
+  <!-- Nametag Decoration Modal -->
+  <NametagDecorationModal
+    v-model:open="isNametagDecorationModalOpen"
+    :user-id="user?.id"
+    :current-nametag="user?.nameplateId || undefined"
+    @updated="handleNametagDecorationUpdated"
+  />
 </template>
+
+<style scoped>
+@keyframes profile-effect {
+  0% {
+    background-image: var(--intro-src);
+  }
+  37.5% {
+    background-image: var(--intro-src);
+  }
+  37.6% {
+    background-image: var(--loop-src);
+  }
+  100% {
+    background-image: var(--loop-src);
+  }
+}
+</style>

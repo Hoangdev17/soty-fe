@@ -27,13 +27,47 @@ const profileEffectUrl = computed(() => {
   return effect?.metadata?.link || effect?.metadata?.image || null;
 });
 
-// Fetch profile decorations khi component mount
+// Computed để lấy nametag decoration
+const nametagDecoration = computed(() => {
+  if (!user.value?.nameplateId) return null;
+
+  const decoration = authStore.nameTagDecoration?.find(
+    (d) => d.id === user.value?.nameplateId
+  );
+  return decoration;
+});
+
+// Computed để lấy nametag video URL
+const nametagVideoUrl = computed(() => {
+  if (!nametagDecoration.value) return null;
+
+  // Nameplate videos are in metadata.asset path
+  if (nametagDecoration.value.metadata?.asset) {
+    return `https://cdn.discordapp.com/assets/collectibles/${nametagDecoration.value.metadata.asset}asset.webm`;
+  }
+
+  return null;
+});
+
+// Fetch decorations khi component mount
 onMounted(async () => {
-  if (authStore.isLoggedIn && !authStore.decoration?.length) {
+  if (authStore.isLoggedIn) {
     try {
-      await authStore.fetchAvatarDecorations();
+      // Fetch avatar decorations
+      if (!authStore.decoration?.length && authStore.userInfo?.avatarEffectId) {
+        await authStore.fetchAvatarDecorationById(
+          authStore.userInfo.avatarEffectId
+        );
+      }
+
+      // Fetch nametag decorations
+      if (authStore.userInfo?.nameplateId) {
+        await authStore.fetchNameTagDecorationById(
+          authStore.userInfo.nameplateId
+        );
+      }
     } catch (error) {
-      console.error("Failed to fetch avatar decorations:", error);
+      console.error("Failed to fetch decorations:", error);
     }
   }
 });
@@ -57,9 +91,11 @@ const onClickSettings = () => {
   <div
     v-if="isLoggedIn && user"
     class="backdrop-blur-md text-white shadow-lg rounded-xl p-3 fixed bottom-0 left-0 w-72 flex items-center justify-between z-50 transition-all duration-300 overflow-hidden"
-    :class="profileEffectUrl ? 'bg-gray-900/90' : 'bg-gray-900/90'"
+    :class="
+      nametagVideoUrl || profileEffectUrl ? 'bg-gray-900/90' : 'bg-gray-900/90'
+    "
     :style="
-      profileEffectUrl
+      profileEffectUrl && !nametagVideoUrl
         ? {
             backgroundImage: `linear-gradient(rgba(0,0,0,0.8), rgba(0,0,0,0.8)), url(${profileEffectUrl})`,
             backgroundSize: 'cover',
@@ -69,13 +105,33 @@ const onClickSettings = () => {
         : {}
     "
   >
-    <!-- Overlay để đảm bảo text dễ đọc -->
+    <!-- Nameplate background video cho toàn bộ floating card -->
+    <video
+      v-if="nametagVideoUrl"
+      class="absolute inset-0 w-full h-full object-cover rounded-xl"
+      loop
+      muted
+      autoplay
+      playsinline
+      :src="nametagVideoUrl"
+      style="z-index: 1"
+    />
+
+    <!-- Overlay để đảm bảo text dễ đọc khi có nameplate -->
     <div
-      v-if="profileEffectUrl"
+      v-if="nametagVideoUrl"
+      class="absolute inset-0 bg-black/30 backdrop-blur-[1px] rounded-xl"
+      style="z-index: 2"
+    ></div>
+
+    <!-- Overlay để đảm bảo text dễ đọc khi có profile effect -->
+    <div
+      v-else-if="profileEffectUrl"
       class="absolute inset-0 bg-black/20 backdrop-blur-[1px]"
+      style="z-index: 2"
     ></div>
     <!-- Avatar + Info -->
-    <div class="flex items-center gap-2">
+    <div class="flex items-center gap-2 relative z-10">
       <div class="relative w-10 h-10">
         <!-- Avatar -->
         <UAvatar
@@ -94,13 +150,16 @@ const onClickSettings = () => {
       </div>
 
       <div>
-        <h3 class="font-semibold text-sm">{{ user?.username }}</h3>
-        <p class="text-xs text-gray-400">Offline</p>
+        <!-- Username (không cần nameplate riêng vì đã có background) -->
+        <h3 class="font-semibold text-sm text-white drop-shadow-lg">
+          {{ user?.username }}
+        </h3>
+        <p class="text-xs text-gray-300">Offline</p>
       </div>
     </div>
 
     <!-- Action buttons -->
-    <div class="flex gap-1">
+    <div class="flex gap-1 relative z-10">
       <UButton
         size="xs"
         color="neutral"

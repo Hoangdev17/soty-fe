@@ -80,6 +80,7 @@ export interface User {
   bio: string | null;
   avatar: string | null;
   avatarEffectId: string | null;
+  nameplateId: string | null;
   profileEffectId: string | null;
   banner: string | null;
   accentColor: string | null;

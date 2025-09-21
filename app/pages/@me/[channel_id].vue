@@ -1,7 +1,5 @@
 <script setup lang="ts">
 import { useChannelStore } from "~/stores/channels/channel.store";
-import { useAuthStore } from "~/stores/auth/auth.store";
-import { useWebSocketStore } from "~/stores/websocket/websocket.store";
 import { useInitializeForDM } from "~/composables/useInitializeForDM";
 
 definePageMeta({
