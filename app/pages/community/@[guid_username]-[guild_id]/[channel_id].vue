@@ -11,12 +11,17 @@ import TextChannel from "~/components/organisms/text.channel.vue";
 import VoiceChannel from "~/components/organisms/voice.channel.vue";
 import SeminarChannel from "~/components/organisms/seminar.channel.vue";
 import DmChannel from "~/components/organisms/dm.channel.vue";
+import TextChannelMobile from "~/components/organisms/text.channel.mobile.vue";
+import VoiceChannelMobile from "~/components/organisms/voice.channel.mobile.vue";
+import { useBreakpoint } from "~/composables/useBreakpoint.client";
 import { joinRoom } from "~/stores/websocket/websocket.action";
 
 definePageMeta({
   layout: "community-layout",
   middleware: "required-auth",
 });
+
+const { isMobile } = useBreakpoint();
 
 const channelStore = useChannelStore();
 const guildStore = useCommunityStore();
@@ -162,7 +167,17 @@ const isOpenSlideoverMember = ref(false);
     :messageLoading="messageLoading"
   />
   <TextChannel
-    v-else-if="currentChannel?.type === ChannelType.GUILD_TEXT"
+    v-else-if="currentChannel?.type === ChannelType.GUILD_TEXT && !isMobile"
+    :channelId="channelId || ''"
+    :currentChannel="currentChannel"
+    :hasMessages="hasMessages"
+    :messageLoading="messageLoading"
+    :isOpenSlideoverMember="isOpenSlideoverMember"
+    @toggleMemberPanel="isOpenSlideoverMember = !isOpenSlideoverMember"
+    @closeMemberPanel="isOpenSlideoverMember = false"
+  />
+  <TextChannelMobile
+    v-else-if="currentChannel?.type === ChannelType.GUILD_TEXT && isMobile"
     :channelId="channelId || ''"
     :currentChannel="currentChannel"
     :hasMessages="hasMessages"
@@ -172,7 +187,15 @@ const isOpenSlideoverMember = ref(false);
     @closeMemberPanel="isOpenSlideoverMember = false"
   />
   <VoiceChannel
-    v-else-if="currentChannel?.type === ChannelType.GUILD_VOICE"
+    v-else-if="currentChannel?.type === ChannelType.GUILD_VOICE && !isMobile"
+    :channelId="channelId || ''"
+    :currentChannel="currentChannel"
+    :isOpenSlideoverMember="isOpenSlideoverMember"
+    @toggleMemberPanel="isOpenSlideoverMember = !isOpenSlideoverMember"
+    @closeMemberPanel="isOpenSlideoverMember = false"
+  />
+  <VoiceChannelMobile
+    v-else-if="currentChannel?.type === ChannelType.GUILD_VOICE && isMobile"
     :channelId="channelId || ''"
     :currentChannel="currentChannel"
     :isOpenSlideoverMember="isOpenSlideoverMember"
@@ -190,6 +213,17 @@ const isOpenSlideoverMember = ref(false);
   <OrganismsThreadChannel
     v-else-if="isThread"
     :threadId="channelId!"
+    @toggleMemberPanel="isOpenSlideoverMember = !isOpenSlideoverMember"
+    @closeMemberPanel="isOpenSlideoverMember = false"
+  />
+  <!-- Fallback for text channels if type detection fails -->
+  <TextChannel
+    v-else-if="currentChannel && !isThread"
+    :channelId="channelId || ''"
+    :currentChannel="currentChannel"
+    :hasMessages="hasMessages"
+    :messageLoading="messageLoading"
+    :isOpenSlideoverMember="isOpenSlideoverMember"
     @toggleMemberPanel="isOpenSlideoverMember = !isOpenSlideoverMember"
     @closeMemberPanel="isOpenSlideoverMember = false"
   />

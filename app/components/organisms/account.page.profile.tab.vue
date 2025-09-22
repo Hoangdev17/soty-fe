@@ -9,6 +9,7 @@ import ProfilePreviewCard from "./profile.preview.card.vue";
 
 const authStore = useAuthStore();
 const user = computed(() => authStore.userInfo);
+const { isMobile } = useBreakpoint();
 
 // Get current avatar effect
 const currentAvatarEffect = computed(() => {
@@ -282,6 +283,23 @@ const handleNametagDecorationUpdated = async (decoration: any) => {
   <div class="pt-1 flex items-start gap-y-4 gap-x-12 p-4 mb-12 w-full">
     <!-- Form Section -->
     <div class="flex flex-col items-start gap-y-4 w-full max-w-md">
+      <ProfilePreviewCard
+        v-if="isMobile"
+        :key="`${user?.avatarEffectId || 'no-avatar'}-${
+          user?.profileEffectId || 'no-profile'
+        }`"
+        :user="user || undefined"
+        :state="{
+          avatar: state.avatar || user?.avatar,
+          banner: state.banner || user?.banner,
+          globalName: state.globalName || user?.globalName,
+          username: state.username || user?.username,
+          bio: state.bio || user?.bio,
+        }"
+        :currentProfileEffect="currentProfileEffect || undefined"
+        :currentAvatarEffect="currentAvatarEffect || undefined"
+        :profileEffectStyle="profileEffectStyle"
+      />
       <UFormField label="Global name" class="w-full">
         <UInput
           v-model="state.globalName"
@@ -429,6 +447,7 @@ const handleNametagDecorationUpdated = async (decoration: any) => {
 
     <!-- Preview Card Section -->
     <ProfilePreviewCard
+      v-if="!isMobile"
       :key="`${user?.avatarEffectId || 'no-avatar'}-${
         user?.profileEffectId || 'no-profile'
       }`"

@@ -10,6 +10,7 @@ definePageMeta({
 const route = useRoute();
 const channelStore = useChannelStore();
 const channelId = computed(() => route.params.channel_id as string);
+const { isMobile } = useBreakpoint();
 
 // Fetch channel data before rendering
 const { data: channelData } = await useAsyncData(
@@ -45,7 +46,10 @@ onMounted(async () => {
 <template>
   <div class="flex min-h-screen w-full bg-[var(--ui-bg)]">
     <!-- Sidebar trái -->
-    <div class="flex flex-col sticky top-0 h-screen min-w-[210px] md:p-4 gap-4">
+    <div
+      v-if="!isMobile"
+      class="flex flex-col sticky top-0 h-screen min-w-[210px] md:p-4 gap-4"
+    >
       <OrganismsSidebarDmMessage class="flex-1 w-full" />
     </div>
 

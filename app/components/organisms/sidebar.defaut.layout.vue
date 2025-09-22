@@ -4,6 +4,7 @@ import { useCommunityStore } from "~/stores/community/community.store";
 import CreateGuildForm from "../molecules/create.guild.form.vue";
 import { useWebSocketStore } from "~/stores/websocket/websocket.store";
 import { useUnreadManager } from "~/composables/useUnreadManager";
+import ThemeToggle from "../atoms/theme.toggle.vue";
 const toast = useToast();
 
 const route = useRoute();
@@ -327,6 +328,7 @@ async function createGuild() {
 
     <!-- Add / Explore buttons -->
     <div class="mt-auto flex flex-col gap-2 w-full items-center pb-15">
+      <ThemeToggle />
       <UModal v-model:open="isOpen" title="Tạo máy chủ của bạn">
         <UButton
           class="w-12 h-12 rounded-full bg-gray-700 hover:bg-green-500 flex items-center justify-center transition-all duration-200"
@@ -358,7 +360,7 @@ async function createGuild() {
               v-model="createState.description"
               placeholder="Nhập mô tả máy chủ"
               class="w-full"
-              rows="3"
+              :rows="3"
             />
           </UFormField>
 

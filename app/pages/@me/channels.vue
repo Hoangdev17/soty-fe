@@ -37,10 +37,12 @@ onMounted(async () => {
   const { initializeForDM } = useInitializeForDM();
   await initializeForDM();
 });
+
+const { isMobile } = useBreakpoint();
 </script>
 
 <template>
-  <div class="flex min-h-screen w-full bg-[var(--ui-bg)]">
+  <div v-if="!isMobile" class="flex min-h-screen w-full bg-[var(--ui-bg)]">
     <!-- Sidebar trái -->
     <div class="flex flex-col sticky top-0 h-screen min-w-[210px] md:p-4 gap-4">
       <OrganismsSidebarDmMessage class="flex-1 w-full" />
@@ -111,4 +113,6 @@ onMounted(async () => {
       </Transition>
     </main>
   </div>
+
+  <OrganismsMobileDmSidebar v-else />
 </template>

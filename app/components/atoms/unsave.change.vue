@@ -10,10 +10,23 @@
     >
       <div
         v-if="show"
-        class="fixed bottom-4 left-1/2 transform -translate-x-1/2 z-50 bg-gray-800 text-white rounded-lg shadow-xl px-6 py-3 min-w-[500px]"
+        class="fixed z-50 bg-gray-800 text-white rounded-lg shadow-xl px-4 py-3"
+        :class="[
+          isMobile
+            ? 'inset-x-4 bottom-[84px] max-w-[calc(100vw-2rem)]'
+            : 'left-1/2 transform -translate-x-1/2 bottom-4 min-w-[500px]',
+        ]"
+        style="padding-bottom: env(safe-area-inset-bottom, 0px)"
       >
-        <div class="flex items-center justify-between">
-          <span class="text-sm font-medium">{{ title }}</span>
+        <div
+          class="flex items-center justify-between"
+          :class="{ 'flex-col gap-3': isMobile }"
+        >
+          <span
+            class="text-sm font-medium"
+            :class="{ 'text-center': isMobile }"
+            >{{ title }}</span
+          >
 
           <div class="flex items-center gap-x-3">
             <button
@@ -36,6 +49,9 @@
 </template>
 
 <script setup lang="ts">
+import { useBreakpoint } from "~/composables/useBreakpoint.client";
+
+const { isMobile } = useBreakpoint();
 interface Props {
   show?: boolean;
   title?: string;

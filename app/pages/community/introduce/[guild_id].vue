@@ -16,6 +16,7 @@ const route = useRoute();
 const communityStore = useCommunityStore();
 const authStore = useAuthStore();
 const memberStore = useMemberStore();
+const { isMobile } = useBreakpoint();
 
 const guildId = route.params.guild_id as string;
 const { currentCommunity } = storeToRefs(communityStore);
@@ -126,7 +127,7 @@ const formatDate = (dateString: string) => {
 </script>
 
 <template>
-  <div class="h-screen bg-dark-800 overflow-hidden">
+  <div v-if="!isMobile" class="h-screen bg-dark-800 overflow-hidden">
     <!-- Loading state -->
     <CommunityLoading v-if="isPageLoading" />
 

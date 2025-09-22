@@ -1,7 +1,10 @@
 <script setup lang="ts">
 import FloatingUserCard from "~/components/organisms/floating.user.card.vue";
 import HomeDefautLayout from "~/components/organisms/sidebar.defaut.layout.vue";
+import ThemeToggle from "~/components/atoms/theme.toggle.vue";
 import { initializeWebSocket } from "~/stores/websocket/websocket.action";
+
+const isMobile = useBreakpoint();
 
 // Initialize WebSocket for @me routes and ensure persistent connection
 onMounted(() => {
@@ -13,6 +16,7 @@ onMounted(() => {
   <div class="min-h-screen flex bg-[var(--ui-bg)]">
     <!-- Sidebar -->
     <aside class="w-[80px] h-screen flex flex-col relative">
+      <div class="p-2 flex items-center justify-center"></div>
       <div class="flex-1 overflow-y-auto">
         <HomeDefautLayout />
       </div>

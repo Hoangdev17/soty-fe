@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { useCommunityStore } from "~/stores/community/community.store";
 import DeleteCommunityModal from "~/components/molecules/delete.community.modal.vue";
+import { useBreakpoint } from "~/composables/useBreakpoint.client";
 
+const { isMobile } = useBreakpoint();
 const communityStore = useCommunityStore();
 const currentCommunity = computed(() => communityStore.currentCommunity);
 
@@ -155,6 +157,7 @@ const menuItems = computed<MenuItem[][]>(() => [
 
 <template>
   <div
+    v-if="!isMobile"
     class="sticky top-0 flex flex-col min-h-screen h-screen w-[200px] border-r border-dark-700 p-4 gap-4 bg-dark-800"
   >
     <!-- Server Info -->

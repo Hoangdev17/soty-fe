@@ -171,12 +171,17 @@ const getMemberRoles = (member: any) => {
   // Return role objects with color, sorted by position (highest first)
   return memberRoles.sort((a, b) => (b.position || 0) - (a.position || 0));
 };
+
+const { isMobile } = useBreakpoint();
 </script>
 
 <template>
   <div class="space-y-6 bg-dark-900 relative">
     <!-- Close button (fixed position) -->
-    <div class="fixed top-4 right-4 z-10 flex flex-col items-center gap-1">
+    <div
+      v-if="!isMobile"
+      class="fixed top-4 right-4 z-10 flex flex-col items-center gap-1"
+    >
       <UButton
         @click="closeMemberSettings"
         class="w-9 h-9 rounded-full bg-dark-800 hover:bg-dark-700 transition-colors flex items-center justify-center border border-dark-600"
