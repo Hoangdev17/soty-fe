@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { useAuthStore } from "~/stores/auth/auth.store";
+import { useBreakpoint } from "~/composables/useBreakpoint.client";
 
 interface Props {
   open: boolean;
@@ -14,6 +15,8 @@ interface Emits {
 
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
+
+const { isMobile } = useBreakpoint();
 
 const authStore = useAuthStore();
 const offset = ref(0);
@@ -158,7 +161,40 @@ async function loadMoreDecorations() {
         />
         <span class="ml-2">Đang tải trang trí...</span>
       </div>
-      <div v-else class="flex gap-6 max-h-96 overflow-y-auto scrollbar-hide">
+      <div
+        v-else
+        :class="isMobile ? 'flex flex-col gap-6' : 'flex gap-6'"
+        class="max-h-96 overflow-y-auto scrollbar-hide"
+      >
+        <!-- Avatar Preview Section - Mobile: Top and Sticky -->
+        <div
+          v-if="isMobile"
+          class="sticky top-0 z-10 bg-white dark:bg-gray-900 pb-4"
+        >
+          <div class="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg">
+            <h4 class="text-sm font-medium mb-4 text-center">
+              Xem trước Avatar
+            </h4>
+            <div class="flex flex-col items-center space-y-4">
+              <div class="relative w-24 h-24 flex items-center justify-center">
+                <!-- Avatar ở dưới -->
+                <UAvatar :src="currentAvatar" size="lg" class="w-20 h-20" />
+
+                <!-- Effect đè lên avatar -->
+                <img
+                  v-if="
+                    selectedDecoration &&
+                    selectedDecorationItem?.preview?.startsWith('http')
+                  "
+                  :src="selectedDecorationItem.preview"
+                  class="absolute top-1/2 left-1/2 w-full h-full -translate-x-1/2 -translate-y-1/2 scale-110 object-contain pointer-events-none z-10"
+                  alt="Effect overlay"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <!-- Options Section -->
         <div class="flex-1 space-y-6">
           <!-- Avatar Effects Selection -->
@@ -166,7 +202,11 @@ async function loadMoreDecorations() {
             <label class="block text-sm font-medium mb-2"
               >Hiệu ứng Avatar</label
             >
-            <div class="grid grid-cols-4 gap-2">
+            <div
+              :class="
+                isMobile ? 'grid grid-cols-4 gap-2' : 'grid grid-cols-4 gap-2'
+              "
+            >
               <UTooltip
                 v-for="decoration in decorationOptions"
                 :key="decoration.value || 'none'"
@@ -189,7 +229,7 @@ async function loadMoreDecorations() {
                       "
                       :src="decoration.preview"
                       :alt="decoration.label"
-                      class="w-18 h-18 rounded-xl object-cover"
+                      class="w-full h-full object-contain"
                     />
 
                     <div
@@ -210,8 +250,8 @@ async function loadMoreDecorations() {
           >
         </div>
 
-        <!-- Avatar Preview Section -->
-        <div class="w-80 sticky top-0 self-start">
+        <!-- Avatar Preview Section - Desktop -->
+        <div v-if="!isMobile" class="w-80 sticky top-0 self-start">
           <div class="bg-gray-50 dark:bg-gray-800 p-6 rounded-lg">
             <h4 class="text-sm font-medium mb-4 text-center">
               Xem trước Avatar

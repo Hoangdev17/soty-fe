@@ -33,6 +33,7 @@ const emit = defineEmits<{
 
 const fileInputRef = ref<HTMLInputElement | null>(null);
 const previewUrl = ref<string | null>(null);
+const isUploading = ref(false);
 
 // Watch for external changes to modelValue
 watch(
@@ -52,7 +53,7 @@ watch(
 );
 
 const handleFileSelect = () => {
-  if (!props.disabled) {
+  if (!props.disabled && !isUploading.value) {
     fileInputRef.value?.click();
   }
 };
@@ -60,6 +61,7 @@ const handleFileSelect = () => {
 const handleFileChange = async (event: Event) => {
   const file = (event.target as HTMLInputElement).files?.[0];
   if (file) {
+    isUploading.value = true;
     // Upload file
     const formData = new FormData();
     formData.append("file", file);
@@ -85,6 +87,8 @@ const handleFileChange = async (event: Event) => {
         description: error instanceof Error ? error.message : "Unknown error",
         color: "error",
       });
+    } finally {
+      isUploading.value = false;
     }
   }
 };
@@ -104,7 +108,7 @@ const handleRemove = () => {
     <div
       :class="[
         'relative rounded-full border-2 border-dashed border-gray-300 hover:border-gray-400 transition-colors cursor-pointer overflow-hidden',
-        { 'opacity-50 cursor-not-allowed': disabled },
+        { 'opacity-50 cursor-not-allowed': disabled || isUploading },
       ]"
       :style="{ width: `${size}px`, height: `${size}px` }"
       @click="handleFileSelect"
@@ -132,6 +136,17 @@ const handleRemove = () => {
         type="button"
       >
       </UButton>
+
+      <!-- Loading Overlay -->
+      <div
+        v-if="isUploading"
+        class="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center rounded-full"
+      >
+        <UIcon
+          name="i-lucide-loader-2"
+          class="w-6 h-6 text-white animate-spin"
+        />
+      </div>
     </div>
 
     <!-- Hidden File Input -->
@@ -141,7 +156,7 @@ const handleRemove = () => {
       :accept="accept"
       @change="handleFileChange"
       class="hidden"
-      :disabled="disabled"
+      :disabled="disabled || isUploading"
     />
   </div>
 </template>

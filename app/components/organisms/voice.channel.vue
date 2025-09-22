@@ -60,15 +60,12 @@ const closeMemberPanel = () => {
           </h1>
         </div>
         <div class="ml-auto flex items-center space-x-3">
-          <UButton
-            class="p-1 text-[#b9bbbe] hover:text-white"
-            color="transparent"
-          >
+          <UButton class="p-1 text-[#b9bbbe] hover:text-white" variant="ghost">
             <UIcon name="i-lucide-settings" class="w-5 h-5" />
           </UButton>
           <UButton
             class="p-1 text-[#b9bbbe] hover:text-white"
-            color="transparent"
+            variant="ghost"
             @click="toggleMemberPanel"
           >
             <UIcon name="i-lucide-users-round" class="w-5 h-5" />
@@ -112,7 +109,7 @@ const closeMemberPanel = () => {
             <!-- Placeholder for connected users -->
             <div class="flex items-center gap-3 p-3 bg-dark-700 rounded-md">
               <UAvatar
-                :src="authStore.user?.avatar"
+                :src="authStore.user?.avatar || undefined"
                 :alt="authStore.user?.username"
                 size="sm"
                 class="flex-shrink-0"
@@ -136,7 +133,7 @@ const closeMemberPanel = () => {
       </div>
     </div>
 
-    <!-- Members Panel - Fixed position on the right -->
+    <!-- Desktop Members Panel - Fixed position on the right -->
     <Transition name="slide">
       <div
         v-if="isOpenSlideoverMember"
@@ -155,7 +152,7 @@ const closeMemberPanel = () => {
           <div class="flex items-center gap-2">
             <UButton
               @click="refreshMembers"
-              color="transparent"
+              variant="ghost"
               class="text-[#b9bbbe] hover:text-white p-1"
               :loading="memberStore.isLoading"
               size="sm"
@@ -164,7 +161,7 @@ const closeMemberPanel = () => {
             </UButton>
             <UButton
               @click="closeMemberPanel"
-              color="transparent"
+              variant="ghost"
               class="text-[#b9bbbe] hover:text-white p-1"
             >
               <UIcon name="i-lucide-x" class="w-5 h-5" />
@@ -174,59 +171,24 @@ const closeMemberPanel = () => {
 
         <!-- Members List -->
         <div class="space-y-2">
-          <div v-if="memberStore.isLoading" class="text-center py-4">
-            <UIcon
-              name="i-lucide-loader-2"
-              class="w-6 h-6 animate-spin mx-auto text-gray-400"
-            />
-            <p class="text-gray-400 text-sm mt-2">Đang tải...</p>
-          </div>
-
-          <div v-else-if="memberStore.getError" class="text-center py-4">
-            <UIcon
-              name="i-lucide-alert-circle"
-              class="w-6 h-6 mx-auto text-red-400"
-            />
-            <p class="text-red-400 text-sm mt-2">{{ memberStore.getError }}</p>
-          </div>
-
-          <div v-else class="space-y-1">
-            <div
-              v-for="member in memberStore.getMembersByGuild(route.params.guild_id as string || '')"
-              :key="member.id"
-              class="flex items-center gap-3 p-2 rounded-md hover:bg-dark-700 transition-colors"
-            >
-              <UAvatar
-                :src="member.avatar"
-                :alt="member.nickname || member.user?.username"
-                size="sm"
-                class="flex-shrink-0"
-              />
-              <div class="flex-1 min-w-0">
-                <div class="flex items-center gap-2">
-                  <span class="text-white font-medium text-sm truncate">
-                    {{ member.nickname || member.user?.username }}
-                  </span>
-                  <span
-                    v-if="member.user?.id === authStore.user?.id"
-                    class="text-xs text-green-400 font-medium"
-                  >
-                    Bạn
-                  </span>
-                </div>
-                <div class="flex items-center gap-1 text-xs text-gray-400">
-                  <UIcon
-                    name="i-lucide-crown"
-                    v-if="member.permissions?.includes('ADMIN')"
-                    class="w-3 h-3 text-yellow-400"
-                  />
-                  <span>{{ member.user?.username }}</span>
-                </div>
-              </div>
-            </div>
+          <div class="text-center text-[#72767d]">
+            <UIcon name="i-lucide-users" class="w-12 h-12 mx-auto mb-3" />
+            <p>Danh sách thành viên sẽ hiển thị ở đây</p>
           </div>
         </div>
       </div>
     </Transition>
   </div>
 </template>
+
+<style scoped>
+.slide-enter-active,
+.slide-leave-active {
+  transition: transform 0.3s ease;
+}
+
+.slide-enter-from,
+.slide-leave-to {
+  transform: translateX(100%);
+}
+</style>

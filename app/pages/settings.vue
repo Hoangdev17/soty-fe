@@ -2,10 +2,13 @@
 import requiredAuth from "~/middleware/required.auth";
 import { useAuthStore } from "~/stores/auth/auth.store";
 import FloatingUserCard from "~/components/organisms/floating.user.card.vue";
+import { useBreakpoint } from "~/composables/useBreakpoint.client";
 
 definePageMeta({
   middleware: [requiredAuth],
 });
+
+const { isMobile } = useBreakpoint();
 
 const route = useRoute();
 const section = ref("");
@@ -163,7 +166,9 @@ const items = computed<MenuItem[][]>(() => [
 
 <template>
   <div class="flex items-start size-full">
+    <!-- Sidebar - Hidden on mobile -->
     <div
+      v-if="!isMobile"
       class="sticky top-0 flex flex-col min-h-screen h-screen w-[180px] border-r border-[#2c2f36] p-4 gap-4"
     >
       <!-- Custom Vertical Menu -->
@@ -202,7 +207,7 @@ const items = computed<MenuItem[][]>(() => [
                 }"
                 :disabled="item.disabled"
               >
-                <Icon :name="item.icon" class="w-4 h-4" />
+                <Icon :name="item.icon!" class="w-4 h-4" />
                 <span>{{ item.label }}</span>
               </UButton>
               <!-- Action item (logout) -->
@@ -224,6 +229,7 @@ const items = computed<MenuItem[][]>(() => [
 
     <div
       class="w-full max-w-3xl mx-auto p-4 overflow-y-auto overflow-x-hidden relative"
+      :class="{ 'pb-20': isMobile }"
     >
       <!-- Close button - Discord style -->
       <div class="fixed top-4 right-4 z-10 flex flex-col items-center gap-1">
@@ -240,7 +246,86 @@ const items = computed<MenuItem[][]>(() => [
       <NuxtPage />
     </div>
 
+    <!-- Bottom Navigation for Mobile -->
+    <div
+      v-if="isMobile"
+      class="fixed bottom-0 left-0 right-0 bg-gray-900 border-t border-gray-700 p-2 flex justify-around"
+    >
+      <UButton
+        variant="ghost"
+        color="neutral"
+        size="sm"
+        :to="'/settings/@' + user?.username"
+        class="flex flex-col items-center gap-1"
+        :class="{
+          'text-primary':
+            section === '@' + user?.username ||
+            section === 'account' ||
+            route.path.includes('/@'),
+        }"
+      >
+        <UIcon name="lucide-user" class="w-5 h-5" />
+        <span class="text-xs">Account</span>
+      </UButton>
+      <UButton
+        variant="ghost"
+        color="neutral"
+        size="sm"
+        to="/apps/settings/devices"
+        class="flex flex-col items-center gap-1"
+        :class="{
+          'text-primary':
+            section === 'devices' || route.path.includes('/devices'),
+        }"
+      >
+        <UIcon name="lucide-tablet" class="w-5 h-5" />
+        <span class="text-xs">Devices</span>
+      </UButton>
+      <UButton
+        variant="ghost"
+        color="neutral"
+        size="sm"
+        to="/apps/settings/connections"
+        class="flex flex-col items-center gap-1"
+        :class="{
+          'text-primary':
+            section === 'connections' || route.path.includes('/connections'),
+        }"
+      >
+        <UIcon name="lucide-unplug" class="w-5 h-5" />
+        <span class="text-xs">Connections</span>
+      </UButton>
+      <UButton
+        variant="ghost"
+        color="neutral"
+        size="sm"
+        to="/apps/settings/billing"
+        class="flex flex-col items-center gap-1"
+        :class="{
+          'text-primary':
+            section === 'billing' || route.path.includes('/billing'),
+        }"
+      >
+        <UIcon name="lucide-credit-card" class="w-5 h-5" />
+        <span class="text-xs">Billing</span>
+      </UButton>
+      <UButton
+        variant="ghost"
+        color="neutral"
+        size="sm"
+        to="/apps/settings/languages"
+        class="flex flex-col items-center gap-1"
+        :class="{
+          'text-primary':
+            section === 'languages' || route.path.includes('/languages'),
+        }"
+      >
+        <UIcon name="lucide-languages" class="w-5 h-5" />
+        <span class="text-xs">Language</span>
+      </UButton>
+    </div>
+
     <!-- Floating User Card -->
-    <FloatingUserCard class="mb-3 ml-2" />
+    <FloatingUserCard v-if="!isMobile" class="mb-3 ml-2" />
   </div>
 </template>

@@ -12,6 +12,7 @@ import CreateThreadPanel from "~/components/organisms/create.thread.panel.vue";
 import type { ContextMenuItem } from "@nuxt/ui";
 import { onMounted, onBeforeUnmount, watch, computed } from "vue";
 import { useWebSocketStore } from "~/stores/websocket/websocket.store";
+import { useBreakpoint } from "~/composables/useBreakpoint.client";
 
 interface Props {
   channelId: string;
@@ -62,6 +63,7 @@ const isThreadPopoverOpen = ref(false);
 // Create thread panel state
 const isCreateThreadPanelOpen = ref(false);
 const selectedMessageForThread = ref<any>(null);
+
 const refreshMembers = async () => {
   const currentGuildId = route.params.guild_id as string;
   if (currentGuildId) {
@@ -77,6 +79,26 @@ const emit = defineEmits<{
   toggleMemberPanel: [];
   closeMemberPanel: [];
 }>();
+
+// Local state for modal
+const isMemberModalOpen = ref(false);
+
+// Watch prop changes and update local state
+watch(
+  () => props.isOpenSlideoverMember,
+  (newValue) => {
+    isMemberModalOpen.value = newValue;
+  },
+  { immediate: true }
+);
+
+// Handle modal open/close events
+const handleMemberModalUpdate = (value: boolean) => {
+  isMemberModalOpen.value = value;
+  if (!value) {
+    emit("closeMemberPanel");
+  }
+};
 
 // Track user activity for read receipts
 const isUserActive = ref(false);
@@ -416,134 +438,87 @@ const getMemberStatus = (member: any) => {
 </script>
 
 <template>
-  <div class="channel-page flex h-full bg-dark-800">
-    <!-- Main Chat Area -->
+  <div class="flex flex-col h-full bg-dark-800">
+    <!-- Channel Header -->
     <div
-      class="flex-1 flex flex-col transition-all duration-300 min-w-0"
-      :class="{
-        'mr-[320px]':
-          isOpenSlideoverMember &&
-          !isThreadPanelOpen &&
-          !isCreateThreadPanelOpen,
-        'mr-[400px]':
-          !isOpenSlideoverMember &&
-          (isThreadPanelOpen || isCreateThreadPanelOpen),
-      }"
+      class="flex items-center justify-between px-4 py-3 bg-dark-800 border-b border-[#202225] sticky top-0 z-10"
     >
-      <!-- Channel Header -->
-      <div
-        class="channel-header flex items-center px-4 py-3 bg-dark-800 border-b border-[#202225] sticky top-0 z-10"
-      >
+      <div class="flex items-center space-x-3">
+        <UButton
+          @click="$router.back()"
+          variant="ghost"
+          size="sm"
+          class="text-[#b9bbbe] hover:text-white p-1"
+        >
+          <UIcon name="i-lucide-arrow-left" class="w-5 h-5" />
+        </UButton>
         <div class="flex items-center space-x-2">
           <UIcon name="i-lucide-hash" class="w-5 h-5 text-[#b9bbbe]" />
           <h1 class="text-white font-semibold truncate">
             {{ currentChannel?.name }}
           </h1>
         </div>
-        <div class="ml-auto flex items-center space-x-3">
-          <UPopover>
-            <UButton
-              class="p-1 text-[#b9bbbe] hover:text-white"
-              variant="ghost"
-            >
-              <UIcon name="i-lucide-pin" class="w-5 h-5" />
-            </UButton>
-
-            <template #content>
-              <PinnedMessagesPopover :channelId="channelId" />
-            </template>
-          </UPopover>
-
-          <UPopover v-model:open="isThreadPopoverOpen">
-            <UButton
-              class="p-1 text-[#b9bbbe] hover:text-white"
-              variant="ghost"
-            >
-              <UIcon name="i-lucide-spool" class="w-5 h-5" />
-            </UButton>
-
-            <template #content>
-              <ThreadListPopover
-                :channelId="channelId"
-                @threadClick="handleThreadClick"
-                @createThread="handleCreateThread"
-              />
-            </template>
-          </UPopover>
-          <UButton
-            class="p-1 text-[#b9bbbe] hover:text-white"
-            variant="ghost"
-            @click="toggleMemberPanel"
-          >
-            <UIcon name="i-lucide-users-round" class="w-5 h-5" />
-          </UButton>
-        </div>
       </div>
-
-      <!-- Messages Container -->
-      <div class="flex-1 flex flex-col justify-end min-h-0 bg-dark-800">
-        <!-- Welcome message -->
-        <AtomsMessageLoading v-if="messageLoading" />
-        <div
-          v-if="!hasMessages"
-          class="flex flex-col items-start text-left p-4"
+      <div class="flex items-center space-x-3">
+        <UButton
+          class="p-1 text-[#b9bbbe] hover:text-white"
+          variant="ghost"
+          @click="toggleMemberPanel"
         >
-          <div class="flex items-center mb-4">
-            <UIcon name="i-lucide-hash" class="w-8 h-8 text-[#72767d] mr-3" />
-          </div>
-          <h2 class="text-white text-xl font-bold">
-            Chào mừng đến với kênh #{{ currentChannel?.name }}!
-          </h2>
-          <p class="text-[#72767d] text-base mb-4">
-            Đây là nơi bắt đầu của kênh #{{ currentChannel?.name }}.
-          </p>
-          <UButton icon="i-lucide-pencil" variant="ghost" color="info">
-            Chỉnh sửa kênh
-          </UButton>
-        </div>
-
-        <!-- Message list - takes remaining space and handles its own scrolling -->
-        <MoleculesMessageList
-          v-if="hasMessages"
-          :roomId="channelId"
-          class="flex-1 min-h-0"
-          @reply="handleReply"
-          @threadClick="handleThreadClick"
-          @createThread="handleCreateThreadFromMessage"
-          @scrolled-to-bottom="handleScrolledToBottom"
-        />
+          <UIcon name="i-lucide-users-round" class="w-5 h-5" />
+        </UButton>
       </div>
-
-      <div class="message-input-area p-2">
-        <div
-          class="transition-all duration-300"
-          :class="{
-            'max-w-full':
-              !isOpenSlideoverMember &&
-              !isThreadPanelOpen &&
-              !isCreateThreadPanelOpen,
-            'max-w-4xl mx-auto': isOpenSlideoverMember || isThreadPanelOpen,
-          }"
-        >
-          <MoleculesMessageInput
-            :channelId="channelId"
-            :replyTo="replyToMessage!"
-            @reply-sent="handleReplySent"
-            @reply-cancelled="handleReplyCancelled"
-            @user-active="handleUserActive"
-          />
-        </div>
-      </div>
-      <!-- Message Input -->
     </div>
 
-    <!-- Members Panel - Fixed position on the right -->
-    <Transition name="slide">
-      <div
-        v-if="isOpenSlideoverMember"
-        class="fixed top-0 right-0 w-[320px] h-full border-l border-[#202225] bg-dark-800 p-4 overflow-y-auto z-50"
-      >
-        <div class="flex items-center justify-between mb-6">
+    <!-- Messages Container -->
+    <div
+      class="flex-1 flex flex-col justify-end min-h-0 bg-dark-800 overflow-hidden"
+    >
+      <!-- Welcome message -->
+      <AtomsMessageLoading v-if="messageLoading" />
+      <div v-if="!hasMessages" class="flex flex-col items-start text-left p-4">
+        <div class="flex items-center mb-4">
+          <UIcon name="i-lucide-hash" class="w-8 h-8 text-[#72767d] mr-3" />
+        </div>
+        <h2 class="text-white text-xl font-bold">
+          Chào mừng đến với kênh #{{ currentChannel?.name }}!
+        </h2>
+        <p class="text-[#72767d] text-base mb-4">
+          Đây là nơi bắt đầu của kênh #{{ currentChannel?.name }}.
+        </p>
+      </div>
+
+      <!-- Message list -->
+      <MoleculesMessageList
+        v-if="hasMessages"
+        :roomId="channelId"
+        class="flex-1 min-h-0"
+        @reply="handleReply"
+        @threadClick="handleThreadClick"
+        @createThread="handleCreateThreadFromMessage"
+        @scrolled-to-bottom="handleScrolledToBottom"
+      />
+    </div>
+
+    <!-- Message Input -->
+    <div class="message-input-area p-2">
+      <MoleculesMessageInput
+        :channelId="channelId"
+        :replyTo="replyToMessage!"
+        @reply-sent="handleReplySent"
+        @reply-cancelled="handleReplyCancelled"
+        @user-active="handleUserActive"
+      />
+    </div>
+
+    <!-- Members Modal -->
+    <UModal
+      :open="isMemberModalOpen"
+      @update:open="handleMemberModalUpdate"
+      class="w-full h-full"
+    >
+      <template #header>
+        <div class="flex items-center justify-between">
           <h3 class="text-white font-semibold flex items-center text-lg">
             <UIcon name="i-lucide-users-round" class="w-5 h-5 mr-2" />
             Hoạt động —
@@ -553,28 +528,19 @@ const getMemberStatus = (member: any) => {
               )
             }}
           </h3>
-          <div class="flex items-center gap-2">
-            <UButton
-              @click="refreshMembers"
-              variant="ghost"
-              class="text-[#b9bbbe] hover:text-white p-1"
-              :loading="memberStore.isLoading"
-              size="sm"
-            >
-              <UIcon name="i-lucide-refresh-ccw" class="w-4 h-4" />
-            </UButton>
-            <UButton
-              @click="closeMemberPanel"
-              variant="ghost"
-              class="text-[#b9bbbe] hover:text-white p-1"
-            >
-              <UIcon name="i-lucide-x" class="w-5 h-5" />
-            </UButton>
-          </div>
+          <UButton
+            @click="closeMemberPanel"
+            variant="ghost"
+            class="text-[#b9bbbe] hover:text-white p-1"
+          >
+            <UIcon name="i-lucide-x" class="w-5 h-5" />
+          </UButton>
         </div>
+      </template>
 
-        <!-- Members List -->
-        <div class="space-y-2">
+      <template #body>
+        <div class="space-y-3">
+          <!-- Members List -->
           <div v-if="memberStore.isLoading" class="text-center py-4">
             <UIcon
               name="i-lucide-loader-2"
@@ -655,36 +621,29 @@ const getMemberStatus = (member: any) => {
             </div>
           </div>
         </div>
-      </div>
-    </Transition>
+      </template>
+    </UModal>
+
+    <!-- Thread Panel -->
+    <ThreadPanel
+      :threadId="currentThreadId"
+      :isOpen="isThreadPanelOpen"
+      @close="handleCloseThread"
+    />
+
+    <!-- Create Thread Panel -->
+    <CreateThreadPanel
+      :isOpen="isCreateThreadPanelOpen"
+      :channelId="channelId"
+      :starterMessageId="selectedMessageForThread?.id"
+      :starterMessageContent="selectedMessageForThread?.content"
+      @close="handleCloseCreateThread"
+      @threadCreated="handleThreadCreated"
+    />
   </div>
-
-  <!-- Thread Panel -->
-  <ThreadPanel
-    :threadId="currentThreadId"
-    :isOpen="isThreadPanelOpen"
-    @close="handleCloseThread"
-  />
-
-  <!-- Create Thread Panel -->
-  <CreateThreadPanel
-    :isOpen="isCreateThreadPanelOpen"
-    :channelId="channelId"
-    :starterMessageId="selectedMessageForThread?.id"
-    :starterMessageContent="selectedMessageForThread?.content"
-    @close="handleCloseCreateThread"
-    @threadCreated="handleThreadCreated"
-  />
 </template>
 
 <style scoped>
-.channel-page {
-  color: #dcddde;
-  /* Make the chat page fill the viewport and prevent the page itself from scrolling */
-  height: 100vh;
-  overflow: hidden;
-}
-
 .mention {
   background-color: rgba(88, 101, 242, 0.3);
   padding: 0 2px;
@@ -709,26 +668,6 @@ const getMemberStatus = (member: any) => {
 
 .username.text-\[#ed4245\] {
   color: #ed4245;
-}
-
-.slide-enter-active,
-.slide-leave-active {
-  transition: all 0.3s ease-in-out;
-}
-
-.slide-enter-from {
-  transform: translateX(100%);
-  opacity: 0;
-}
-
-.slide-leave-to {
-  transform: translateX(100%);
-  opacity: 0;
-}
-
-/* Ensure the immediate flex child can shrink so inner flex children can scroll */
-.channel-page > .flex-1 {
-  min-height: 0;
 }
 
 /* Custom avatar chip positioning */

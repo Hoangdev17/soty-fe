@@ -555,10 +555,15 @@ const getChannelsInCategory = (categoryId: string) => {
 const showCategoryContextMenu = (event: MouseEvent, categoryId: string) => {
   openCreateChannelInCategory(categoryId);
 };
+
+const { isMobile } = useBreakpoint();
 </script>
 
 <template>
-  <div class="flex flex-col h-full bg-dark-800 text-white w-60 relative">
+  <div
+    class="flex flex-col h-full bg-dark-800 text-white relative"
+    :class="isMobile ? 'w-full' : 'w-60'"
+  >
     <!-- Header section with Discord-style colors -->
     <div class="flex-shrink-0 px-4 pt-4 pb-1 border-[#202225] border-b">
       <!-- Server Header -->
