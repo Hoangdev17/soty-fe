@@ -11,6 +11,7 @@ import { useMemberStore } from "~/stores/member/member.store";
 import { useMessageStore } from "~/stores/message/message.store";
 import type { Member } from "~/stores/member/member.type";
 import { useWebSocketStore } from "~/stores/websocket/websocket.store";
+import ModalEventCommunity from "./modal.event.community.vue";
 
 const route = useRoute();
 const communityStore = useCommunityStore();
@@ -31,22 +32,33 @@ const selectedCategoryId = ref<string>("");
 const expandedCategories = ref<Set<string>>(new Set());
 const serverName = ref(communityStore.currentCommunity?.name || "My Server");
 const showDropdown = ref(false);
+const isOpenEvent = ref(false);
+
+function handleOpenModalEvent() {
+  isOpenEvent.value = true;
+}
 
 const itemsNavigates = computed<NavigationMenuItem[][]>(() => [
   [
     {
       label: "Sự kiện",
       icon: "i-lucide-users",
-      to: "/@me/channels",
-      // disabled: !communityStore.currentCommunity || !isMember.value,
-      disabled: true,
+      disabled: !communityStore.currentCommunity || !isMember.value,
+      onSelect: () => {
+        // Mở modal sự kiện
+        handleOpenModalEvent();
+      },
     },
     {
       label: "Nâng cấp máy chủ",
       icon: "i-lucide-store",
-      to: "/community",
-      // disabled: !communityStore.currentCommunity || !isMember.value,
-      disabled: true,
+      to:
+        "/community/@" +
+        currentCommunity.value?.name +
+        "-" +
+        currentCommunity.value?.id +
+        "/boots",
+      disabled: false,
     },
     {
       label: "Giới thiệu về community",
@@ -767,4 +779,6 @@ const { isMobile } = useBreakpoint();
     :guild-id="communityStore.currentCommunity?.id"
     :guild-username="communityStore.currentCommunity?.name"
   />
+
+  <ModalEventCommunity v-model:isOpen="isOpenEvent" />
 </template>

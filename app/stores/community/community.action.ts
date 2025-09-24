@@ -5,6 +5,8 @@ import type {
   Community,
   CommunityMember,
   CreateCommunityData,
+  CreateEventPayload,
+  GuildEvent,
 } from "./community.type";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
 import {
@@ -308,5 +310,39 @@ export const communityActions = {
     memberStore.removeMember(communityId, memberId);
 
     return response;
+  },
+
+  async createEvent(communityId: string, data: CreateEventPayload) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const communityStore = useCommunityStore();
+
+    const res = await fetchWithAuth<GuildEvent>(
+      `/communities/${communityId}/events`,
+      {
+        method: "POST",
+        body: JSON.stringify(data),
+      }
+    );
+
+    communityStore.currentCommunity?.events?.push(res);
+    return res;
+  },
+
+  async fetchAllEvent(communityId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const communityStore = useCommunityStore();
+
+    const events = await fetchWithAuth<GuildEvent[]>(
+      `/communities/${communityId}/events`,
+      {
+        method: "GET",
+      }
+    );
+
+    if (communityStore.currentCommunity?.id === communityId) {
+      communityStore.currentCommunity.events = events;
+    }
+
+    return events;
   },
 };

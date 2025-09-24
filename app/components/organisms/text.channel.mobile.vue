@@ -554,7 +554,9 @@ const getMemberStatus = (member: any) => {
               name="i-lucide-alert-circle"
               class="w-6 h-6 mx-auto text-red-400"
             />
-            <p class="text-red-400 text-sm mt-2">{{ memberStore.getError }}</p>
+            <p class="text-red-400 text-sm mt-2">
+              {{ memberStore.getError }}
+            </p>
           </div>
 
           <div v-else class="space-y-3">

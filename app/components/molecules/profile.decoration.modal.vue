@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { useAuthStore } from "~/stores/auth/auth.store";
-import { useBreakpoint } from "~/composables/useBreakpoint.client";
 
 interface Props {
   open: boolean;
@@ -16,8 +15,6 @@ interface Emits {
 const props = defineProps<Props>();
 const emit = defineEmits<Emits>();
 
-const { isMobile } = useBreakpoint();
-
 const authStore = useAuthStore();
 const offset = ref(0);
 const limit = ref(20);
@@ -27,6 +24,7 @@ const isApplying = ref(false);
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
 const selectedDecoration = ref<string | null>(null);
+const { isMobile } = useBreakpoint();
 
 // Computed
 const isOpen = computed({
@@ -213,150 +211,234 @@ async function loadMoreDecorations() {
       </div>
       <div
         v-else
-        class="flex flex-col gap-6 max-h-[32rem] overflow-y-auto scrollbar-hide"
+        :class="isMobile ? 'flex flex-col gap-6' : 'flex gap-6'"
+        class="max-h-96 overflow-y-auto scrollbar-hide"
       >
-        <!-- Profile Preview Section - Top -->
-        <div class="sticky top-0 z-8 bg-white dark:bg-gray-900 pt-0">
-          <h4 class="text-sm font-medium mb-4 text-center">
-            Xem trước Profile
-          </h4>
-          <div class="flex flex-col items-center space-y-4">
-            <!-- Profile Card Preview -->
-            <div
-              class="w-64 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 relative transform scale-75 origin-top"
-              :class="
-                selectedDecorationItem?.metadata?.effects
-                  ? ''
-                  : 'bg-white dark:bg-gray-800'
-              "
-            >
-              <!-- Profile Effect Overlay for entire card -->
+        <div v-if="isMobile" class="w-80">
+          <div class="p-6 rounded-lg">
+            <h4 class="text-sm font-medium mb-4 text-center">
+              Xem trước Profile
+            </h4>
+            <div class="flex flex-col items-center space-y-4">
+              <!-- Profile Card Preview -->
               <div
-                v-if="selectedDecorationItem?.metadata?.effects"
-                class="absolute inset-0 w-full h-full pointer-events-none z-10 rounded-lg overflow-hidden"
-                :style="selectedDecorationAnimationStyle"
-              ></div>
-
-              <!-- Banner Section -->
-              <div
-                class="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative"
+                class="w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 relative"
               >
-                <div class="absolute inset-0 bg-black opacity-10"></div>
-                <img
-                  v-if="authStore.user?.banner"
-                  :src="authStore.user.banner"
-                  alt="Banner"
-                  class="w-full h-full object-cover"
-                />
-              </div>
+                <!-- Profile Effect Overlay for entire card -->
+                <div
+                  v-if="selectedDecorationItem?.metadata?.effects"
+                  class="absolute inset-0 w-full h-full pointer-events-none z-10 rounded-lg overflow-hidden"
+                  :style="selectedDecorationAnimationStyle"
+                ></div>
 
-              <!-- Avatar Section -->
-              <div class="relative px-6 pb-6">
-                <div class="flex items-start -mt-12 mb-4">
-                  <!-- Avatar Container -->
-                  <div
-                    class="relative w-20 h-20 flex items-center justify-center"
-                  >
-                    <!-- Avatar -->
-                    <div
-                      class="relative w-full h-full rounded-full border-4 border-white dark:border-gray-800 overflow-hidden bg-gray-100 dark:bg-gray-700"
-                    >
-                      <img
-                        v-if="authStore.user?.avatar"
-                        :src="authStore.user.avatar"
-                        :alt="authStore.user?.globalName || 'Avatar'"
-                        class="w-full h-full object-cover"
-                      />
-                      <UIcon
-                        v-else
-                        name="i-lucide-user"
-                        class="w-8 h-8 text-gray-500 dark:text-gray-400"
-                      />
-                    </div>
-                  </div>
+                <!-- Banner Section -->
+                <div
+                  class="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative"
+                >
+                  <div class="absolute inset-0 bg-black opacity-10"></div>
+                  <img
+                    v-if="authStore.user?.banner"
+                    :src="authStore.user.banner"
+                    alt="Banner"
+                    class="w-full h-full object-cover"
+                  />
                 </div>
 
-                <!-- Profile Info -->
-                <div class="space-y-3">
-                  <div>
-                    <h2 class="text-xl font-bold text-gray-900 dark:text-white">
-                      {{ authStore.user?.globalName || "Display Name" }}
-                    </h2>
-                    <p class="text-gray-600 dark:text-gray-400 text-sm">
-                      @{{ authStore.user?.username || "username" }}
-                    </p>
+                <!-- Avatar Section -->
+                <div class="relative px-6 pb-6">
+                  <div class="flex items-start -mt-12 mb-4">
+                    <!-- Avatar Container -->
+                    <div
+                      class="relative w-20 h-20 flex items-center justify-center"
+                    >
+                      <!-- Avatar -->
+                      <div
+                        class="relative w-full h-full rounded-full border-4 border-white dark:border-gray-800 overflow-hidden bg-gray-100 dark:bg-gray-700"
+                      >
+                        <img
+                          v-if="authStore.user?.avatar"
+                          :src="authStore.user.avatar"
+                          :alt="authStore.user?.globalName || 'Avatar'"
+                          class="w-full h-full object-cover"
+                        />
+                        <UIcon
+                          v-else
+                          name="i-lucide-user"
+                          class="w-8 h-8 text-gray-500 dark:text-gray-400"
+                        />
+                      </div>
+                    </div>
                   </div>
 
-                  <!-- Biography -->
-                  <div class="pt-2">
-                    <p
-                      class="text-gray-700 dark:text-gray-300 text-sm leading-relaxed"
-                    >
-                      {{
-                        authStore.user?.bio ||
-                        "Your biography will appear here. Add some details about yourself to make your profile more interesting!"
-                      }}
-                    </p>
+                  <!-- Profile Info -->
+                  <div class="space-y-3">
+                    <div>
+                      <h2
+                        class="text-xl font-bold text-gray-900 dark:text-white"
+                      >
+                        {{ authStore.user?.globalName || "Display Name" }}
+                      </h2>
+                      <p class="text-gray-600 dark:text-gray-400 text-sm">
+                        @{{ authStore.user?.username || "username" }}
+                      </p>
+                    </div>
+
+                    <!-- Biography -->
+                    <div class="pt-2">
+                      <p
+                        class="text-gray-700 dark:text-gray-300 text-sm leading-relaxed"
+                      >
+                        {{
+                          authStore.user?.bio ||
+                          "Your biography will appear here. Add some details about yourself to make your profile more interesting!"
+                        }}
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
             </div>
           </div>
         </div>
-
         <!-- Options Section -->
-        <div class="pt-64">
-          <div class="flex-1 space-y-6">
-            <!-- Profile Effects Selection -->
-            <div>
-              <label class="block text-sm font-medium mb-2"
-                >Hiệu ứng Profile</label
+        <div class="flex-1 space-y-6">
+          <!-- Profile Effects Selection -->
+          <div>
+            <label class="block text-sm font-medium mb-2"
+              >Hiệu ứng Profile</label
+            >
+            <div
+              :class="
+                isMobile ? 'grid grid-cols-4 gap-2' : 'grid grid-cols-4 gap-2'
+              "
+            >
+              <UTooltip
+                v-for="decoration in decorationOptions"
+                :key="decoration.value || 'none'"
+                :text="decoration.label"
               >
-              <div
-                :class="
-                  isMobile ? 'grid grid-cols-2 gap-2' : 'grid grid-cols-4 gap-2'
-                "
-              >
-                <UTooltip
-                  v-for="decoration in decorationOptions"
-                  :key="decoration.value || 'none'"
-                  :text="decoration.label"
+                <UCard
+                  :class="[
+                    'cursor-pointer transition-all aspect-square flex items-center justify-center',
+                    selectedDecoration === decoration.value
+                      ? 'ring-2 ring-primary'
+                      : 'hover:ring-1 hover:ring-gray-300',
+                  ]"
+                  @click="selectedDecoration = decoration.value"
                 >
-                  <UCard
-                    :class="[
-                      'cursor-pointer transition-all aspect-square flex items-center justify-center',
-                      selectedDecoration === decoration.value
-                        ? 'ring-2 ring-primary'
-                        : 'hover:ring-1 hover:ring-gray-300',
-                    ]"
-                    @click="selectedDecoration = decoration.value"
-                  >
-                    <div class="w-full h-full flex items-center justify-center">
-                      <img
-                        v-if="
-                          decoration.preview &&
-                          decoration.preview.startsWith('http')
-                        "
-                        :src="decoration.preview"
-                        :alt="decoration.label"
-                        class="w-full h-full object-contain"
-                      />
+                  <div class="w-full h-full flex items-center justify-center">
+                    <img
+                      v-if="
+                        decoration.preview &&
+                        decoration.preview.startsWith('http')
+                      "
+                      :src="decoration.preview"
+                      :alt="decoration.label"
+                      class="w-18 h-18 rounded-xl object-cover"
+                    />
+                    <div
+                      v-else
+                      class="w-8 h-8 border-2 border-gray-300 rounded-full"
+                    ></div>
+                  </div>
+                </UCard>
+              </UTooltip>
+            </div>
+          </div>
+
+          <UButton
+            @click="loadMoreDecorations"
+            class="w-full items-center justify-center"
+            variant="outline"
+            >Xem thêm</UButton
+          >
+        </div>
+
+        <!-- Profile Preview Section -->
+        <div v-if="!isMobile" class="w-80 sticky top-0 self-start">
+          <div class="p-6 rounded-lg">
+            <h4 class="text-sm font-medium mb-4 text-center">
+              Xem trước Profile
+            </h4>
+            <div class="flex flex-col items-center space-y-4">
+              <!-- Profile Card Preview -->
+              <div
+                class="w-full bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700 relative"
+              >
+                <!-- Profile Effect Overlay for entire card -->
+                <div
+                  v-if="selectedDecorationItem?.metadata?.effects"
+                  class="absolute inset-0 w-full h-full pointer-events-none z-10 rounded-lg overflow-hidden"
+                  :style="selectedDecorationAnimationStyle"
+                ></div>
+
+                <!-- Banner Section -->
+                <div
+                  class="h-24 bg-gradient-to-r from-blue-500 to-purple-600 relative"
+                >
+                  <div class="absolute inset-0 bg-black opacity-10"></div>
+                  <img
+                    v-if="authStore.user?.banner"
+                    :src="authStore.user.banner"
+                    alt="Banner"
+                    class="w-full h-full object-cover"
+                  />
+                </div>
+
+                <!-- Avatar Section -->
+                <div class="relative px-6 pb-6">
+                  <div class="flex items-start -mt-12 mb-4">
+                    <!-- Avatar Container -->
+                    <div
+                      class="relative w-20 h-20 flex items-center justify-center"
+                    >
+                      <!-- Avatar -->
                       <div
-                        v-else
-                        class="w-8 h-8 border-2 border-gray-300 rounded-full"
-                      ></div>
+                        class="relative w-full h-full rounded-full border-4 border-white dark:border-gray-800 overflow-hidden bg-gray-100 dark:bg-gray-700"
+                      >
+                        <img
+                          v-if="authStore.user?.avatar"
+                          :src="authStore.user.avatar"
+                          :alt="authStore.user?.globalName || 'Avatar'"
+                          class="w-full h-full object-cover"
+                        />
+                        <UIcon
+                          v-else
+                          name="i-lucide-user"
+                          class="w-8 h-8 text-gray-500 dark:text-gray-400"
+                        />
+                      </div>
                     </div>
-                  </UCard>
-                </UTooltip>
+                  </div>
+
+                  <!-- Profile Info -->
+                  <div class="space-y-3">
+                    <div>
+                      <h2
+                        class="text-xl font-bold text-gray-900 dark:text-white"
+                      >
+                        {{ authStore.user?.globalName || "Display Name" }}
+                      </h2>
+                      <p class="text-gray-600 dark:text-gray-400 text-sm">
+                        @{{ authStore.user?.username || "username" }}
+                      </p>
+                    </div>
+
+                    <!-- Biography -->
+                    <div class="pt-2">
+                      <p
+                        class="text-gray-700 dark:text-gray-300 text-sm leading-relaxed"
+                      >
+                        {{
+                          authStore.user?.bio ||
+                          "Your biography will appear here. Add some details about yourself to make your profile more interesting!"
+                        }}
+                      </p>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
-
-            <UButton
-              @click="loadMoreDecorations"
-              class="w-full items-center justify-center"
-              variant="outline"
-              >Xem thêm</UButton
-            >
           </div>
         </div>
       </div>
