@@ -13,6 +13,7 @@ export interface Community {
   createdAt: string;
   updatedAt?: string; // Optional vì BE không có
   deletedAt?: string | null;
+  events?: GuildEvent[];
   ownerId: string;
   owner?: {
     id: string;
@@ -79,4 +80,49 @@ export interface CommunityFilters {
   limit?: number;
   offset?: number;
   visibility?: "PUBLIC" | "PRIVATE";
+}
+
+export interface GuildEvent {
+  id: string;
+  // fields from API
+  deleted?: boolean;
+  deletable?: boolean;
+  title: string;
+  description?: string;
+  imgUrl?: string;
+  startAt?: string | null; // ISO date string
+  startTime?: string | null; // time string
+  endAt?: string | null;
+  allDay?: boolean;
+  timeZone?: string | null;
+  platform?: string | null;
+  meetingUrl?: string | null; // API uses meetingUrl
+  attendees?: number;
+  remind?: boolean;
+  frequency?:
+    | "ONCE"
+    | "DAILY"
+    | "WEEKLY"
+    | "MONTHLY"
+    | "YEARLY"
+    | "NONE"
+    | string;
+  channelId?: string | null;
+  guildId?: string;
+  userId?: string;
+  createdAt: string;
+  updatedAt?: string | null;
+  deletedAt?: string | null;
+  metadata?: any;
+}
+
+export interface CreateEventPayload {
+  title: string;
+  description: string;
+  imgUrl?: string;
+  channelId?: string;
+  meetingUrl?: string;
+  startAt: string; // ISO date string
+  startTime: string; // ISO time string
+  frequency: string;
 }

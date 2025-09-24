@@ -301,16 +301,6 @@ export const useWebSocketStore = defineStore("websocket", {
           }
         });
 
-        // Listen for other events from backend
-        this.connection.on("notification", (data: any) => {
-          const message: WebSocketMessage = {
-            type: "notification",
-            payload: data,
-            timestamp: Date.now(),
-          };
-          this.messages.push(message);
-        });
-
         // Listen for members list event
         this.connection.on("members_list", (data: any) => {
           const memberStore = useMemberStore();
@@ -452,15 +442,6 @@ export const useWebSocketStore = defineStore("websocket", {
           const currentUserId =
             authStore.user?.id ?? (authStore.user as any)?.sub ?? null;
           const eventUserId = userId ?? null;
-
-          console.debug("read_update event:", {
-            channelId: targetChannelId,
-            eventUserId,
-            currentUserId,
-            lastReadMessageId,
-            lastRead,
-            system,
-          });
 
           // If auth not ready, ignore (or implement queue if you need to process later)
           if (!currentUserId) {

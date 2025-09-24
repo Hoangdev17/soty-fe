@@ -109,10 +109,10 @@ const items = computed<MenuItem[][]>(() => [
         route.path.includes("/subscriptions"),
     },
     {
-      label: "Payment",
+      label: "Nitro",
       icon: "lucide-credit-card",
-      to: "/apps/settings/billing",
-      active: section.value === "billing" || route.path.includes("/billing"),
+      to: "/settings/nitros",
+      active: section.value === "nitros" || route.path.includes("/nitros"),
     },
   ],
   [

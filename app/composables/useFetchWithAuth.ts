@@ -92,5 +92,5 @@ export function useFetchWithAuth() {
     }
   }
 
-  return { fetchWithAuth };
+  return { fetchWithAuth, handleRefreshToken };
 }
