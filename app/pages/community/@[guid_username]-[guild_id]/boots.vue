@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ModalBootsPayment from "~/components/organisms/modal.boots.payment.vue";
+import ModalSuccess from "~/components/organisms/modal.success.vue";
 
 definePageMeta({
   title: "Boots - Community",
@@ -7,9 +8,23 @@ definePageMeta({
 });
 
 const showPaymentBasicModal = ref(false);
+const showPaymentProModal = ref(false);
+const showPaymentPremiumModal = ref(false);
+const showModalSuccess = ref(false);
 
 function openPaymentBasicModal() {
+  showModalSuccess.value = false;
   showPaymentBasicModal.value = true;
+}
+
+function openPaymentProModal() {
+  showModalSuccess.value = false;
+  showPaymentProModal.value = true;
+}
+
+function openPaymentPremiumModal() {
+  showModalSuccess.value = false;
+  showPaymentPremiumModal.value = true;
 }
 
 const dataBasic = {
@@ -17,6 +32,20 @@ const dataBasic = {
   amount: 50000,
   gemsRequired: 2,
   content: "Nâng cấp gói Basic",
+};
+
+const dataPro = {
+  bootsId: "361386782484336641",
+  amount: 100000,
+  gemsRequired: 5,
+  content: "Nâng cấp gói Pro",
+};
+
+const dataPremium = {
+  bootsId: "361386782484336642",
+  amount: 150000,
+  gemsRequired: 7,
+  content: "Nâng cấp gói Premium",
 };
 </script>
 
@@ -315,6 +344,7 @@ const dataBasic = {
                 <UButton
                   class="flex items-center justify-center absolute inset-0 px-4 py-2 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-center gap-1"
                   variant="outline"
+                  @click="openPaymentProModal()"
                 >
                   <span>Bật</span
                   ><span class="text-sm text-gray-500 ml-2 mb-0.5">5</span>
@@ -431,6 +461,7 @@ const dataBasic = {
                 <UButton
                   class="flex items-center justify-center absolute inset-0 px-4 py-2 text-white rounded-lg opacity-0 group-hover:opacity-100 transition-opacity text-center gap-1"
                   variant="outline"
+                  @click="openPaymentPremiumModal()"
                 >
                   <span>Bật</span
                   ><span class="text-sm text-gray-500 ml-2 mb-0.5">7</span>
@@ -629,5 +660,35 @@ const dataBasic = {
     :content="dataBasic.content"
     :gemsRequired="dataBasic.gemsRequired"
     :bootsId="dataBasic.bootsId"
+    @success="
+      showModalSuccess = true;
+      showPaymentBasicModal = false;
+    "
   />
+
+  <ModalBootsPayment
+    v-model:show="showPaymentProModal"
+    :amount="dataPro.amount"
+    :content="dataPro.content"
+    :gemsRequired="dataPro.gemsRequired"
+    :bootsId="dataPro.bootsId"
+    @success="
+      showModalSuccess = true;
+      showPaymentProModal = false;
+    "
+  />
+
+  <ModalBootsPayment
+    v-model:show="showPaymentPremiumModal"
+    :amount="dataPremium.amount"
+    :content="dataPremium.content"
+    :gemsRequired="dataPremium.gemsRequired"
+    :bootsId="dataPremium.bootsId"
+    @success="
+      showModalSuccess = true;
+      showPaymentPremiumModal = false;
+    "
+  />
+
+  <ModalSuccess v-model:show="showModalSuccess" />
 </template>
