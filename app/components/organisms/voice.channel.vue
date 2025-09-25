@@ -33,16 +33,40 @@ const wsStore = useWebSocketStore();
 const isInVoice = ref(false);
 const localStream = ref<MediaStream | null>(null);
 const peers = reactive<Record<string, RTCPeerConnection>>({});
+// Keep per-peer transceiver references so we can target camera vs screen tracks
+const transceiversMap = reactive<
+  Record<
+    string,
+    {
+      audio?: RTCRtpTransceiver;
+      camera?: RTCRtpTransceiver;
+      screen?: RTCRtpTransceiver;
+    }
+  >
+>({});
 const remoteStreams = reactive<Record<string, MediaStream>>({});
 const remoteAudioElements = reactive<Record<string, HTMLAudioElement | null>>(
   {}
 );
+const remoteVideoElements = reactive<Record<string, HTMLVideoElement | null>>(
+  {}
+);
+const remoteScreenVideoElements = reactive<
+  Record<string, HTMLVideoElement | null>
+>({});
+const remoteIsSharingScreen = reactive<Record<string, boolean>>({});
+const remoteHasVideo = reactive<Record<string, boolean>>({});
 const connectedUsers = ref<any[]>([]); // array of user objects { socketId, id, username, avatar, banner }
 const localAudioRef = ref<HTMLAudioElement | null>(null);
+const localCameraVideoRef = ref<HTMLVideoElement | null>(null);
+const localScreenVideoRef = ref<HTMLVideoElement | null>(null);
 
 let listenersAttached = false;
 
 const muted = ref(false);
+const cameraOn = ref(false);
+const screenOn = ref(false);
+const screenStream = ref<MediaStream | null>(null);
 
 const participants = computed(() => {
   const list: Array<any> = [];
@@ -130,7 +154,11 @@ const refreshMembers = async () => {
 };
 
 // Helper: create RTCPeerConnection and hook events
-function createPeer(remoteId: string, isInitiator = false) {
+function createPeer(
+  remoteId: string,
+  isInitiator = false,
+  mediaOrder?: string[]
+) {
   if (peers[remoteId]) return peers[remoteId];
 
   const pc = new RTCPeerConnection({
@@ -138,9 +166,188 @@ function createPeer(remoteId: string, isInitiator = false) {
   });
 
   // Relay local tracks
+  // Create stable transceivers. If mediaOrder is provided (parsed from incoming offer),
+  // create transceivers in the same m-line order to avoid m-line ordering mismatches.
+  // Otherwise fall back to the default fixed order: audio, camera, screen.
+  let audioTrans: RTCRtpTransceiver | null = null;
+  let cameraTrans: RTCRtpTransceiver | null = null;
+  let screenTrans: RTCRtpTransceiver | null = null;
+
+  const haveCamera = !!(
+    localStream.value && localStream.value.getVideoTracks().length > 0
+  );
+  const haveScreen =
+    !!(screenStream.value && screenStream.value.getVideoTracks().length > 0) ||
+    !!screenOn.value;
+
+  try {
+    if (Array.isArray(mediaOrder) && mediaOrder.length > 0) {
+      // create transceivers matching the incoming offer's m-line order
+      let videoCount = 0;
+      for (const m of mediaOrder) {
+        try {
+          if (m === "audio" && !audioTrans) {
+            audioTrans = pc.addTransceiver("audio", { direction: "sendrecv" });
+          } else if (m === "video") {
+            // first video -> camera transceiver, second video -> screen transceiver
+            videoCount += 1;
+            if (videoCount === 1 && !cameraTrans) {
+              cameraTrans = pc.addTransceiver("video", {
+                direction: haveCamera ? "sendrecv" : "recvonly",
+              });
+            } else if (videoCount === 2 && !screenTrans) {
+              screenTrans = pc.addTransceiver("video", {
+                direction: haveScreen ? "sendrecv" : "recvonly",
+              });
+            } else {
+              // extra video m-lines: reserve as recvonly
+              pc.addTransceiver("video", { direction: "recvonly" });
+            }
+          } else {
+            // for unknown m-lines, attempt to reserve a recvonly transceiver
+            try {
+              pc.addTransceiver(m as any, { direction: "recvonly" });
+            } catch (e) {
+              /* ignore */
+            }
+          }
+        } catch (e) {
+          // ignore single transceiver add failure and continue
+        }
+      }
+      // If no audio transceiver was created by mediaOrder, create a default audio transceiver
+      if (!audioTrans) {
+        try {
+          audioTrans = pc.addTransceiver("audio", { direction: "sendrecv" });
+        } catch (e) {
+          audioTrans = null;
+        }
+      }
+      // If only one video m-line in offer but we still want reserved screen transceiver, create it as recvonly
+      if (!screenTrans) {
+        try {
+          screenTrans = pc.addTransceiver("video", {
+            direction: haveScreen ? "sendrecv" : "recvonly",
+          });
+        } catch (e) {
+          screenTrans = null;
+        }
+      }
+    } else {
+      // Default fixed-order reservation (audio, camera, screen)
+      try {
+        audioTrans = pc.addTransceiver("audio", { direction: "sendrecv" });
+      } catch (e) {
+        audioTrans = null;
+      }
+      try {
+        cameraTrans = pc.addTransceiver("video", {
+          direction: haveCamera ? "sendrecv" : "recvonly",
+        });
+      } catch (e) {
+        cameraTrans = null;
+      }
+      try {
+        screenTrans = pc.addTransceiver("video", {
+          direction: haveScreen ? "sendrecv" : "recvonly",
+        });
+      } catch (e) {
+        screenTrans = null;
+      }
+    }
+  } catch (e) {
+    // ignore overall transceiver creation errors
+  }
+
+  // Save references so toggles can replace tracks on the correct transceiver
+  try {
+    transceiversMap[remoteId] = {
+      audio: audioTrans ?? undefined,
+      camera: cameraTrans ?? undefined,
+      screen: screenTrans ?? undefined,
+    };
+  } catch (e) {
+    // ignore
+  }
+
+  // Attach existing local tracks to transceiver senders (preferred) or fallback to addTrack
   if (localStream.value) {
-    for (const track of localStream.value.getTracks()) {
-      pc.addTrack(track, localStream.value);
+    try {
+      const audioTrack = localStream.value.getAudioTracks()[0];
+      if (audioTrack) {
+        if (
+          audioTrans &&
+          (audioTrans as any).sender &&
+          (audioTrans as any).sender.replaceTrack
+        ) {
+          try {
+            (audioTrans as any).sender.replaceTrack(audioTrack);
+          } catch (e) {
+            try {
+              pc.addTrack(audioTrack, localStream.value);
+            } catch (err) {}
+          }
+        } else {
+          try {
+            pc.addTrack(audioTrack, localStream.value);
+          } catch (e) {}
+        }
+      }
+    } catch (e) {
+      /* ignore */
+    }
+
+    try {
+      const camTrack = localStream.value.getVideoTracks()[0];
+      if (camTrack) {
+        if (
+          cameraTrans &&
+          (cameraTrans as any).sender &&
+          (cameraTrans as any).sender.replaceTrack
+        ) {
+          try {
+            (cameraTrans as any).sender.replaceTrack(camTrack);
+          } catch (e) {
+            try {
+              pc.addTrack(camTrack, localStream.value);
+            } catch (err) {}
+          }
+        } else {
+          try {
+            pc.addTrack(camTrack, localStream.value);
+          } catch (e) {}
+        }
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  // If we currently have an active screen stream, attach its track to the reserved screen transceiver
+  if (screenStream.value) {
+    try {
+      const screenTrack = screenStream.value.getVideoTracks()[0];
+      if (screenTrack) {
+        if (
+          screenTrans &&
+          (screenTrans as any).sender &&
+          (screenTrans as any).sender.replaceTrack
+        ) {
+          try {
+            (screenTrans as any).sender.replaceTrack(screenTrack);
+          } catch (e) {
+            try {
+              pc.addTrack(screenTrack, screenStream.value);
+            } catch (err) {}
+          }
+        } else {
+          try {
+            pc.addTrack(screenTrack, screenStream.value);
+          } catch (e) {}
+        }
+      }
+    } catch (e) {
+      /* ignore */
     }
   }
 
@@ -162,27 +369,69 @@ function createPeer(remoteId: string, isInitiator = false) {
         : new MediaStream(ev.track ? [ev.track] : []);
     remoteStreams[remoteId] = incomingStream;
 
-    // If element for local preview exists, assign
-    // (Template will bind srcObject via setRemoteAudio)
-  };
-
-  // When track arrives, try to attach to audio element if already rendered
-  pc.ontrack = (ev) => {
-    const incomingStream =
-      ev.streams && ev.streams[0]
-        ? ev.streams[0]
-        : new MediaStream(ev.track ? [ev.track] : []);
-    remoteStreams[remoteId] = incomingStream;
-
-    // Assign to audio element if exists
+    // Attach to any rendered audio/video elements, preferring screen element when
+    // the remote is flagged as sharing their screen so we don't show duplicate tiles.
     nextTick(() => {
-      const el = remoteAudioElements[remoteId];
-      if (el) {
+      const audioEl = remoteAudioElements[remoteId];
+      if (audioEl) {
         try {
-          (el as HTMLAudioElement).srcObject = incomingStream;
+          (audioEl as HTMLAudioElement).srcObject = incomingStream;
         } catch (e) {
           console.warn("Failed to attach remote stream to audio element:", e);
         }
+      }
+
+      const vidEl = remoteVideoElements[remoteId];
+      const screenEl = remoteScreenVideoElements[remoteId];
+      const isSharing = !!remoteIsSharingScreen[remoteId];
+
+      try {
+        if (isSharing && screenEl) {
+          try {
+            (screenEl as HTMLVideoElement).srcObject = incomingStream;
+          } catch (e) {
+            console.warn(
+              "Failed to attach remote stream to screen element:",
+              e
+            );
+          }
+          try {
+            if (vidEl) (vidEl as HTMLVideoElement).srcObject = null;
+          } catch (e) {
+            /* ignore */
+          }
+        } else if (vidEl) {
+          try {
+            (vidEl as HTMLVideoElement).srcObject = incomingStream;
+          } catch (e) {
+            console.warn("Failed to attach remote stream to video element:", e);
+          }
+          try {
+            if (screenEl) (screenEl as HTMLVideoElement).srcObject = null;
+          } catch (e) {
+            /* ignore */
+          }
+        } else if (screenEl) {
+          // fallback: attach to screen element if no camera element present
+          try {
+            (screenEl as HTMLVideoElement).srcObject = incomingStream;
+          } catch (e) {
+            /* ignore */
+          }
+        }
+      } catch (e) {
+        console.warn("Failed to attach remote stream to video elements:", e);
+      }
+
+      // Mark that remote has video if stream contains video tracks
+      try {
+        remoteHasVideo[remoteId] = !!(
+          incomingStream &&
+          incomingStream.getVideoTracks &&
+          incomingStream.getVideoTracks().length > 0
+        );
+      } catch (e) {
+        remoteHasVideo[remoteId] = false;
       }
     });
   };
@@ -195,6 +444,12 @@ function createPeer(remoteId: string, isInitiator = false) {
       try {
         const offer = await pc.createOffer();
         await pc.setLocalDescription(offer);
+        socketDebugEvents.value.unshift({
+          t: Date.now(),
+          event: "created-offer",
+          payload: { to: remoteId, sdp: offer.sdp?.slice(0, 2000) },
+        });
+        if (socketDebugEvents.value.length > 20) socketDebugEvents.value.pop();
         ws.sendMessage("signal", {
           type: "offer",
           payload: offer,
@@ -209,15 +464,817 @@ function createPeer(remoteId: string, isInitiator = false) {
   return pc;
 }
 
-async function startLocalAudio() {
+async function startLocalMedia(enableCamera = false) {
   try {
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    localStream.value = stream;
-    if (localAudioRef.value) {
-      localAudioRef.value.srcObject = stream;
+    // If we already have a localStream and only enabling camera, request only video
+    if (enableCamera && localStream.value) {
+      const vStream = await navigator.mediaDevices.getUserMedia({
+        video: true,
+      });
+      // Add video tracks to existing localStream (keep camera preview in sync)
+      for (const t of vStream.getVideoTracks()) {
+        try {
+          localStream.value.addTrack(t);
+        } catch (e) {
+          console.warn("Failed to add video track to existing localStream:", e);
+        }
+      }
+      // Attach to local video element (camera preview)
+      if (localCameraVideoRef.value)
+        localCameraVideoRef.value.srcObject = localStream.value;
+      // Do NOT call pc.addTrack here (that would create a new m-line dynamically).
+      // Peers will be updated by toggleCamera which prefers sender.replaceTrack or
+      // recreates the peer to establish correct transceivers.
+      return;
+    }
+
+    const constraints: any = { audio: true };
+    if (enableCamera) constraints.video = { width: 640, height: 480 };
+    const stream = await navigator.mediaDevices.getUserMedia(constraints);
+    // If we already had an existing stream, try to preserve existing audio tracks
+    if (localStream.value && enableCamera) {
+      // Merge video tracks into existing localStream
+      for (const t of stream.getVideoTracks()) {
+        try {
+          localStream.value.addTrack(t);
+        } catch (e) {
+          console.warn("Failed to add video track to existing localStream:", e);
+        }
+      }
+    } else {
+      localStream.value = stream;
+    }
+
+    if (localAudioRef.value) localAudioRef.value.srcObject = localStream.value;
+    if (localCameraVideoRef.value)
+      localCameraVideoRef.value.srcObject = localStream.value;
+  } catch (e) {
+    console.error("Failed to get local media:", e);
+  }
+}
+
+function setLocalVideoElement(el: any, type: "camera" | "screen" = "camera") {
+  const videoEl = el as HTMLVideoElement | null;
+  if (type === "camera") {
+    if (videoEl) {
+      localCameraVideoRef.value = videoEl;
+      if (localStream.value) {
+        try {
+          videoEl.srcObject = localStream.value;
+        } catch (e) {
+          console.warn("Failed to set local camera srcObject:", e);
+        }
+      }
+    } else {
+      localCameraVideoRef.value = null;
+    }
+  } else {
+    if (videoEl) {
+      localScreenVideoRef.value = videoEl;
+      if (screenStream.value) {
+        try {
+          videoEl.srcObject = screenStream.value;
+        } catch (e) {
+          console.warn("Failed to set local screen srcObject:", e);
+        }
+      } else if (localStream.value) {
+        // fallback to localStream
+        try {
+          videoEl.srcObject = localStream.value;
+        } catch (e) {
+          console.warn("Failed to set local screen fallback srcObject:", e);
+        }
+      }
+    } else {
+      localScreenVideoRef.value = null;
+    }
+  }
+}
+
+function setRemoteVideoElement(
+  el: any,
+  uid: string,
+  type: "camera" | "screen" = "camera"
+) {
+  const videoEl = el as HTMLVideoElement | null;
+  if (type === "camera") {
+    if (videoEl) {
+      remoteVideoElements[uid] = videoEl;
+      if (remoteStreams[uid]) {
+        try {
+          videoEl.srcObject = remoteStreams[uid];
+        } catch (e) {
+          console.warn("Failed to set remote camera srcObject:", e);
+        }
+      }
+    } else {
+      remoteVideoElements[uid] = null;
+    }
+  } else {
+    if (videoEl) {
+      remoteScreenVideoElements[uid] = videoEl;
+      if (remoteStreams[uid]) {
+        try {
+          videoEl.srcObject = remoteStreams[uid];
+        } catch (e) {
+          console.warn("Failed to set remote screen srcObject:", e);
+        }
+      }
+    } else {
+      remoteScreenVideoElements[uid] = null;
+    }
+  }
+}
+
+function hasRemoteVideo(uid: string) {
+  try {
+    if (remoteHasVideo[uid]) return true;
+    const s = remoteStreams[uid];
+    return !!(
+      s &&
+      typeof s.getVideoTracks === "function" &&
+      s.getVideoTracks().length > 0
+    );
+  } catch (e) {
+    return false;
+  }
+}
+
+async function toggleCamera() {
+  cameraOn.value = !cameraOn.value;
+  if (cameraOn.value) {
+    // If screen is currently on, stop screen sharing first so only one video source exists
+    if (screenOn.value) {
+      try {
+        await toggleScreenShare();
+      } catch (e) {
+        console.warn(
+          "toggleCamera: failed to stop screen share before enabling camera",
+          e
+        );
+      }
+    }
+    // enable camera: get video tracks, add to local stream/peers, then renegotiate
+    await startLocalMedia(true);
+
+    if (!localStream.value) return;
+    const videoTrack = localStream.value.getVideoTracks()[0];
+
+    for (const [remoteId, pc] of Object.entries(peers)) {
+      try {
+        // Prefer using the stored camera transceiver sender so we don't change m-line ordering
+        const tx = transceiversMap[remoteId]?.camera as
+          | RTCRtpTransceiver
+          | undefined;
+        if (
+          tx &&
+          (tx as any).sender &&
+          typeof (tx as any).sender.replaceTrack === "function" &&
+          videoTrack
+        ) {
+          try {
+            try {
+              (tx as any).direction = "sendrecv";
+            } catch (e) {}
+            await (tx as any).sender.replaceTrack(videoTrack);
+          } catch (e) {
+            console.warn(
+              "toggleCamera: failed to replace on camera transceiver, falling back",
+              e
+            );
+          }
+        } else {
+          // fallback: existing logic using generic senders/transceivers
+          const videoSender = pc
+            .getSenders()
+            .find((s) => s.track && s.track.kind === "video");
+          if (
+            videoSender &&
+            typeof (videoSender as any).replaceTrack === "function" &&
+            videoTrack
+          ) {
+            try {
+              await videoSender.replaceTrack(videoTrack);
+            } catch (e) {
+              console.warn(
+                "Failed to replace video sender track, will try transceiver/add:",
+                e
+              );
+            }
+          } else if (videoTrack) {
+            try {
+              // Use stored camera transceiver if available to avoid changing m-line order
+              const storedCam = transceiversMap[remoteId]?.camera as
+                | RTCRtpTransceiver
+                | undefined;
+              if (
+                storedCam &&
+                (storedCam as any).sender &&
+                typeof (storedCam as any).sender.replaceTrack === "function"
+              ) {
+                try {
+                  try {
+                    (storedCam as any).direction = "sendrecv";
+                  } catch (e) {}
+                  await (storedCam as any).sender.replaceTrack(videoTrack);
+                } catch (e) {
+                  console.warn(
+                    "toggleCamera: failed to replace on stored camera transceiver",
+                    remoteId,
+                    e
+                  );
+                }
+              } else {
+                console.warn(
+                  "toggleCamera: camera transceiver missing for",
+                  remoteId,
+                  "— recreating peer to establish correct transceivers"
+                );
+                try {
+                  const old = peers[remoteId];
+                  if (old) old.close();
+                } catch (e) {}
+                delete peers[remoteId];
+                createPeer(remoteId, true);
+                continue;
+              }
+            } catch (e) {
+              console.warn(
+                "toggleCamera: error replacing stored camera transceiver for peer",
+                remoteId,
+                e
+              );
+            }
+          }
+        }
+      } catch (e) {
+        console.warn(
+          "toggleCamera: error adding/replacing tracks to peer",
+          remoteId,
+          e
+        );
+      }
+
+      // Renegotiate with this peer so remote will receive new tracks
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        socketDebugEvents.value.unshift({
+          t: Date.now(),
+          event: "reneg-offer",
+          payload: { to: remoteId, sdp: offer.sdp?.slice(0, 2000) },
+        });
+        if (socketDebugEvents.value.length > 20) socketDebugEvents.value.pop();
+        ws.sendMessage("signal", {
+          type: "offer",
+          payload: offer,
+          to: remoteId,
+        });
+      } catch (e) {
+        console.warn("Failed to renegotiate (offer) with", remoteId, e);
+      }
+
+      // Fallback: if remote still doesn't report video after timeout, recreate peer
+      (function (rId) {
+        setTimeout(() => {
+          try {
+            if (!remoteHasVideo[rId]) {
+              console.warn(
+                "Remote did not receive video after renegotiate, recreating peer:",
+                rId
+              );
+              const old = peers[rId];
+              try {
+                if (old) old.close();
+              } catch (e) {}
+              delete peers[rId];
+              // createPeer will initiate and send new offer
+              createPeer(rId, true);
+            }
+          } catch (e) {
+            /* ignore */
+          }
+        }, 2000);
+      })(remoteId);
+    }
+    // Broadcast our video presence to others
+    try {
+      const roomId =
+        props.channelId || (props.currentChannel as any)?.id || null;
+      ws.sendMessage("video-presence", {
+        roomId,
+        socketId: wsStore.connection?.id,
+        hasVideo: true,
+      });
+    } catch (e) {
+      // ignore
+    }
+    return;
+  }
+
+  // disabling camera: replace/stop tracks and renegotiate so remote stops receiving video
+  if (!localStream.value) return;
+
+  for (const [remoteId, pc] of Object.entries(peers)) {
+    try {
+      // Prefer keeping transceiver and set to recvonly, then replace track with null
+      const trans = pc
+        .getTransceivers()
+        .find(
+          (t) =>
+            (t.sender &&
+              (t.sender as any).track &&
+              (t.sender as any).track.kind === "video") ||
+            (t.receiver &&
+              (t.receiver as any).track &&
+              (t.receiver as any).track.kind === "video")
+        );
+      if (trans) {
+        try {
+          (trans as any).direction = "recvonly";
+        } catch (e) {}
+        try {
+          if ((trans as any).sender && (trans as any).sender.replaceTrack)
+            await (trans as any).sender.replaceTrack(null as any);
+        } catch (e) {
+          console.warn("Failed to replace video sender track:", e);
+        }
+      } else {
+        const senders = pc.getSenders();
+        for (const s of senders) {
+          if (s.track && s.track.kind === "video") {
+            try {
+              if (s.replaceTrack) await s.replaceTrack(null as any);
+            } catch (e) {
+              console.warn("Failed to replace video sender track:", e);
+            }
+          }
+        }
+      }
+
+      // Renegotiate so remote side knows video removed
+      try {
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+        ws.sendMessage("signal", {
+          type: "offer",
+          payload: offer,
+          to: remoteId,
+        });
+      } catch (e) {
+        console.warn(
+          "Failed to renegotiate (offer) after removing video for",
+          remoteId,
+          e
+        );
+      }
+    } catch (e) {
+      /* ignore */
+    }
+  }
+
+  // Broadcast our video presence false
+  try {
+    const roomId = props.channelId || (props.currentChannel as any)?.id || null;
+    ws.sendMessage("video-presence", {
+      roomId,
+      socketId: wsStore.connection?.id,
+      hasVideo: false,
+    });
+  } catch (e) {
+    // ignore
+  }
+
+  // Stop and remove local video tracks
+  try {
+    for (const t of localStream.value.getVideoTracks()) {
+      try {
+        t.stop();
+      } catch (e) {}
+      try {
+        localStream.value.removeTrack(t);
+      } catch (e) {}
     }
   } catch (e) {
-    console.error("Failed to get local audio:", e);
+    /* ignore */
+  }
+
+  if (localCameraVideoRef.value) {
+    try {
+      localCameraVideoRef.value.srcObject = null;
+    } catch (e) {}
+  }
+}
+
+// Toggle screen sharing (display media). This will replace the outgoing video track
+// with the screen track (if any) and renegotiate with peers. Stopping screen share
+// will restore the camera video track if available, otherwise remove video send.
+async function toggleScreenShare() {
+  screenOn.value = !screenOn.value;
+
+  // start screen share
+  if (screenOn.value) {
+    // If camera is currently on, disable it first so we don't have two outgoing video tracks
+    if (cameraOn.value) {
+      try {
+        await toggleCamera();
+      } catch (e) {
+        console.warn(
+          "toggleScreenShare: failed to stop camera before starting screen share",
+          e
+        );
+      }
+    }
+    try {
+      // Request display media (may prompt the user)
+      const s = await (navigator.mediaDevices as any).getDisplayMedia({
+        video: true,
+      });
+      screenStream.value = s as MediaStream;
+
+      // Add screen track to the localStream alongside camera (so both can exist simultaneously)
+      try {
+        const screenTrack = screenStream.value.getVideoTracks()[0];
+        if (localStream.value) {
+          // Do not remove camera tracks; just add screen track so camera and screen occupy
+          // separate transceivers we reserved earlier.
+          try {
+            if (screenTrack) localStream.value.addTrack(screenTrack);
+          } catch (e) {
+            console.warn("Failed to add screen track to localStream:", e);
+          }
+        } else {
+          // If we don't have a local stream (rare), use screenStream as localStream
+          localStream.value = screenStream.value;
+        }
+        // Use the screenStream for local preview so user sees what they're sharing immediately
+        if (localScreenVideoRef.value) {
+          try {
+            localScreenVideoRef.value.srcObject = screenStream.value;
+          } catch (e) {
+            /* ignore */
+          }
+        }
+
+        // Immediately notify others we have video so avatars hide right away
+        try {
+          const roomId =
+            props.channelId || (props.currentChannel as any)?.id || null;
+          ws.sendMessage("video-presence", {
+            roomId,
+            socketId: wsStore.connection?.id,
+            hasVideo: true,
+          });
+        } catch (e) {}
+      } catch (e) {
+        /* ignore */
+      }
+
+      // Listen for user stopping screen share via browser UI
+      try {
+        const [track] = screenStream.value.getVideoTracks();
+        if (track) {
+          track.onended = () => {
+            // ensure we stop sharing when the track ends
+            if (screenOn.value) {
+              screenOn.value = false;
+              // try to restore camera if it was on
+              (async () => {
+                if (cameraOn.value) {
+                  // camera already on: ensure localStream has camera video
+                  await startLocalMedia(true);
+                }
+                // replace senders with camera or null
+                for (const [remoteId, pc] of Object.entries(peers)) {
+                  try {
+                    const senders = pc.getSenders();
+                    const vidSender = senders.find(
+                      (s) => s.track && s.track.kind === "video"
+                    );
+                    if (vidSender) {
+                      // prefer camera track if present
+                      const camTrack =
+                        localStream.value
+                          ?.getVideoTracks()
+                          .find((tr) => tr.kind === "video" && tr !== track) ??
+                        null;
+                      if (typeof (vidSender as any).replaceTrack === "function")
+                        await (vidSender as any).replaceTrack(camTrack as any);
+                    }
+                    // renegotiate
+                    const offer = await pc.createOffer();
+                    await pc.setLocalDescription(offer);
+                    socketDebugEvents.value.unshift({
+                      t: Date.now(),
+                      event: "reneg-offer",
+                      payload: { to: remoteId, sdp: offer.sdp?.slice(0, 2000) },
+                    });
+                    if (socketDebugEvents.value.length > 20)
+                      socketDebugEvents.value.pop();
+                    ws.sendMessage("signal", {
+                      type: "offer",
+                      payload: offer,
+                      to: remoteId,
+                    });
+                  } catch (e) {
+                    console.warn(
+                      "toggleScreenShare: failed to restore after screen end",
+                      remoteId,
+                      e
+                    );
+                  }
+                }
+              })();
+            }
+          };
+        }
+      } catch (e) {
+        /* ignore */
+      }
+
+      // Attach to local preview (use localStream so preview matches what peers receive)
+      if (localCameraVideoRef.value) {
+        try {
+          localCameraVideoRef.value.srcObject = localStream.value;
+        } catch (e) {}
+      }
+
+      socketDebugEvents.value.unshift({
+        t: Date.now(),
+        event: "screen-share-start",
+        payload: { roomId: props.channelId, socketId: wsStore.connection?.id },
+      });
+      if (socketDebugEvents.value.length > 20) socketDebugEvents.value.pop();
+
+      // Replace outgoing video track on each peer
+      for (const [remoteId, pc] of Object.entries(peers)) {
+        try {
+          const screenTrack = screenStream.value.getVideoTracks()[0];
+          if (!screenTrack) continue;
+          // Prefer the reserved screen transceiver if available
+          const stx = transceiversMap[remoteId]?.screen as
+            | RTCRtpTransceiver
+            | undefined;
+          if (
+            stx &&
+            (stx as any).sender &&
+            typeof (stx as any).sender.replaceTrack === "function"
+          ) {
+            try {
+              try {
+                (stx as any).direction = "sendrecv";
+              } catch (e) {}
+              await (stx as any).sender.replaceTrack(screenTrack);
+            } catch (e) {
+              console.warn(
+                "toggleScreenShare: failed to replace on screen transceiver, falling back",
+                e
+              );
+            }
+          } else {
+            // If reserved screen transceiver exists, prefer replacing its sender
+            const stxStored = transceiversMap[remoteId]?.screen as
+              | RTCRtpTransceiver
+              | undefined;
+            if (
+              stxStored &&
+              (stxStored as any).sender &&
+              typeof (stxStored as any).sender.replaceTrack === "function"
+            ) {
+              try {
+                try {
+                  (stxStored as any).direction = "sendrecv";
+                } catch (e) {}
+                await (stxStored as any).sender.replaceTrack(screenTrack);
+              } catch (e) {
+                console.warn(
+                  "toggleScreenShare: failed to replace on stored screen transceiver",
+                  remoteId,
+                  e
+                );
+              }
+            } else {
+              console.warn(
+                "toggleScreenShare: screen transceiver missing for",
+                remoteId,
+                "— recreating peer to establish correct transceivers"
+              );
+              try {
+                const old = peers[remoteId];
+                if (old) old.close();
+              } catch (e) {}
+              delete peers[remoteId];
+              createPeer(remoteId, true);
+              continue;
+            }
+          }
+
+          // Renegotiate
+          try {
+            const offer = await pc.createOffer();
+            await pc.setLocalDescription(offer);
+            socketDebugEvents.value.unshift({
+              t: Date.now(),
+              event: "screen-reneg-offer",
+              payload: { to: remoteId, sdp: offer.sdp?.slice(0, 2000) },
+            });
+            if (socketDebugEvents.value.length > 20)
+              socketDebugEvents.value.pop();
+            ws.sendMessage("signal", {
+              type: "offer",
+              payload: offer,
+              to: remoteId,
+            });
+          } catch (e) {
+            console.warn("toggleScreenShare: renegotiate failed", remoteId, e);
+          }
+
+          // Fallback: if remote still doesn't report video after timeout, recreate peer
+          (function (rId) {
+            setTimeout(() => {
+              try {
+                if (!remoteHasVideo[rId]) {
+                  console.warn(
+                    "Remote did not receive screen share after renegotiate, recreating peer:",
+                    rId
+                  );
+                  socketDebugEvents.value.unshift({
+                    t: Date.now(),
+                    event: "screen-share-recreate-peer",
+                    payload: { remoteId: rId },
+                  });
+                  if (socketDebugEvents.value.length > 20)
+                    socketDebugEvents.value.pop();
+                  const old = peers[rId];
+                  try {
+                    if (old) old.close();
+                  } catch (e) {}
+                  delete peers[rId];
+                  createPeer(rId, true);
+                }
+              } catch (e) {
+                /* ignore */
+              }
+            }, 2000);
+          })(remoteId);
+        } catch (e) {
+          console.warn("toggleScreenShare: error handling peer", remoteId, e);
+        }
+      }
+
+      // Optionally notify others about sharing state
+      try {
+        const roomId =
+          props.channelId || (props.currentChannel as any)?.id || null;
+        ws.sendMessage("screen-presence", {
+          roomId,
+          socketId: wsStore.connection?.id,
+          isSharing: true,
+        });
+        // inform UI consumers we have video so avatar hides
+        ws.sendMessage("video-presence", {
+          roomId,
+          socketId: wsStore.connection?.id,
+          hasVideo: true,
+        });
+      } catch (e) {}
+    } catch (e) {
+      console.error("Failed to start screen share:", e);
+      screenOn.value = false;
+    }
+
+    return;
+  }
+
+  // stop screen share
+  try {
+    // stop screen tracks and remove them from localStream; do not touch camera tracks
+    if (screenStream.value) {
+      try {
+        for (const t of screenStream.value.getTracks()) t.stop();
+      } catch (e) {}
+      try {
+        const sTracks = Array.from(
+          (screenStream.value && screenStream.value.getVideoTracks()) || []
+        );
+        if (localStream.value) {
+          for (const st of sTracks) {
+            try {
+              localStream.value.removeTrack(st);
+            } catch (e) {
+              /* ignore */
+            }
+          }
+        }
+      } catch (e) {
+        /* ignore */
+      }
+      screenStream.value = null;
+    }
+    // Restore preview to camera stream if camera is on, otherwise to localStream (may be null)
+    if (localCameraVideoRef.value) {
+      try {
+        if (cameraOn.value && localStream.value)
+          localCameraVideoRef.value.srcObject = localStream.value;
+        else localCameraVideoRef.value.srcObject = localStream.value || null;
+      } catch (e) {}
+    }
+
+    // restore camera track if available, otherwise remove video sending
+    for (const [remoteId, pc] of Object.entries(peers)) {
+      try {
+        const camTrack = localStream.value?.getVideoTracks()[0] ?? null;
+        const stx = transceiversMap[remoteId]?.screen as
+          | RTCRtpTransceiver
+          | undefined;
+        if (
+          stx &&
+          (stx as any).sender &&
+          typeof (stx as any).sender.replaceTrack === "function"
+        ) {
+          try {
+            // If camera available, replace screen sender with camera track (so remote still sees camera); otherwise set to null
+            await (stx as any).sender.replaceTrack(camTrack as any);
+            try {
+              (stx as any).direction = camTrack ? "sendrecv" : "recvonly";
+            } catch (e) {}
+          } catch (e) {
+            console.warn(
+              "toggleScreenShare: failed to replace on screen transceiver during stop",
+              e
+            );
+          }
+        } else {
+          // fallback: replace any video sender
+          const senders = pc.getSenders();
+          const vidSender = senders.find(
+            (s) => s.track && s.track.kind === "video"
+          );
+          if (
+            vidSender &&
+            typeof (vidSender as any).replaceTrack === "function"
+          ) {
+            try {
+              await (vidSender as any).replaceTrack(camTrack as any);
+            } catch (e) {
+              console.warn(
+                "toggleScreenShare: replaceTrack to camera failed",
+                e
+              );
+            }
+          }
+        }
+
+        // renegotiate
+        try {
+          const offer = await pc.createOffer();
+          await pc.setLocalDescription(offer);
+          socketDebugEvents.value.unshift({
+            t: Date.now(),
+            event: "screen-stop-reneg-offer",
+            payload: { to: remoteId, sdp: offer.sdp?.slice(0, 2000) },
+          });
+          if (socketDebugEvents.value.length > 20)
+            socketDebugEvents.value.pop();
+          ws.sendMessage("signal", {
+            type: "offer",
+            payload: offer,
+            to: remoteId,
+          });
+        } catch (e) {
+          console.warn(
+            "toggleScreenShare: renegotiate after stop failed",
+            remoteId,
+            e
+          );
+        }
+      } catch (e) {
+        console.warn(
+          "toggleScreenShare: error while stopping for peer",
+          remoteId,
+          e
+        );
+      }
+    }
+
+    try {
+      const roomId =
+        props.channelId || (props.currentChannel as any)?.id || null;
+      ws.sendMessage("screen-presence", {
+        roomId,
+        socketId: wsStore.connection?.id,
+        isSharing: false,
+      });
+      // if camera is off, let others know we no longer have video
+      if (!cameraOn.value)
+        ws.sendMessage("video-presence", {
+          roomId,
+          socketId: wsStore.connection?.id,
+          hasVideo: false,
+        });
+    } catch (e) {}
+  } catch (e) {
+    console.warn("toggleScreenShare: error stopping", e);
   }
 }
 
@@ -226,7 +1283,7 @@ async function joinVoice() {
   const roomId = props.channelId || (props.currentChannel as any)?.id || "";
   if (!roomId) return;
 
-  await startLocalAudio();
+  await startLocalMedia();
 
   // Attach socket listeners if not attached
   attachSocketListeners();
@@ -261,6 +1318,17 @@ async function joinVoice() {
     console.debug("get-room-users request failed:", e);
   }
   isInVoice.value = true;
+  // Notify others about our current camera state so avatar visibility syncs
+  try {
+    const roomId = props.channelId || (props.currentChannel as any)?.id || null;
+    ws.sendMessage("video-presence", {
+      roomId,
+      socketId: wsStore.connection?.id,
+      hasVideo: !!cameraOn.value,
+    });
+  } catch (e) {
+    // ignore
+  }
 }
 
 // Wait up to `timeoutMs` for wsStore.connection to be available
@@ -291,6 +1359,50 @@ function leaveVoice() {
     ws.sendMessage("user-left", { roomId, communityId });
   }
 
+  // Ensure camera state reset and notify others that we no longer have video
+  try {
+    if (cameraOn.value) {
+      cameraOn.value = false;
+    }
+    // Stop and remove local video tracks if any
+    if (localStream.value) {
+      try {
+        for (const t of localStream.value.getVideoTracks()) {
+          try {
+            t.stop();
+          } catch (e) {}
+          try {
+            localStream.value.removeTrack(t);
+          } catch (e) {}
+        }
+      } catch (e) {
+        /* ignore */
+      }
+    }
+
+    if (localCameraVideoRef.value) {
+      try {
+        localCameraVideoRef.value.srcObject = null;
+      } catch (e) {}
+    }
+
+    // notify server that we have no video anymore
+    try {
+      if (wsStore.isWebSocketConnected) {
+        const roomIdNotify =
+          props.channelId || (props.currentChannel as any)?.id || null;
+        ws.sendMessage("video-presence", {
+          roomId: roomIdNotify,
+          hasVideo: false,
+        });
+      }
+    } catch (e) {
+      // ignore
+    }
+  } catch (e) {
+    // ignore
+  }
+
   // Close all peers
   for (const id of Object.keys(peers)) {
     const pc = peers[id];
@@ -301,6 +1413,7 @@ function leaveVoice() {
       delete peers[id];
     }
     if (remoteStreams[id]) delete remoteStreams[id];
+    if (remoteHasVideo[id]) delete remoteHasVideo[id];
   }
 
   // Stop local tracks
@@ -491,6 +1604,19 @@ function handleUserLeft(payload: any) {
     }
     delete remoteAudioElements[socketId];
   }
+  // Cleanup video element if present
+  const videoEl = remoteVideoElements[socketId];
+  if (videoEl) {
+    try {
+      (videoEl as HTMLVideoElement).srcObject = null;
+    } catch (e) {
+      /* ignore */
+    }
+    delete remoteVideoElements[socketId];
+  }
+  // clear remote video flag
+  if (remoteHasVideo[socketId]) delete remoteHasVideo[socketId];
+  if (remoteIsSharingScreen[socketId]) delete remoteIsSharingScreen[socketId];
 }
 
 function handleChannelPresence(payload: any) {
@@ -523,6 +1649,88 @@ function handleChannelPresence(payload: any) {
   connectedUsers.value = dedup;
 }
 
+function handleVideoPresence(payload: any) {
+  console.debug("socket event: video-presence", payload);
+  socketDebugEvents.value.unshift({
+    t: Date.now(),
+    event: "video-presence",
+    payload,
+  });
+  if (socketDebugEvents.value.length > 20) socketDebugEvents.value.pop();
+
+  if (!payload) return;
+  const roomId = payload.roomId ?? null;
+  const currentRoomId =
+    props.channelId || (props.currentChannel as any)?.id || null;
+  if (roomId && currentRoomId && String(roomId) !== String(currentRoomId))
+    return;
+
+  const socketId = String(
+    payload.socketId ??
+      payload.id ??
+      payload.from ??
+      payload.userId ??
+      (payload.user && (payload.user.socketId || payload.user.id)
+        ? payload.user.socketId ?? payload.user.id
+        : "")
+  );
+  if (!socketId) return;
+
+  const hasVideo = !!payload.hasVideo;
+  remoteHasVideo[socketId] = hasVideo;
+  // If payload indicates screen sharing explicitly, mark that as well
+  if (payload.isSharing !== undefined) {
+    const prev = !!remoteIsSharingScreen[socketId];
+    const now = !!payload.isSharing;
+    remoteIsSharingScreen[socketId] = now;
+    // If sharing state changed, reattach the streams to preferred element
+    if (prev !== now) {
+      reattachRemoteStreamForUser(socketId);
+    }
+  }
+}
+
+function reattachRemoteStreamForUser(socketId: string) {
+  try {
+    const incoming = remoteStreams[socketId];
+    if (!incoming) return;
+    const vidEl = remoteVideoElements[socketId];
+    const screenEl = remoteScreenVideoElements[socketId];
+    const isSharing = !!remoteIsSharingScreen[socketId];
+    if (isSharing && screenEl) {
+      try {
+        screenEl.srcObject = incoming;
+      } catch (e) {
+        /* ignore */
+      }
+      try {
+        if (vidEl) vidEl.srcObject = null;
+      } catch (e) {
+        /* ignore */
+      }
+    } else if (vidEl) {
+      try {
+        vidEl.srcObject = incoming;
+      } catch (e) {
+        /* ignore */
+      }
+      try {
+        if (screenEl) screenEl.srcObject = null;
+      } catch (e) {
+        /* ignore */
+      }
+    } else if (screenEl) {
+      try {
+        screenEl.srcObject = incoming;
+      } catch (e) {
+        /* ignore */
+      }
+    }
+  } catch (e) {
+    /* ignore */
+  }
+}
+
 async function handleSignal(data: {
   type: string;
   payload: any;
@@ -544,9 +1752,96 @@ async function handleSignal(data: {
     pc = createPeer(from, false);
   }
 
+  // Simple helper: extract m-line order from SDP offer/answer
+  function parseSdpMediaOrder(sdpText: string): string[] {
+    try {
+      const lines = sdpText.split(/\r?\n/);
+      const order: string[] = [];
+      for (const l of lines) {
+        if (typeof l === "string" && l.startsWith("m=")) {
+          // m=<media> <port> <proto> <fmt>
+          const parts = l.split(" ");
+          if (parts && parts.length > 0 && typeof parts[0] === "string") {
+            const p0 = parts[0];
+            if (p0.length > 2) {
+              const media = p0.slice(2).trim();
+              order.push(media);
+            }
+          }
+        }
+      }
+      return order;
+    } catch (e) {
+      return [];
+    }
+  }
+
   try {
     if (type === "offer") {
-      await pc.setRemoteDescription(new RTCSessionDescription(payload));
+      try {
+        await pc.setRemoteDescription(new RTCSessionDescription(payload));
+      } catch (err: any) {
+        // If the error mentions m-lines order mismatch, attempt to recreate the peer
+        // with transceivers in the same order as the offer's m-lines and retry.
+        const msg = String(err && err.message ? err.message : err || "");
+        if (msg.includes("m-lines") || msg.includes("m-line")) {
+          socketDebugEvents.value.unshift({
+            t: Date.now(),
+            event: "sdp-mline-mismatch",
+            payload: { from, message: msg },
+          });
+          if (socketDebugEvents.value.length > 20)
+            socketDebugEvents.value.pop();
+          try {
+            // Parse incoming SDP to determine m-line order
+            const mediaOrder =
+              payload && payload.sdp
+                ? parseSdpMediaOrder(payload.sdp)
+                : undefined;
+            // Close and remove existing peer and transceivers for this remote
+            try {
+              const old = peers[from];
+              if (old) old.close();
+            } catch (e) {}
+            delete peers[from];
+            delete transceiversMap[from];
+            // Create a new peer with transceivers matching the incoming offer
+            const newPc = createPeer(from, false, mediaOrder);
+            // setRemoteDescription on the newly created pc
+            await newPc.setRemoteDescription(
+              new RTCSessionDescription(payload)
+            );
+            const answer2 = await newPc.createAnswer();
+            await newPc.setLocalDescription(answer2);
+            ws.sendMessage("signal", {
+              type: "answer",
+              payload: answer2,
+              to: from,
+            });
+            return;
+          } catch (retryErr) {
+            console.error(
+              "handleSignal: retry after m-line mismatch failed",
+              retryErr
+            );
+            socketDebugEvents.value.unshift({
+              t: Date.now(),
+              event: "sdp-retry-failed",
+              payload: {
+                from,
+                error: String(
+                  retryErr && (retryErr as any).message
+                    ? (retryErr as any).message
+                    : retryErr
+                ),
+              },
+            });
+            if (socketDebugEvents.value.length > 20)
+              socketDebugEvents.value.pop();
+          }
+        }
+        throw err;
+      }
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       ws.sendMessage("signal", { type: "answer", payload: answer, to: from });
@@ -575,6 +1870,26 @@ function attachSocketListeners() {
     conn.on("user-left", handleUserLeft);
     // Listen for community broadcasts about channel presence so we can show participants before joining
     conn.on("channel-presence", handleChannelPresence);
+    conn.on("video-presence", handleVideoPresence);
+    // Some servers emit screen-presence; treat it as video-presence for UI hiding
+    conn.on("screen-presence", (p: any) => {
+      socketDebugEvents.value.unshift({
+        t: Date.now(),
+        event: "screen-presence",
+        payload: p,
+      });
+      if (socketDebugEvents.value.length > 20) socketDebugEvents.value.pop();
+      try {
+        const mapped = {
+          roomId: p?.roomId,
+          socketId: p?.socketId ?? p?.id ?? p?.from,
+          hasVideo: !!p?.isSharing || !!p?.hasVideo,
+        };
+        handleVideoPresence(mapped);
+      } catch (e) {
+        console.debug("screen-presence handler error", e);
+      }
+    });
     conn.on("signal", handleSignal);
     console.debug("voice: attached socket listeners");
   } catch (e) {
@@ -609,6 +1924,8 @@ function detachSocketListeners() {
     conn.off("room-users", handleRoomUsers);
     conn.off("user-joined", handleUserJoined);
     conn.off("user-left", handleUserLeft);
+    conn.off("channel-presence", handleChannelPresence);
+    conn.off("video-presence", handleVideoPresence);
     conn.off("signal", handleSignal);
   } catch (e) {
     // ignore
@@ -683,12 +2000,14 @@ onBeforeUnmount(() => {
       <!-- Voice Channel Content  -->
       <div class="flex-1 flex flex-col bg-dark-900 p-6">
         <div class="flex-1 flex items-center justify-center">
-          <div class="w-full max-w-7xl grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div
+            class="w-full max-w-7xl flex flex-wrap justify-center items-start gap-4"
+          >
             <!-- If no participants, show a friendly empty state with room name + CTA -->
             <template v-if="participants.length === 0">
               <div class="col-span-1 md:col-span-2">
                 <div
-                  class="relative bg-dark-700 rounded-xl overflow-hidden flex flex-col h-72 items-center justify-center"
+                  class="relative bg-dark-700 rounded-xl overflow-hidden flex flex-col h-88 items-center justify-center w-[200px]"
                 >
                   <div class="text-center px-6">
                     <div class="text-2xl font-semibold text-white mb-2">
@@ -711,62 +2030,138 @@ onBeforeUnmount(() => {
               <div
                 v-for="p in participants"
                 :key="p.socketId"
-                class="relative bg-dark-700 rounded-xl overflow-hidden flex flex-col h-72"
+                class="space-y-4 flex-none"
               >
-                <!-- Large image/banner area with centered avatar overlay -->
+                <!-- Camera tile -->
                 <div
-                  class="w-full h-full flex items-center justify-center bg-gray-800 relative overflow-hidden"
+                  v-if="
+                    !(
+                      (p.local && screenOn) ||
+                      (!p.local && remoteIsSharingScreen[p.socketId])
+                    )
+                  "
+                  class="relative bg-dark-700 rounded-xl overflow-hidden flex flex-col h-[250px] w-[400px]"
                 >
-                  <template v-if="p.banner">
-                    <img :src="p.banner" class="w-full h-full object-cover" />
-                  </template>
-                  <template v-else>
-                    <div
-                      class="w-full h-full bg-gradient-to-br from-purple-600 to-pink-500 flex items-center justify-center text-5xl font-bold text-white"
-                    >
-                      {{ (p.username || "").charAt(0).toUpperCase() }}
-                    </div>
-                  </template>
-
-                  <!-- Centered avatar overlay on top of banner -->
                   <div
-                    class="absolute inset-0 flex items-center justify-center pointer-events-none"
+                    class="w-full h-full flex items-center justify-center bg-gray-800 relative overflow-hidden"
                   >
+                    <template v-if="p.local">
+                      <video
+                        v-if="isInVoice"
+                        :ref="(el) => setLocalVideoElement(el, 'camera')"
+                        autoplay
+                        playsinline
+                        muted
+                        class="absolute inset-0 w-full h-full object-cover"
+                      />
+                    </template>
+                    <template v-else>
+                      <video
+                        v-if="!p.local"
+                        :ref="
+                          (el) =>
+                            setRemoteVideoElement(el, p.socketId, 'camera')
+                        "
+                        autoplay
+                        playsinline
+                        class="absolute inset-0 w-full h-full object-cover"
+                      />
+                    </template>
+
+                    <template v-if="p.banner">
+                      <img :src="p.banner" class="w-full h-full object-cover" />
+                    </template>
+                    <template v-else>
+                      <div
+                        class="w-full h-full bg-gradient-to-br from-purple-600 to-pink-500 flex items-center justify-center text-5xl font-bold text-white"
+                      >
+                        {{ (p.username || "").charAt(0).toUpperCase() }}
+                      </div>
+                    </template>
+
                     <div
-                      class="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center ring-4 ring-black/60 shadow-lg"
+                      v-if="
+                        p.local
+                          ? !(cameraOn || screenOn)
+                          : !hasRemoteVideo(p.socketId)
+                      "
+                      class="absolute inset-0 flex items-center justify-center pointer-events-none"
                     >
-                      <template v-if="p.avatar">
-                        <img
-                          :src="p.avatar"
-                          class="w-full h-full object-cover"
-                        />
-                      </template>
-                      <template v-else>
-                        <span class="text-white text-2xl font-semibold">{{
-                          (p.username || "").charAt(0).toUpperCase()
-                        }}</span>
-                      </template>
+                      <div
+                        class="w-14 h-14 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-full overflow-hidden bg-gray-700 flex items-center justify-center ring-4 ring-black/60 shadow-lg"
+                      >
+                        <template v-if="p.avatar">
+                          <img
+                            :src="p.avatar"
+                            class="w-full h-full object-cover"
+                          />
+                        </template>
+                        <template v-else>
+                          <span class="text-white text-2xl font-semibold">{{
+                            (p.username || "").charAt(0).toUpperCase()
+                          }}</span>
+                        </template>
+                      </div>
                     </div>
                   </div>
+
+                  <div
+                    class="absolute left-1/2 transform -translate-x-1/2 bottom-4 bg-black/60 rounded-full px-3 py-1 flex items-center gap-3"
+                  >
+                    <div class="text-white text-sm font-medium">
+                      {{ p.username }}
+                    </div>
+                  </div>
+
+                  <audio
+                    v-if="!p.local"
+                    :ref="(el) => setRemoteAudioElement(el, p.socketId)"
+                    autoplay
+                    playsinline
+                    class="hidden"
+                  />
                 </div>
 
-                <!-- Bottom centered banner with name -->
+                <!-- Screen tile (local or remote) -->
                 <div
-                  class="absolute left-1/2 transform -translate-x-1/2 bottom-4 bg-black/60 rounded-full px-3 py-1 flex items-center gap-3"
+                  v-if="
+                    (p.local && screenOn) ||
+                    (!p.local && remoteIsSharingScreen[p.socketId])
+                  "
+                  class="relative bg-dark-700 rounded-xl overflow-hidden flex flex-col h-[250px] w-[400px]"
                 >
-                  <div class="text-white text-sm font-medium">
-                    {{ p.username }}
+                  <div
+                    class="w-full h-full flex items-center justify-center bg-gray-900 relative overflow-hidden"
+                  >
+                    <template v-if="p.local">
+                      <video
+                        v-if="isInVoice && screenOn"
+                        :ref="(el) => setLocalVideoElement(el, 'screen')"
+                        autoplay
+                        playsinline
+                        muted
+                        class="absolute inset-0 w-full h-full object-cover"
+                      />
+                    </template>
+                    <template v-else>
+                      <video
+                        v-if="remoteIsSharingScreen[p.socketId]"
+                        :ref="
+                          (el) =>
+                            setRemoteVideoElement(el, p.socketId, 'screen')
+                        "
+                        autoplay
+                        playsinline
+                        class="absolute inset-0 w-full h-full object-cover"
+                      />
+                    </template>
+                  </div>
+                  <div
+                    class="absolute left-1/2 transform -translate-x-1/2 bottom-4 bg-black/60 rounded-full px-3 py-1 text-white text-sm"
+                  >
+                    {{ p.username }} — Screen
                   </div>
                 </div>
-
-                <!-- Hidden audio element for remote stream -->
-                <audio
-                  v-if="!p.local"
-                  :ref="(el) => setRemoteAudioElement(el, p.socketId)"
-                  autoplay
-                  playsinline
-                  class="hidden"
-                />
               </div>
             </template>
           </div>
@@ -797,6 +2192,30 @@ onBeforeUnmount(() => {
             >
               <UIcon
                 :name="muted ? 'i-lucide-mic-off' : 'i-lucide-mic'"
+                class="w-5 h-5"
+              />
+            </button>
+
+            <button
+              class="w-12 h-12 rounded-full flex items-center justify-center bg-[#2f3136] hover:bg-[#393c40] text-white"
+              :class="{ 'bg-blue-600': cameraOn }"
+              @click="toggleCamera()"
+              aria-label="Toggle camera"
+            >
+              <UIcon
+                :name="cameraOn ? 'i-lucide-video' : 'i-lucide-video-off'"
+                class="w-5 h-5"
+              />
+            </button>
+
+            <button
+              class="w-12 h-12 rounded-full flex items-center justify-center bg-[#2f3136] hover:bg-[#393c40] text-white"
+              :class="{ 'bg-yellow-600': screenOn }"
+              @click="toggleScreenShare()"
+              aria-label="Toggle screen share"
+            >
+              <UIcon
+                :name="screenOn ? 'i-lucide-monitor' : 'i-lucide-tv'"
                 class="w-5 h-5"
               />
             </button>
