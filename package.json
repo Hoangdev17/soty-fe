@@ -14,12 +14,15 @@
     "@pinia/nuxt": "^0.11.2",
     "nuxt": "^4.1.0",
     "pinia": "^3.0.3",
+    "process": "^0.11.10",
+    "simple-peer": "^9.11.1",
     "socket.io-client": "^4.8.1",
     "vue": "^3.5.20",
     "vue-router": "^4.5.1"
   },
   "devDependencies": {
     "@types/node": "^24.3.1",
+    "@types/simple-peer": "^9.11.8",
     "@types/socket.io-client": "^1.4.36"
   }
 }

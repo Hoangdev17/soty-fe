@@ -1,6 +1,7 @@
 <script setup>
 import ModalPayment from "~/components/organisms/modal.payment.vue";
 import { ref } from "vue";
+import ModalSuccess from "~/components/organisms/modal.success.vue";
 
 definePageMeta({
   title: "Nitro Packages - Settings",
@@ -13,6 +14,7 @@ const dataBasicNitro = {
   nitroId: "361382101968228352",
   nitroAmount: 50000,
 };
+const showModalSuccess = ref(false);
 
 const showProNitro = ref(false);
 const dataProNitro = {
@@ -28,6 +30,7 @@ function openProNitro() {
 
 function openBasicNitro() {
   showBasicNitro.value = true;
+  showModalSuccess.value = false; // Reset success modal
 }
 </script>
 
@@ -221,16 +224,18 @@ function openBasicNitro() {
   </div>
 
   <ModalPayment
-    :show="showBasicNitro"
+    v-model:show="showBasicNitro"
     :amount="dataBasicNitro.amount"
     :content="dataBasicNitro.content"
     :nitroId="dataBasicNitro.nitroId"
     :nitroAmount="dataBasicNitro.nitroAmount"
     @close="showBasicNitro = false"
+    @success="showModalSuccess = true"
   />
+  <ModalSuccess v-model:show="showModalSuccess" />
 
   <ModalPayment
-    :show="showProNitro"
+    v-model:show="showProNitro"
     :amount="dataProNitro.amount"
     :content="dataProNitro.content"
     :nitroId="dataProNitro.nitroId"

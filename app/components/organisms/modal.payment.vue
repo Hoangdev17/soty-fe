@@ -9,7 +9,7 @@ const props = defineProps<{
   nitroAmount?: number;
 }>();
 
-const emit = defineEmits(["update:show", "close"]);
+const emit = defineEmits(["update:show", "close", "success"]);
 
 const open = computed({
   get: () => props.show,
@@ -23,6 +23,9 @@ const toast = useToast();
 
 const isSuccessPayment = ref(false);
 const isSubmitting = ref(false);
+
+// Polling variables
+let pollingInterval: NodeJS.Timeout | null = null;
 
 const state = reactive({
   loading: false,
@@ -61,6 +64,7 @@ async function createQRCode(): Promise<void> {
         body: JSON.stringify({
           amount: props.amount,
           content: props.content,
+          nitroId: props.nitroId,
         }),
       }
     );
@@ -85,6 +89,17 @@ watch(
   (newValue) => {
     if (newValue) {
       createQRCode();
+      startPolling();
+    } else {
+      stopPolling();
+      isSuccessPayment.value = false;
+      state.paymentId = "";
+      state.qrCode = "";
+      state.qrData = "";
+      state.amount = 0;
+      state.content = "";
+      state.instructions = "";
+      state.bankInfo.transferContent = "";
     }
   },
   { immediate: true }
@@ -99,6 +114,46 @@ export interface PaymentStatusResponse {
   status: "pending" | "completed" | "failed";
 }
 
+// Polling functions
+async function checkStatus(): Promise<void> {
+  if (!state.paymentId) return;
+  try {
+    const status = await fetchWithAuth<PaymentStatusResponse>(
+      `/sepay/payment/${state.paymentId}/status`
+    );
+    if (status.success === true) {
+      emit("success", {
+        paymentId: state.paymentId,
+        amount: state.amount,
+        content: state.content,
+        nitroId: props.nitroId,
+        nitroAmount: props.nitroAmount,
+      });
+      stopPolling();
+      toast.add({
+        title: "Thanh toán thành công!",
+        description: "Giao dịch của bạn đã được xử lý thành công.",
+        color: "success",
+      });
+      emit("update:show", false);
+    }
+  } catch (error) {
+    console.error("Error checking payment status:", error);
+  }
+}
+
+function startPolling(): void {
+  if (pollingInterval) return;
+  pollingInterval = setInterval(checkStatus, 5000);
+}
+
+function stopPolling(): void {
+  if (pollingInterval) {
+    clearInterval(pollingInterval);
+    pollingInterval = null;
+  }
+}
+
 async function handleCompletePayment() {
   isSubmitting.value = true;
 
@@ -107,11 +162,29 @@ async function handleCompletePayment() {
       `/sepay/payment/${state.paymentId}/status`
     );
 
-    toast.add({
-      title: "Thanh toán thành công!",
-      description: "Giao dịch của bạn đã được xử lý thành công.",
-      color: "success",
-    });
+    if (status.success === true) {
+      emit("success", {
+        paymentId: state.paymentId,
+        amount: state.amount,
+        content: state.content,
+        nitroId: props.nitroId,
+        nitroAmount: props.nitroAmount,
+      });
+      stopPolling();
+      toast.add({
+        title: "Thanh toán thành công!",
+        description: "Giao dịch của bạn đã được xử lý thành công.",
+        color: "success",
+      });
+      // Đóng modal
+      emit("update:show", false);
+    } else {
+      toast.add({
+        title: "Thanh toán chưa hoàn tất",
+        description: "Vui lòng kiểm tra lại giao dịch hoặc thử lại sau.",
+        color: "warning",
+      });
+    }
   } catch (error) {
     console.error("Error checking payment status:", error);
     toast.add({
@@ -126,8 +199,13 @@ async function handleCompletePayment() {
 </script>
 
 <template>
-  <UModal v-model:open="open" title="Thanh toán" prevent-close>
-    <template v-if="!isSuccessPayment" #body>
+  <UModal
+    :open="props.show"
+    title="Thanh toán"
+    @close="emit('update:show', false)"
+    @update:open="emit('update:show', $event)"
+  >
+    <template #body>
       <div class="p-6">
         <!-- Loading State -->
         <div
@@ -283,35 +361,6 @@ async function handleCompletePayment() {
           </p>
           <UButton @click="createQRCode" variant="outline"> Thử lại </UButton>
         </div>
-      </div>
-    </template>
-
-    <template v-else #body>
-      <div class="p-6 flex flex-col items-center justify-center space-y-4">
-        <div class="text-green-500">
-          <svg
-            class="w-12 h-12"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M5 13l4 4L19 7"
-            ></path>
-          </svg>
-        </div>
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-          Thanh toán thành công!
-        </h3>
-        <p class="text-gray-600 dark:text-gray-400 text-center">
-          Cảm ơn bạn đã thanh toán. Giao dịch của bạn đã được xử lý thành công.
-        </p>
-        <UButton variant="solid" color="primary" @click="open = false">
-          Đóng
-        </UButton>
       </div>
     </template>
   </UModal>

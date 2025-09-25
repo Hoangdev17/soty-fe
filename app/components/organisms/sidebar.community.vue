@@ -569,6 +569,177 @@ const showCategoryContextMenu = (event: MouseEvent, categoryId: string) => {
 };
 
 const { isMobile } = useBreakpoint();
+
+// Voice presence tracking: map of channelId -> number of users
+const voicePresence = ref<Record<string, number>>({});
+// Voice users map: roomId -> array of user objects
+const voiceUsers = ref<Record<string, any[]>>({});
+const _pendingRoomQueue = ref<string[]>([]);
+
+// Debug for sidebar: capture recent room-users payloads
+const socketDebugEventsSidebar = ref<Array<{ t: number; payload: any }>>([]);
+const showSidebarDebug = ref(false);
+
+onMounted(() => {
+  try {
+    if (typeof window !== "undefined" && window.location.search) {
+      showSidebarDebug.value = String(window.location.search).includes(
+        "voice_debug=1"
+      );
+    }
+  } catch (e) {
+    showSidebarDebug.value = false;
+  }
+});
+
+function handleRoomUsersForSidebar(payload: any) {
+  // The backend responds with { users } (without roomId), so we consume from the pending queue in order
+  const roomId = _pendingRoomQueue.value.shift();
+  if (!roomId) return;
+  const users = (payload && payload.users) || payload || [];
+  const count = Array.isArray(users) ? users.length : 0;
+  // Filter out the local user so the sidebar doesn't show you as present unless you're actually in the room
+  const localUserId = authStore.user?.id ?? null;
+  const localSocketId = wsStore.connection?.id ?? null;
+  let filteredUsers = Array.isArray(users) ? users.slice() : [];
+  filteredUsers = filteredUsers.filter((u: any) => {
+    if (!u) return false;
+    const matchesId =
+      localUserId &&
+      (u.id === localUserId || String(u.id) === String(localUserId));
+    const matchesSocket =
+      localSocketId &&
+      (u.socketId === localSocketId ||
+        String(u.socketId) === String(localSocketId));
+    // Exclude local user by default
+    return !(matchesId || matchesSocket);
+  });
+
+  const key = String(roomId);
+  voicePresence.value = { ...voicePresence.value, [key]: filteredUsers.length };
+  try {
+    voiceUsers.value = { ...voiceUsers.value, [key]: filteredUsers };
+  } catch (e) {}
+  // debug
+  try {
+    socketDebugEventsSidebar.value.unshift({
+      t: Date.now(),
+      payload: { roomId, users },
+    });
+    if (socketDebugEventsSidebar.value.length > 30)
+      socketDebugEventsSidebar.value.pop();
+    console.debug("sidebar room-users for", roomId, users);
+  } catch (e) {
+    // ignore
+  }
+}
+
+function handleChannelPresence(payload: any) {
+  try {
+    const roomId = payload?.roomId;
+    const usersCount =
+      typeof payload?.usersCount === "number"
+        ? payload.usersCount
+        : Array.isArray(payload?.users)
+        ? payload.users.length
+        : 0;
+    if (!roomId) return;
+    const key = String(roomId);
+    voicePresence.value = { ...voicePresence.value, [key]: usersCount };
+    // Store users if provided
+    if (Array.isArray(payload?.users)) {
+      voiceUsers.value = { ...voiceUsers.value, [key]: payload.users };
+    }
+    // Log to debug panel
+    socketDebugEventsSidebar.value.unshift({
+      t: Date.now(),
+      payload: {
+        event: "channel-presence",
+        roomId: key,
+        usersCount,
+        users: payload?.users,
+      },
+    });
+    if (socketDebugEventsSidebar.value.length > 30)
+      socketDebugEventsSidebar.value.pop();
+    console.debug("sidebar channel-presence", roomId, usersCount);
+  } catch (e) {
+    console.debug("error handling channel-presence", e);
+  }
+}
+
+async function refreshVoicePresence() {
+  if (!channelStore.channels) return;
+  // gather voice-like channels
+  const voiceChannels = channelStore.channels.filter(
+    (c: any) => c.type === "GUILD_VOICE" || c.type === "GUILD_STAGE_VOICE"
+  );
+
+  // reset
+  voicePresence.value = {};
+  _pendingRoomQueue.value = [];
+
+  // Ensure socket connection
+  if (!wsStore.connection) {
+    console.debug("refreshVoicePresence: websocket not connected");
+    return;
+  }
+
+  // Request users sequentially to map responses to requested room IDs
+  for (const c of voiceChannels) {
+    const roomId = c.id;
+    _pendingRoomQueue.value.push(roomId);
+    try {
+      console.debug("emit get-room-users for", roomId);
+      wsStore.connection.emit("get-room-users", { roomId });
+    } catch (e) {
+      console.debug("emit failed for", roomId, e);
+    }
+    // small delay to avoid flooding and keep response order
+    // eslint-disable-next-line no-await-in-loop
+    await new Promise((r) => setTimeout(r, 40));
+  }
+}
+
+// Attach listener to socket connection for room-users responses
+watch(
+  () => wsStore.connection,
+  (conn) => {
+    if (conn) {
+      try {
+        conn.on("room-users", handleRoomUsersForSidebar);
+        console.debug("sidebar registered room-users handler");
+      } catch (e) {
+        console.debug("sidebar failed to register room-users handler", e);
+      }
+      try {
+        conn.on("channel-presence", handleChannelPresence);
+        console.debug("sidebar registered channel-presence handler");
+      } catch (e) {
+        console.debug("sidebar failed to register channel-presence handler", e);
+      }
+      // Kick off a refresh when socket becomes available
+      console.debug("sidebar socket connected, refreshing voice presence");
+      refreshVoicePresence().catch((err) => console.debug(err));
+    } else {
+      try {
+        // remove listener if existed
+        wsStore.connection?.off("room-users", handleRoomUsersForSidebar);
+        wsStore.connection?.off("channel-presence", handleChannelPresence);
+      } catch (e) {}
+    }
+  },
+  { immediate: true }
+);
+
+// Re-request presence when channels change
+watch(
+  () => channelStore.channels,
+  (newChannels) => {
+    refreshVoicePresence().catch(() => {});
+  },
+  { immediate: true }
+);
 </script>
 
 <template>
@@ -585,11 +756,21 @@ const { isMobile } = useBreakpoint();
           @click.stop="showDropdown = !showDropdown"
         >
           <span class="font-medium text-base truncate">{{ serverName }}</span>
-          <UIcon
-            name="i-lucide-chevron-down"
-            class="w-4 h-4 text-gray-400 transition-transform"
-            :class="{ 'rotate-180': showDropdown }"
-          />
+          <div class="flex items-center gap-2">
+            <UIcon
+              name="i-lucide-chevron-down"
+              class="w-4 h-4 text-gray-400 transition-transform"
+              :class="{ 'rotate-180': showDropdown }"
+            />
+            <button
+              v-if="showSidebarDebug"
+              @click.stop.prevent="refreshVoicePresence"
+              class="text-xs text-gray-300 hover:text-white px-2 py-1 rounded"
+              title="Refresh voice presence"
+            >
+              Refresh voice
+            </button>
+          </div>
         </header>
 
         <!-- Dropdown Menu -->
@@ -678,6 +859,31 @@ const { isMobile } = useBreakpoint();
                 :class="{ 'text-white': currentChannelId === channel.id }"
                 >{{ channel.name }}</span
               >
+              <!-- Voice avatar stack -->
+              <div
+                v-if="(voicePresence[channel.id] || 0) > 0"
+                class="ml-auto flex items-center gap-2"
+              >
+                <div class="flex -space-x-2 items-center">
+                  <template
+                    v-for="(u, idx) in (voiceUsers[channel.id] || []).slice(
+                      0,
+                      3
+                    )"
+                    :key="u.socketId || idx"
+                  >
+                    <img
+                      :src="u.avatar"
+                      :alt="u.username"
+                      class="w-5 h-5 rounded-full ring-2 ring-dark-800 border border-black"
+                      :title="u.username"
+                    />
+                  </template>
+                </div>
+                <div class="text-xs text-green-400 font-semibold">
+                  {{ voicePresence[channel.id] }}
+                </div>
+              </div>
             </div>
           </template>
 
@@ -742,6 +948,31 @@ const { isMobile } = useBreakpoint();
                     :class="{ 'text-white': currentChannelId === channel.id }"
                     >{{ channel.name }}</span
                   >
+                  <!-- Voice avatar stack -->
+                  <div
+                    v-if="(voicePresence[channel.id] || 0) > 0"
+                    class="ml-auto flex items-center gap-2"
+                  >
+                    <div class="flex -space-x-2 items-center">
+                      <template
+                        v-for="(u, idx) in (voiceUsers[channel.id] || []).slice(
+                          0,
+                          3
+                        )"
+                        :key="u.socketId || idx"
+                      >
+                        <img
+                          :src="u.avatar"
+                          :alt="u.username"
+                          class="w-5 h-5 rounded-full ring-2 ring-dark-800 border border-black"
+                          :title="u.username"
+                        />
+                      </template>
+                    </div>
+                    <div class="text-xs text-green-400 font-semibold">
+                      {{ voicePresence[channel.id] }}
+                    </div>
+                  </div>
                 </div>
               </template>
             </div>
@@ -781,4 +1012,31 @@ const { isMobile } = useBreakpoint();
   />
 
   <ModalEventCommunity v-model:isOpen="isOpenEvent" />
+
+  <!-- Sidebar debug panel (toggle with ?voice_debug=1) -->
+  <div
+    v-if="showSidebarDebug"
+    class="fixed left-4 bottom-4 w-96 max-h-64 overflow-y-auto bg-black/80 text-white text-sm p-3 rounded-md z-60"
+  >
+    <div class="flex items-center justify-between mb-2">
+      <div class="font-semibold">Sidebar Socket Debug</div>
+      <div class="text-xs text-gray-300">
+        events: {{ socketDebugEventsSidebar.length }}
+      </div>
+    </div>
+    <div class="space-y-2">
+      <div
+        v-for="ev in socketDebugEventsSidebar"
+        :key="ev.t"
+        class="border-b border-white/5 pb-1"
+      >
+        <div class="text-xs text-gray-300">
+          {{ new Date(ev.t).toLocaleTimeString() }}
+        </div>
+        <pre class="text-xs text-white break-words">{{
+          JSON.stringify(ev.payload, null, 2)
+        }}</pre>
+      </div>
+    </div>
+  </div>
 </template>
