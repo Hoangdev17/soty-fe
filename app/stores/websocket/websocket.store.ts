@@ -53,6 +53,11 @@ export const useWebSocketStore = defineStore("websocket", {
     isUnreadInitialized: false,
     // Track toast shown for messages to prevent duplicates
     toastShownForMessages: new Set<string>(),
+    // Voice channel users
+    usersInRoom: [],
+    usersInfo: {},
+    // mapping from userId -> socketId when we learn it
+    userIdToSocketId: {},
   }),
 
   getters: {
@@ -483,6 +488,118 @@ export const useWebSocketStore = defineStore("websocket", {
             }
           }
         });
+
+        this.connection.on("auth_error", async () => {
+          const { handleRefreshToken } = useFetchWithAuth();
+          const authStore = useAuthStore();
+          try {
+            await handleRefreshToken();
+            const newToken = authStore.token;
+            if (newToken && !this.isConnected) {
+              this.disconnect();
+              this.connect(url, newToken);
+            }
+          } catch (error) {
+            console.error("❌ Failed to refresh token:", error);
+            authStore.logout();
+          }
+        });
+
+        this.connection.on(
+          "room_users",
+          (data: {
+            users: Array<{
+              id: string; // app user id
+              username?: string;
+              avatar?: string;
+            }>;
+            requestedBy: string;
+            timestamp: Date;
+          }) => {
+            // server returns a list of users (by app user id). We may not have socketId yet.
+            const users = data.users || [];
+
+            // Reset previous entries keyed by userId (we will remap when socketId is known)
+            this.usersInfo = {};
+            this.userIdToSocketId = {};
+
+            const roomKeys: string[] = [];
+            users.forEach((user) => {
+              // For now store by user.id as placeholder key. Later when user_joined arrives we will map to socketId.
+              this.usersInfo[user.id] = {
+                avatar: user.avatar ?? "",
+                username: user.username ?? "Unknown",
+                name: user.username ?? "",
+                isVideoEnabled: false,
+                isAudioEnabled: false,
+              } as any;
+              roomKeys.push(user.id);
+            });
+
+            // Ensure reactivity
+            this.usersInfo = { ...this.usersInfo };
+            this.usersInRoom = [...roomKeys];
+          }
+        );
+
+        // When a user (including existing ones) emits user_joined we will get socketId and user info
+        this.connection.on(
+          "user_joined",
+          (data: {
+            socketId: string;
+            room: string;
+            user?: {
+              id?: string;
+              username?: string;
+              avatar?: string;
+              name?: string;
+            };
+            isVideoEnabled?: boolean;
+            isAudioEnabled?: boolean;
+          }) => {
+            const socketId = data.socketId;
+            const user = data.user || null;
+
+            if (user && user.id) {
+              // remember mapping userId -> socketId
+              this.userIdToSocketId![user.id] = socketId;
+
+              // if we had placeholder info keyed by user.id, move it under socketId
+              const prev = this.usersInfo[user.id];
+              this.usersInfo[socketId] = prev ?? {
+                avatar: user.avatar ?? "",
+                username: user.username ?? user.name ?? "Unknown",
+                name: user.username ?? user.name ?? "",
+                isVideoEnabled: data.isVideoEnabled ?? false,
+                isAudioEnabled: data.isAudioEnabled ?? true,
+              };
+
+              // remove placeholder keyed by user.id to avoid duplication
+              if (this.usersInfo[user.id]) delete this.usersInfo[user.id];
+
+              // Replace placeholder entry in usersInRoom (user.id) with socketId
+              this.usersInRoom = this.usersInRoom.map((k) =>
+                k === user.id ? socketId : k
+              );
+
+              // Ensure reactivity
+              this.usersInfo = { ...this.usersInfo };
+              this.usersInRoom = [...this.usersInRoom];
+            } else if (socketId) {
+              // no user.id available, still create entry keyed by socketId
+              this.usersInfo[socketId] = {
+                avatar: user?.avatar ?? "",
+                username: user?.username ?? user?.name ?? "Unknown",
+                name: user?.username ?? user?.name ?? "",
+                isVideoEnabled: data.isVideoEnabled ?? false,
+                isAudioEnabled: data.isAudioEnabled ?? true,
+              } as any;
+              this.usersInfo = { ...this.usersInfo };
+              if (!this.usersInRoom.includes(socketId))
+                this.usersInRoom = [...this.usersInRoom, socketId];
+            }
+          }
+        );
       } catch (error) {
         console.error("❌ Failed to create Socket.IO connection:", error);
       }

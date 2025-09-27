@@ -12,6 +12,7 @@ import CreateThreadPanel from "~/components/organisms/create.thread.panel.vue";
 import type { ContextMenuItem } from "@nuxt/ui";
 import { onMounted, onBeforeUnmount, watch, computed } from "vue";
 import { useWebSocketStore } from "~/stores/websocket/websocket.store";
+import { joinRoom } from "~/stores/websocket/websocket.action";
 
 interface Props {
   channelId: string;
@@ -131,8 +132,11 @@ const sendReadReceiptForChannel = async () => {
   }
 };
 
-onMounted(() => {
+const channelId = computed(() => props.channelId);
+
+onMounted(async () => {
   sendReadReceiptForChannel();
+  await joinRoom(`channel_${channelId}`);
 
   // If there are unread messages, also clear them immediately
   if (unreadCount.value > 0) {

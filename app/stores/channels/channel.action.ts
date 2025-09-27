@@ -141,9 +141,6 @@ export const channelActions = {
     const wsStore = useWebSocketStore();
     wsStore.setChannelToCommunityMapping(channelId, guildId);
 
-    // Join WebSocket room for this channel
-    joinRoom(`channel_${channelId}`);
-
     return channel;
   },
 

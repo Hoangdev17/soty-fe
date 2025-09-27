@@ -14,7 +14,6 @@ import DmChannel from "~/components/organisms/dm.channel.vue";
 import TextChannelMobile from "~/components/organisms/text.channel.mobile.vue";
 import VoiceChannelMobile from "~/components/organisms/voice.channel.mobile.vue";
 import { useBreakpoint } from "~/composables/useBreakpoint.client";
-import { joinRoom } from "~/stores/websocket/websocket.action";
 
 definePageMeta({
   layout: "community-layout",
@@ -99,8 +98,6 @@ onMounted(async () => {
 
   // Fetch threads for the channel
   await fetchThreadsByChannel(channelId);
-
-  await joinRoom(`channel_${channelId}`);
 
   messageLoading.value = false;
   isPageLoading.value = false;

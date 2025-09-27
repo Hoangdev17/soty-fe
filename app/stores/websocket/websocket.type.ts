@@ -69,6 +69,20 @@ export interface WebSocketState {
   isUnreadInitialized: boolean;
   // Track toast shown for messages to prevent duplicates
   toastShownForMessages: Set<string>;
+  // Voice channel users
+  usersInRoom: string[];
+  usersInfo: Record<
+    string,
+    {
+      avatar?: string;
+      name?: string;
+      username?: string;
+      isVideoEnabled: boolean;
+      isAudioEnabled: boolean;
+    }
+  >;
+  // map from userId (app-level id) -> socketId when available
+  userIdToSocketId?: Record<string, string>;
 }
 
 export interface GetMembersPayload {
