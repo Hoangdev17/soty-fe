@@ -39,7 +39,7 @@ export function useVoiceChannel() {
 
     // Join voice channel
     sendMessage("join_room", {
-      room: `${roomId}_init`,
+      room: `channel_${roomId}_init`,
       isVideoEnabled: isVideoEnabled.value,
       isAudioEnabled: isAudioEnabled.value,
     });

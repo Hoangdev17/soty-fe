@@ -41,10 +41,8 @@ onMounted(() => {
     localVideo.value.srcObject = localStream.value;
   }
   if (channelId) {
-    getRoomUsers(channelId);
+    getRoomUsers(`channel_${channelId}_init`);
   }
-
-  console.log("user in room", usersInRoom.value);
 });
 
 // Watch for localStream changes
