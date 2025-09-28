@@ -184,15 +184,7 @@ const isOpenSlideoverMember = ref(false);
     @closeMemberPanel="isOpenSlideoverMember = false"
   />
   <VoiceChannel
-    v-else-if="currentChannel?.type === ChannelType.GUILD_VOICE && !isMobile"
-    :channelId="channelId || ''"
-    :currentChannel="currentChannel"
-    :isOpenSlideoverMember="isOpenSlideoverMember"
-    @toggleMemberPanel="isOpenSlideoverMember = !isOpenSlideoverMember"
-    @closeMemberPanel="isOpenSlideoverMember = false"
-  />
-  <VoiceChannelMobile
-    v-else-if="currentChannel?.type === ChannelType.GUILD_VOICE && isMobile"
+    v-else-if="currentChannel?.type === ChannelType.GUILD_VOICE"
     :channelId="channelId || ''"
     :currentChannel="currentChannel"
     :isOpenSlideoverMember="isOpenSlideoverMember"

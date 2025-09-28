@@ -129,8 +129,20 @@ export function useVoiceChannel() {
 
   const createPeerConnection = (socketId: string) => {
     const pc = new RTCPeerConnection({
-      iceServers: [{ urls: "stun:stun.l.google.com:19302" }],
+      iceServers: [
+        { urls: "stun:stun.l.google.com:19302" },
+        {
+          urls: [
+            "turn:openrelay.metered.ca:80",
+            "turn:openrelay.metered.ca:443",
+            "turns:openrelay.metered.ca:443",
+          ],
+          username: "openrelayproject",
+          credential: "openrelayproject",
+        },
+      ],
     });
+
     if (localStream.value) {
       localStream.value
         .getTracks()
@@ -138,6 +150,7 @@ export function useVoiceChannel() {
           pc.addTrack(track, localStream.value as MediaStream)
         );
     }
+
     pc.ontrack = (event) => {
       if (event.streams[0]) {
         remoteStreams.value[socketId] = event.streams[0];
@@ -146,14 +159,21 @@ export function useVoiceChannel() {
         }
       }
     };
+
     pc.onicecandidate = (event) => {
       if (event.candidate) {
+        console.log("ICE Candidate:", event.candidate); // 👉 log để debug
         sendMessage("signal", {
           to: socketId,
           signal: { candidate: event.candidate },
         });
       }
     };
+
+    pc.onconnectionstatechange = () => {
+      console.log(`PeerConnection(${socketId}) state:`, pc.connectionState);
+    };
+
     return pc;
   };
 
