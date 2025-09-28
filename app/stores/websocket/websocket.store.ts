@@ -509,40 +509,73 @@ export const useWebSocketStore = defineStore("websocket", {
           "room_users",
           (data: {
             users: Array<{
-              id: string; // app user id
+              id: string;
               username?: string;
               avatar?: string;
+              socketId?: string;
             }>;
             requestedBy: string;
             timestamp: Date;
           }) => {
-            // server returns a list of users (by app user id). We may not have socketId yet.
+            console.debug("room_users payload:", data);
             const users = data.users || [];
 
-            // Reset previous entries keyed by userId (we will remap when socketId is known)
-            this.usersInfo = {};
-            this.userIdToSocketId = {};
+            // Build a fresh map for users currently in this room.
+            // Use socketId as canonical key when known; otherwise create a temporary placeholder keyed by user.id.
+            const newUsersInfo: Record<string, any> = {};
+            const newRoomKeys: string[] = [];
 
-            const roomKeys: string[] = [];
             users.forEach((user) => {
-              // For now store by user.id as placeholder key. Later when user_joined arrives we will map to socketId.
-              this.usersInfo[user.id] = {
-                avatar: user.avatar ?? "",
-                username: user.username ?? "Unknown",
-                name: user.username ?? "",
-                isVideoEnabled: false,
-                isAudioEnabled: false,
-              } as any;
-              roomKeys.push(user.id);
+              const username = user.username ?? "Unknown";
+              const avatar = user.avatar ?? "";
+
+              // Prefer socketId from payload; fallback to any known mapping
+              const socketIdFromPayload = user.socketId;
+              const knownSocketId =
+                socketIdFromPayload ?? this.userIdToSocketId?.[user.id];
+
+              if (knownSocketId) {
+                // remember mapping if payload provided socketId
+                if (user.id && socketIdFromPayload) {
+                  this.userIdToSocketId![user.id] = socketIdFromPayload;
+                }
+
+                newUsersInfo[knownSocketId] = {
+                  id: user.id,
+                  socketId: knownSocketId,
+                  avatar,
+                  username,
+                  name: username,
+                  displayName: username,
+                  isVideoEnabled: false,
+                  isAudioEnabled: false,
+                } as any;
+                newRoomKeys.push(knownSocketId);
+              } else {
+                newUsersInfo[user.id] = {
+                  id: user.id,
+                  socketId: undefined,
+                  avatar,
+                  username,
+                  name: username,
+                  displayName: username,
+                  isPlaceholder: true,
+                  isVideoEnabled: false,
+                  isAudioEnabled: false,
+                } as any;
+                newRoomKeys.push(user.id);
+              }
             });
 
-            // Ensure reactivity
-            this.usersInfo = { ...this.usersInfo };
-            this.usersInRoom = [...roomKeys];
+            this.usersInfo = newUsersInfo;
+            this.usersInRoom = [...newRoomKeys];
+
+            console.debug("usersInfo after room_users:", this.usersInfo);
+            console.debug("usersInRoom after room_users:", this.usersInRoom);
           }
         );
 
-        // When a user (including existing ones) emits user_joined we will get socketId and user info
+        // Single canonical user_joined handler: map userId -> socketId and migrate placeholder -> socketId
         this.connection.on(
           "user_joined",
           (data: {
@@ -558,45 +591,133 @@ export const useWebSocketStore = defineStore("websocket", {
             isAudioEnabled?: boolean;
           }) => {
             const socketId = data.socketId;
-            const user = data.user || null;
+            const user = data.user ?? null;
+            const room = data.room ?? "";
+
+            if (!room.startsWith("channel_") || !room.endsWith("_init")) {
+              console.debug(
+                "Ignored user_joined for non-voice-init room:",
+                room,
+                data
+              );
+              return;
+            }
+
+            if (!socketId) return;
 
             if (user && user.id) {
-              // remember mapping userId -> socketId
+              // remember mapping
               this.userIdToSocketId![user.id] = socketId;
 
-              // if we had placeholder info keyed by user.id, move it under socketId
-              const prev = this.usersInfo[user.id];
-              this.usersInfo[socketId] = prev ?? {
-                avatar: user.avatar ?? "",
-                username: user.username ?? user.name ?? "Unknown",
-                name: user.username ?? user.name ?? "",
-                isVideoEnabled: data.isVideoEnabled ?? false,
-                isAudioEnabled: data.isAudioEnabled ?? true,
-              };
+              // Prefer any existing placeholder or socket entry
+              const placeholder = this.usersInfo[user.id];
+              const prevSocketEntry = this.usersInfo[socketId];
+              const prev = placeholder ?? prevSocketEntry ?? null;
 
-              // remove placeholder keyed by user.id to avoid duplication
-              if (this.usersInfo[user.id]) delete this.usersInfo[user.id];
+              const combined = {
+                id: user.id,
+                socketId,
+                avatar: user.avatar ?? prev?.avatar ?? "",
+                username:
+                  user.username ?? prev?.username ?? user.name ?? "Unknown",
+                name: user.username ?? prev?.name ?? user.name ?? "",
+                isVideoEnabled:
+                  data.isVideoEnabled ?? prev?.isVideoEnabled ?? false,
+                isAudioEnabled:
+                  data.isAudioEnabled ?? prev?.isAudioEnabled ?? false,
+              } as any;
 
-              // Replace placeholder entry in usersInRoom (user.id) with socketId
+              // Canonical store under socketId only, remove placeholder keyed by user.id
+              if (this.usersInfo[user.id]) {
+                const copy = { ...this.usersInfo };
+                delete copy[user.id];
+                copy[socketId] = combined;
+                this.usersInfo = copy;
+              } else {
+                this.usersInfo = { ...this.usersInfo, [socketId]: combined };
+              }
+
+              // Replace user.id key in usersInRoom with socketId (if present)
               this.usersInRoom = this.usersInRoom.map((k) =>
                 k === user.id ? socketId : k
               );
 
-              // Ensure reactivity
+              // Ensure socketId present (deduped)
+              if (!this.usersInRoom.includes(socketId)) {
+                this.usersInRoom = [...this.usersInRoom, socketId];
+              }
+
+              // Trigger reactivity
               this.usersInfo = { ...this.usersInfo };
               this.usersInRoom = [...this.usersInRoom];
-            } else if (socketId) {
-              // no user.id available, still create entry keyed by socketId
-              this.usersInfo[socketId] = {
-                avatar: user?.avatar ?? "",
-                username: user?.username ?? user?.name ?? "Unknown",
-                name: user?.username ?? user?.name ?? "",
-                isVideoEnabled: data.isVideoEnabled ?? false,
-                isAudioEnabled: data.isAudioEnabled ?? true,
-              } as any;
-              this.usersInfo = { ...this.usersInfo };
-              if (!this.usersInRoom.includes(socketId))
+            } else {
+              // No app user id provided: ensure socketId entry exists
+              const prev = this.usersInfo[socketId] ?? null;
+              this.usersInfo = {
+                ...this.usersInfo,
+                [socketId]: {
+                  avatar: prev?.avatar ?? "",
+                  username: prev?.username ?? "Unknown",
+                  name: prev?.name ?? "",
+                  isVideoEnabled:
+                    data.isVideoEnabled ?? prev?.isVideoEnabled ?? false,
+                  isAudioEnabled:
+                    data.isAudioEnabled ?? prev?.isAudioEnabled ?? false,
+                },
+              };
+              if (!this.usersInRoom.includes(socketId)) {
                 this.usersInRoom = [...this.usersInRoom, socketId];
+              }
+              this.usersInfo = { ...this.usersInfo };
+              this.usersInRoom = [...this.usersInRoom];
+            }
+          }
+        );
+
+        this.connection.on(
+          "user_left",
+          (data: {
+            socketId?: string;
+            room?: string;
+            user?: { id?: string };
+          }) => {
+            try {
+              const socketIdFromPayload = data?.socketId;
+              const userIdFromPayload = data?.user?.id;
+
+              // Resolve socketId if only userId provided
+              const resolvedSocketId =
+                socketIdFromPayload ??
+                (userIdFromPayload
+                  ? this.userIdToSocketId?.[userIdFromPayload]
+                  : undefined);
+
+              // Remove mapping userId -> socketId if present
+              if (
+                userIdFromPayload &&
+                this.userIdToSocketId?.[userIdFromPayload]
+              ) {
+                const copyMap = { ...(this.userIdToSocketId || {}) };
+                delete copyMap[userIdFromPayload];
+                this.userIdToSocketId = copyMap;
+              }
+
+              // Remove entries from usersInfo (both socket-keyed and placeholder keyed by userId)
+              const infoCopy: Record<string, any> = {
+                ...(this.usersInfo || {}),
+              };
+              if (resolvedSocketId && infoCopy[resolvedSocketId])
+                delete infoCopy[resolvedSocketId];
+              if (userIdFromPayload && infoCopy[userIdFromPayload])
+                delete infoCopy[userIdFromPayload];
+              this.usersInfo = infoCopy;
+
+              // Remove keys from usersInRoom (match both socketId and userId placeholders)
+              this.usersInRoom = (this.usersInRoom || []).filter(
+                (k: string) => k !== resolvedSocketId && k !== userIdFromPayload
+              );
+            } catch (e) {
+              console.warn("Failed to handle user_left:", e);
             }
           }
         );
