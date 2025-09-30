@@ -84,8 +84,12 @@ export const useMessage = () => {
     return fetchMessagesForRoom(roomId, limit, offset);
   };
 
-  const sendMessage = (channelId: string, message: string) => {
-    return sendMessageToRoom(channelId, message);
+  const sendMessage = (
+    channelId: string,
+    message: string,
+    type: string = "text"
+  ) => {
+    return sendMessageToRoom(channelId, message, type);
   };
 
   const getMessages = (roomId: string) => {
@@ -158,8 +162,12 @@ export const useMessage = () => {
     return fetchThreadsByChannelAction(channelId);
   };
 
-  const sendMessageToThread = (threadId: string, content: string) => {
-    return sendMessageToThreadAction(threadId, content);
+  const sendMessageToThread = (
+    threadId: string,
+    content: string,
+    type: string = "text"
+  ) => {
+    return sendMessageToThreadAction(threadId, content, type);
   };
 
   const fetchMessageReferences = (channelId: string) => {

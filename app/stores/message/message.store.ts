@@ -61,7 +61,11 @@ export const useMessageStore = defineStore("message", {
       }
     },
 
-    async sendMessage(channelId: string, content: string) {
+    async sendMessage(
+      channelId: string,
+      content: string,
+      type: string = "text"
+    ) {
       try {
         const socketStore = useWebSocketStore();
         const messageStore = useMessageStore();
@@ -72,12 +76,12 @@ export const useMessageStore = defineStore("message", {
 
         const res = await fetchWithAuth<Message>(`/messages`, {
           method: "POST",
-          body: JSON.stringify({ channelId, content }),
+          body: JSON.stringify({ channelId, content, type }),
         });
 
         messageStore.addMessage(channelId, res);
 
-        socketStore.sendChatMessage(`channel_${channelId}`, content, "text", {
+        socketStore.sendChatMessage(`channel_${channelId}`, content, type, {
           channelId,
         });
       } catch (error) {
@@ -519,7 +523,11 @@ export const useMessageStore = defineStore("message", {
     },
 
     // Send message to thread
-    async sendMessageToThread(threadId: string, content: string) {
+    async sendMessageToThread(
+      threadId: string,
+      content: string,
+      type: string = "text"
+    ) {
       try {
         const { fetchWithAuth } = useFetchWithAuth();
 
@@ -533,6 +541,7 @@ export const useMessageStore = defineStore("message", {
             body: JSON.stringify({
               content,
               threadId, // Add threadId to the request body
+              type,
             }),
           }
         );
@@ -542,7 +551,7 @@ export const useMessageStore = defineStore("message", {
 
         // Send via WebSocket if needed
         const socketStore = useWebSocketStore();
-        socketStore.sendChatMessage(`thread_${threadId}`, content, "text", {
+        socketStore.sendChatMessage(`thread_${threadId}`, content, type, {
           threadId,
         });
 
