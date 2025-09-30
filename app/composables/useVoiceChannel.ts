@@ -162,7 +162,6 @@ export function useVoiceChannel() {
 
     pc.onicecandidate = (event) => {
       if (event.candidate) {
-        console.log("ICE Candidate:", event.candidate); // 👉 log để debug
         sendMessage("signal", {
           to: socketId,
           signal: { candidate: event.candidate },

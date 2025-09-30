@@ -7,6 +7,7 @@ import type {
   CreateCommunityData,
   CreateEventPayload,
   GuildEvent,
+  joinRequest,
 } from "./community.type";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
 import {
@@ -159,13 +160,16 @@ export const communityActions = {
         { method: "POST" }
       );
 
-      // Immediately ensure the client is joined to the websocket room
-      // so it can receive realtime updates and so server broadcasts
-      // include this connection when appropriate. Use ensureRoomJoined
-      // which will retry if socket isn't connected yet.
-      ensureRoomJoined(`community_${communityId}`);
+      if (response.statusCode === 202) {
+        toast.add({
+          title: "Request Sent",
+          description:
+            "Your request to join this community is pending approval.",
+          color: "info",
+          duration: 5000,
+        });
+      }
 
-      // Update local member store immediately so the joining user sees the change
       const memberStore = useMemberStore();
       try {
         await memberStore.addMember(communityId, response);
@@ -344,5 +348,77 @@ export const communityActions = {
     }
 
     return events;
+  },
+
+  async fetchJoinRequests(communityId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const communityStore = useCommunityStore();
+
+    const requests = await fetchWithAuth<joinRequest[]>(
+      `/community/${communityId}/join-requests`,
+      {
+        method: "GET",
+      }
+    );
+
+    communityStore.joinRequests = requests;
+    return requests;
+  },
+
+  async approveJoinRequest(communityId: string, requestId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const communityStore = useCommunityStore();
+    const memberStore = useMemberStore();
+
+    const request = await fetchWithAuth<joinRequest>(
+      `/community/${communityId}/join-requests/${requestId}/approve`,
+      {
+        method: "POST",
+      }
+    );
+
+    communityStore.joinRequests = communityStore.joinRequests?.filter(
+      (req) => req.id !== requestId
+    );
+
+    memberStore.addMember(communityId, {
+      id: request.id,
+      userId: request.userId,
+      guildId: communityId,
+      joinedAt: new Date(request.createdAt),
+      flags: [],
+      permissions: [],
+      bannable: false,
+      kickable: false,
+      manageable: false,
+      moderatable: false,
+      pending: false,
+      xp: 0,
+      coins: 0,
+      xepo: 0,
+      currentLevel: 0,
+      dailyStreak: 0,
+      user: request.user,
+    });
+
+    return request;
+  },
+
+  async rejectJoinRequest(communityId: string, requestId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const communityStore = useCommunityStore();
+
+    const request = await fetchWithAuth<joinRequest>(
+      `/community/${communityId}/join-requests/${requestId}/reject`,
+      {
+        method: "POST",
+      }
+    );
+
+    communityStore.joinRequests = communityStore.joinRequests?.filter(
+      (req) => req.id !== requestId
+    );
+
+    return request;
   },
 };

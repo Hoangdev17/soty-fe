@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import type { Community, CommunityMember } from "./community.type";
+import type { Community, CommunityMember, joinRequest } from "./community.type";
 import { communityActions } from "./community.action";
 
 export const useCommunityStore = defineStore("community", {
@@ -8,6 +8,7 @@ export const useCommunityStore = defineStore("community", {
     communitiesAll: [] as Community[], //all communitys
     currentCommunity: null as Community | null,
     currentCommunityMembers: [] as CommunityMember[],
+    joinRequests: null as joinRequest[] | null,
     // Loading states
     isLoading: false,
     isLoadingCommunities: false,

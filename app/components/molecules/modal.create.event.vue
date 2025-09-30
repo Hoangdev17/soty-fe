@@ -149,7 +149,6 @@ const back = () => {
 };
 
 function handleUploadSuccess(url: string) {
-  console.log("Upload success, got URL:", url);
   state.value.imgUrl = url;
 }
 

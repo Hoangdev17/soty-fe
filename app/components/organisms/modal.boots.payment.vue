@@ -7,6 +7,7 @@ const props = defineProps<{
   gemsRequired: number; // Số gems cần
   content: string;
   bootsId?: string;
+  guildId?: string;
 }>();
 
 const emit = defineEmits(["update:show", "close", "success"]);
@@ -15,7 +16,7 @@ const toast = useToast();
 
 const isSuccessPayment = ref(false);
 const isSubmitting = ref(false);
-const paymentMethod = ref<"money" | "gems">("money"); // Mặc định thanh toán bằng tiền
+const paymentMethod = ref<"money" | "gems">("money");
 const pollingInterval = ref<NodeJS.Timeout | null>(null);
 const userGems = ref(0);
 
@@ -70,6 +71,8 @@ async function createQRCode(): Promise<void> {
         body: JSON.stringify({
           amount: props.amount,
           content: props.content,
+          boostId: props.bootsId || null,
+          guildId: props.guildId || null,
         }),
       }
     );
@@ -141,7 +144,7 @@ async function checkStatus(): Promise<void> {
     const status = await fetchWithAuth<PaymentStatusResponse>(
       `/sepay/payment/${state.paymentId}/status`
     );
-    if (status.status === "completed") {
+    if (status.success === true) {
       isSuccessPayment.value = true;
       emit("success", {
         paymentId: state.paymentId,

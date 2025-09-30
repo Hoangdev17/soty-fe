@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import ModalBootsPayment from "~/components/organisms/modal.boots.payment.vue";
 import ModalSuccess from "~/components/organisms/modal.success.vue";
+import { useCommunityStore } from "~/stores/community/community.store";
 
 definePageMeta({
   title: "Boots - Community",
@@ -12,6 +13,7 @@ const showPaymentProModal = ref(false);
 const showPaymentPremiumModal = ref(false);
 const showModalSuccess = ref(false);
 
+const { isMobile } = useBreakpoint();
 function openPaymentBasicModal() {
   showModalSuccess.value = false;
   showPaymentBasicModal.value = true;
@@ -35,18 +37,21 @@ const dataBasic = {
 };
 
 const dataPro = {
-  bootsId: "361386782484336641",
+  bootsId: "361386880727519232",
   amount: 100000,
   gemsRequired: 5,
   content: "Nâng cấp gói Pro",
 };
 
 const dataPremium = {
-  bootsId: "361386782484336642",
+  bootsId: "361386922351792128",
   amount: 150000,
   gemsRequired: 7,
   content: "Nâng cấp gói Premium",
 };
+
+const communityStore = useCommunityStore();
+const guildId = computed(() => communityStore.currentCommunity?.id || "");
 </script>
 
 <template>
@@ -511,7 +516,7 @@ const dataPremium = {
       </div>
 
       <!-- Right: sidebar nhỏ, không co lại -->
-      <aside class="w-80 flex-shrink-0">
+      <aside v-if="!isMobile" class="w-80 flex-shrink-0">
         <div class="flex justify-between mt-3">
           <p class="text-xs text-gray-300 leading-tight truncate">
             NÂNG CẤP MÁY CHỦ
@@ -660,6 +665,7 @@ const dataPremium = {
     :content="dataBasic.content"
     :gemsRequired="dataBasic.gemsRequired"
     :bootsId="dataBasic.bootsId"
+    :guild-id="guildId"
     @success="
       showModalSuccess = true;
       showPaymentBasicModal = false;
@@ -672,6 +678,7 @@ const dataPremium = {
     :content="dataPro.content"
     :gemsRequired="dataPro.gemsRequired"
     :bootsId="dataPro.bootsId"
+    :guild-id="guildId"
     @success="
       showModalSuccess = true;
       showPaymentProModal = false;
@@ -684,6 +691,7 @@ const dataPremium = {
     :content="dataPremium.content"
     :gemsRequired="dataPremium.gemsRequired"
     :bootsId="dataPremium.bootsId"
+    :guild-id="guildId"
     @success="
       showModalSuccess = true;
       showPaymentPremiumModal = false;

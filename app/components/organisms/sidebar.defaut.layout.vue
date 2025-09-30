@@ -364,6 +364,11 @@ async function createGuild() {
             />
           </UFormField>
 
+          <div class="flex justify-between mt-4">
+            <span>Riêng tư</span>
+            <USwitch v-model="createState.isPrivate" />
+          </div>
+
           <!-- Nút Tạo máy chủ căn phải -->
           <div class="flex justify-end mt-4">
             <UButton

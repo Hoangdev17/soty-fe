@@ -103,8 +103,7 @@ const joinCommunity = async () => {
     isJoinLoading.value = false;
   } catch (error) {
     console.error("Failed to join community:", error);
-    // Không redirect nếu thất bại
-    // Có thể show toast/error message ở đây
+    isJoinLoading.value = false;
   }
 };
 

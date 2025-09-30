@@ -66,6 +66,20 @@ export interface CommunityMember {
   };
 }
 
+export interface joinRequest {
+  id: string;
+  userId: string;
+  guildId: string;
+  user: {
+    id: string;
+    username: string;
+    avatar?: string;
+  };
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  createdAt: string;
+  guildMemberBannedId?: string | null;
+}
+
 export interface CreateCommunityData {
   name: string;
   description: string;
