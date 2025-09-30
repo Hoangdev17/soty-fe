@@ -207,4 +207,41 @@ export const channelActions = {
 
     return channelDM;
   },
+
+  async updateChannel(
+    guildId: string,
+    channelId: string,
+    data: Partial<Channel>
+  ) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const channelStore = useChannelStore();
+
+    const updatedChannel = await fetchWithAuth<Channel>(
+      `/channels/${guildId}/${channelId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(data),
+      }
+    );
+
+    channelStore.currentChannel = updatedChannel;
+
+    return updatedChannel;
+  },
+
+  async deleteChannel(guildId: string, channelId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const channelStore = useChannelStore();
+
+    await fetchWithAuth(`/channels/${guildId}/${channelId}`, {
+      method: "DELETE",
+    });
+
+    channelStore.channels = channelStore.channels.filter(
+      (channel) => channel.id !== channelId
+    );
+
+    // Leave WebSocket room for this channel
+    leaveRoom(`channel_${channelId}`);
+  },
 };

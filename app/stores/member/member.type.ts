@@ -48,6 +48,7 @@ export interface Member {
   missionLogs?: any[]; // GuildMissionLog[]
   badges?: any[]; // GuildMemberBadge[]
   inventory?: any[]; // GuildMemberInventory[]
+  statusCode?: number; // HTTP status code from join request (e.g., 200, 202)
 }
 
 export interface MemberState {

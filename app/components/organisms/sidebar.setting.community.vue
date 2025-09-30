@@ -42,8 +42,8 @@ watchEffect(() => {
     section.value = "members";
   } else if (path.includes("/settings/moderation")) {
     section.value = "moderation";
-  } else if (path.includes("/settings/audit-log")) {
-    section.value = "audit-log";
+  } else if (path.includes("/settings/join-requests")) {
+    section.value = "join-requests";
   } else if (path.includes("/settings/integrations")) {
     section.value = "integrations";
   } else if (pathSegments.length === 4) {
@@ -118,11 +118,11 @@ const menuItems = computed<MenuItem[][]>(() => [
       disabled: true,
     },
     {
-      label: "Audit Log",
-      icon: "i-lucide-file-text",
-      to: `/community/@${currentCommunity.value?.name}-${currentCommunity.value?.id}/settings/audit-log`,
-      active: section.value === "audit-log",
-      disabled: true,
+      label: "Join Requests",
+      icon: "i-lucide-user-check",
+      to: `/community/@${currentCommunity.value?.name}-${currentCommunity.value?.id}/settings/join-requests`,
+      active: section.value === "join-requests",
+      disabled: false,
     },
   ],
   [

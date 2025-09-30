@@ -553,6 +553,12 @@ const navigateToChannel = (channel: any) => {
   }
 };
 
+const openChannelSettings = (channel: any) => {
+  navigateTo(
+    `/community/@${communityStore.currentCommunity?.name}-${communityStore.currentCommunity?.id}/${channel.id}/settings`
+  );
+};
+
 const getChannelsInCategory = (categoryId: string) => {
   if (!channelStore.channels) return [];
 
@@ -835,7 +841,7 @@ watch(
             :key="channel.id"
           >
             <div
-              class="flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-600/30 cursor-pointer group transition-colors"
+              class="relative flex items-center gap-2 px-2 py-1 rounded hover:bg-gray-600/30 cursor-pointer group transition-colors"
               :class="{
                 'bg-white/10 text-white': currentChannelId === channel.id,
               }"
@@ -859,31 +865,15 @@ watch(
                 :class="{ 'text-white': currentChannelId === channel.id }"
                 >{{ channel.name }}</span
               >
-              <!-- Voice avatar stack -->
-              <div
-                v-if="(voicePresence[channel.id] || 0) > 0"
-                class="ml-auto flex items-center gap-2"
+
+              <button
+                v-if="canManageServer"
+                @click="openChannelSettings(channel)"
+                class="absolute right-2 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-gray-400 hover:text-white pointer-events-none group-hover:pointer-events-auto"
+                title="Channel settings"
               >
-                <div class="flex -space-x-2 items-center">
-                  <template
-                    v-for="(u, idx) in (voiceUsers[channel.id] || []).slice(
-                      0,
-                      3
-                    )"
-                    :key="u.socketId || idx"
-                  >
-                    <img
-                      :src="u.avatar"
-                      :alt="u.username"
-                      class="w-5 h-5 rounded-full ring-2 ring-dark-800 border border-black"
-                      :title="u.username"
-                    />
-                  </template>
-                </div>
-                <div class="text-xs text-green-400 font-semibold">
-                  {{ voicePresence[channel.id] }}
-                </div>
-              </div>
+                <UIcon name="i-lucide-settings" class="w-4 h-4 mt-1" />
+              </button>
             </div>
           </template>
 
@@ -911,6 +901,7 @@ watch(
                   </span>
                 </div>
                 <UIcon
+                  v-if="canManageServer"
                   name="i-lucide-plus"
                   class="w-3 h-3 text-gray-500 opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer hover:text-gray-300"
                   @click.stop="openCreateChannelInCategory(category.id)"
@@ -924,7 +915,7 @@ watch(
               >
                 <div
                   v-show="isCategoryExpanded(category.id)"
-                  class="flex items-center gap-2 px-6 py-1 rounded hover:bg-gray-600/30 cursor-pointer group transition-colors ml-2"
+                  class="relative flex items-center gap-2 px-6 py-1 rounded hover:bg-gray-600/30 cursor-pointer group transition-colors ml-2"
                   :class="{
                     'bg-white/10 text-white': currentChannelId === channel.id,
                   }"
@@ -948,31 +939,14 @@ watch(
                     :class="{ 'text-white': currentChannelId === channel.id }"
                     >{{ channel.name }}</span
                   >
-                  <!-- Voice avatar stack -->
-                  <div
-                    v-if="(voicePresence[channel.id] || 0) > 0"
-                    class="ml-auto flex items-center gap-2"
+                  <button
+                    v-if="canManageServer"
+                    @click="openChannelSettings(channel)"
+                    class="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-gray-400 hover:text-white pointer-events-none group-hover:pointer-events-auto"
+                    title="Channel settings"
                   >
-                    <div class="flex -space-x-2 items-center">
-                      <template
-                        v-for="(u, idx) in (voiceUsers[channel.id] || []).slice(
-                          0,
-                          3
-                        )"
-                        :key="u.socketId || idx"
-                      >
-                        <img
-                          :src="u.avatar"
-                          :alt="u.username"
-                          class="w-5 h-5 rounded-full ring-2 ring-dark-800 border border-black"
-                          :title="u.username"
-                        />
-                      </template>
-                    </div>
-                    <div class="text-xs text-green-400 font-semibold">
-                      {{ voicePresence[channel.id] }}
-                    </div>
-                  </div>
+                    <UIcon name="i-lucide-settings" class="w-4 h-4 mt-1" />
+                  </button>
                 </div>
               </template>
             </div>

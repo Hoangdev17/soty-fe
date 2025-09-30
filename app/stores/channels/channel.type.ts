@@ -27,6 +27,7 @@ export type Channel = {
   topic: string | null;
   type: ChannelType;
   viewAble: boolean;
+  isPrivate: boolean;
   rateLimitPerUser: number | null;
 
   recipients?: {
