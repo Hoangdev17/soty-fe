@@ -2,6 +2,7 @@
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { useMessage } from "~/composables/useMessage";
+import UploadButton from "./upload.button.vue";
 
 const props = defineProps<{
   channelId?: string;
@@ -34,6 +35,53 @@ const { sendMessage, sendMessageToThread, replyToMessage, isLoading } =
   useMessage();
 const messageText = ref("");
 
+const isImageUrl = (value: string) => {
+  if (!value) return false;
+  try {
+    const u = new URL(value.trim());
+    return /\.(jpe?g|png|gif|webp|bmp|svg)(\?.*)?$/i.test(u.pathname);
+  } catch {
+    return /^(https?:)?\/\/.+\.(jpe?g|png|gif|webp|bmp|svg)(\?.*)?$/i.test(
+      value.trim()
+    );
+  }
+};
+
+const extractImageUrl = (text: string) => {
+  if (!text) return null;
+  // look for image URL anywhere in the text
+  const re =
+    /(https?:\/\/[^\s"']+\.(?:jpe?g|png|gif|webp|bmp|svg)(?:\?[^\s"']*)?)/i;
+  const match = text.match(re);
+  if (match) return match[1];
+
+  // fallback: protocol-relative URLs
+  const re2 = /(\/\/[^\s"']+\.(?:jpe?g|png|gif|webp|bmp|svg)(?:\?[^\s"']*)?)/i;
+  const match2 = text.match(re2);
+  if (match2) return match2[1];
+
+  return null;
+};
+
+const replyThumb = computed(() => {
+  return props.replyTo ? extractImageUrl(props.replyTo.content) : null;
+});
+
+const handleImageUploaded = async (url: string) => {
+  const channelId = effectiveChannelId.value;
+  if (!channelId) {
+    console.warn("No channelId available to send image message");
+    return;
+  }
+
+  try {
+    // Send the image URL as the message content with type 'image'
+    await sendMessage(channelId, url, "image");
+  } catch (err) {
+    console.error("Failed to send image message:", err);
+  }
+};
+
 const handleInput = () => {
   emit("user-active");
 };
@@ -56,29 +104,38 @@ const handleSendMessage = async () => {
   }
 
   try {
+    const content = messageText.value.trim();
+
+    // If replying: keep previous behavior (send as reply text)
     if (props.replyTo) {
-      // Send reply
       if (props.isThread) {
-        // For thread replies, send to thread endpoint with reply metadata
-        await sendMessageToThread(channelId, messageText.value.trim());
-        // Note: Thread replies don't use the same reply structure as channel replies
+        await sendMessageToThread(channelId, content);
       } else {
         await replyToMessage(
           channelId,
-          messageText.value.trim(),
+          content,
           props.replyTo.id,
           props.mentionAuthor ?? true
         );
       }
       emit("reply-sent");
     } else {
-      // Send regular message or thread message
-      if (props.isThread) {
-        await sendMessageToThread(channelId, messageText.value.trim());
+      // Non-reply: if content is an image URL, send as image type to embed
+      if (isImageUrl(content)) {
+        if (props.isThread) {
+          await sendMessageToThread(channelId, content, "image");
+        } else {
+          await sendMessage(channelId, content, "image");
+        }
       } else {
-        await sendMessage(channelId, messageText.value.trim());
+        if (props.isThread) {
+          await sendMessageToThread(channelId, content);
+        } else {
+          await sendMessage(channelId, content);
+        }
       }
     }
+
     messageText.value = "";
   } catch (err) {
     console.error("Failed to send message:", err);
@@ -121,7 +178,16 @@ const emit = defineEmits<{
         </UButton>
       </div>
       <div class="text-sm text-gray-400 mt-1 line-clamp-1">
-        {{ replyTo.content }}
+        <template v-if="replyThumb">
+          <img
+            :src="replyThumb"
+            alt="reply-thumb"
+            class="w-20 h-12 object-cover rounded"
+          />
+        </template>
+        <template v-else>
+          {{ replyTo.content }}
+        </template>
       </div>
     </div>
 
@@ -155,23 +221,17 @@ const emit = defineEmits<{
 
       <!-- Action buttons -->
       <div class="input-actions flex items-center space-x-2 ml-3">
-        <UButton
-          variant="ghost"
-          size="sm"
-          class="text-[#b9bbbe] hover:text-white"
-          type="button"
-        >
-          <UIcon name="i-lucide-check-circle" class="w-5 h-5" />
-        </UButton>
-
-        <UButton
-          variant="ghost"
-          size="sm"
-          class="text-[#b9bbbe] hover:text-white"
-          type="button"
-        >
-          <UIcon name="i-lucide-user" class="w-5 h-5" />
-        </UButton>
+        <!-- Upload image button -->
+        <div class="mr-1">
+          <UploadButton
+            variant="ghost"
+            size="sm"
+            class="text-[#b9bbbe] hover:text-white"
+            :icon="'i-lucide-image'"
+            @success="handleImageUploaded"
+            @error="(e) => console.error('Upload error', e)"
+          />
+        </div>
 
         <!-- Nút gửi tin nhắn -->
         <UButton

@@ -232,7 +232,22 @@ const isReplyMessage = (message: any) => {
             }}</span>
           </div>
           <div class="text-sm text-gray-300 line-clamp-2">
-            {{ message.replyTo.content }}
+            <template
+              v-if="
+                /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(
+                  String(message.replyTo.content)
+                )
+              "
+            >
+              <img
+                :src="message.replyTo.content"
+                alt="reply-thumb"
+                class="w-20 h-12 object-cover rounded"
+              />
+            </template>
+            <template v-else>
+              {{ message.replyTo.content }}
+            </template>
           </div>
         </div>
 
@@ -279,7 +294,24 @@ const isReplyMessage = (message: any) => {
               </div>
             </div>
             <div class="message-content">
-              {{ parseMessageContent(message.content, message.replyTo) }}
+              <template
+                v-if="
+                  message.type === 'image' ||
+                  message.type === 'img' ||
+                  /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(
+                    String(message.content)
+                  )
+                "
+              >
+                <img
+                  :src="message.content"
+                  alt="image"
+                  class="max-w-[400px] max-h-[400px] rounded-md object-contain"
+                />
+              </template>
+              <template v-else>
+                {{ parseMessageContent(message.content, message.replyTo) }}
+              </template>
             </div>
           </div>
 

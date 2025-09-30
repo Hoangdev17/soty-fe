@@ -2,9 +2,13 @@ import type { ChannelType } from "../channels/channel.type";
 import { useMessageStore } from "./message.store";
 import type { Message, Thread } from "./message.type";
 
-export const sendMessageToRoom = (channelId: string, message: string) => {
+export const sendMessageToRoom = (
+  channelId: string,
+  message: string,
+  type: string = "text"
+) => {
   const messageStore = useMessageStore();
-  return messageStore.sendMessage(channelId, message);
+  return messageStore.sendMessage(channelId, message, type);
 };
 
 export const addReceivedMessage = (channelId: string, message: Message) => {
@@ -101,9 +105,13 @@ export const fetchThreadsByChannel = (channelId: string) => {
   return messageStore.fetchThreadsByChannel(channelId);
 };
 
-export const sendMessageToThread = (threadId: string, content: string) => {
+export const sendMessageToThread = (
+  threadId: string,
+  content: string,
+  type: string = "text"
+) => {
   const messageStore = useMessageStore();
-  return messageStore.sendMessageToThread(threadId, content);
+  return messageStore.sendMessageToThread(threadId, content, type);
 };
 
 // Message references functionality
