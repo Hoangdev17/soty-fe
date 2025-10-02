@@ -12,7 +12,6 @@ import VoiceChannel from "~/components/organisms/voice.channel.vue";
 import SeminarChannel from "~/components/organisms/seminar.channel.vue";
 import DmChannel from "~/components/organisms/dm.channel.vue";
 import TextChannelMobile from "~/components/organisms/text.channel.mobile.vue";
-import VoiceChannelMobile from "~/components/organisms/voice.channel.mobile.vue";
 import { useBreakpoint } from "~/composables/useBreakpoint.client";
 
 definePageMeta({
