@@ -34,7 +34,7 @@ const getAvatarEffectUrl = (author: any) => {
   }
   return effect?.metadata?.link || effect?.metadata?.image || null;
 };
-
+//
 // Modal state
 const offset = ref(0);
 const limit = 50;
