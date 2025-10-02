@@ -3,7 +3,9 @@ import type { ContextMenuItem } from "@nuxt/ui";
 import { ref, watch, nextTick, onMounted, computed } from "vue";
 import { useMessage } from "~/composables/useMessage";
 import { useChannelStore } from "~/stores/channels/channel.store";
+import { useAuthStore } from "~/stores/auth/auth.store";
 import { navigateTo } from "#app";
+import type { User } from "~/stores/auth/auth.type";
 
 const props = defineProps<{
   roomId: string;
@@ -19,12 +21,55 @@ const emit = defineEmits<{
 const { getMessages, fetchMessages, pinMessage, unpinMessage } = useMessage();
 const messages = computed(() => getMessages(props.roomId));
 const channelStore = useChannelStore();
+const authStore = useAuthStore();
+
+// Helper to get avatar effect URL for a given author
+const getAvatarEffectUrl = (author: any) => {
+  if (!author?.avatarEffectId) return null;
+  const effect = authStore.decoration?.find(
+    (d: any) => d.id === author.avatarEffectId
+  );
+  if (!effect) {
+    authStore.fetchAvatarDecorationById(author.avatarEffectId);
+  }
+  return effect?.metadata?.link || effect?.metadata?.image || null;
+};
 
 // Modal state
 const offset = ref(0);
 const limit = 50;
 const hasMore = ref(true);
 const loadingMore = ref(false);
+
+// Image viewer state
+const selectedImageUrl = ref<string | null>(null);
+const isImageModalOpen = ref(false);
+
+const openImageViewer = (url: string) => {
+  selectedImageUrl.value = url;
+  isImageModalOpen.value = true;
+};
+
+const downloadImage = async () => {
+  if (!selectedImageUrl.value) return;
+  try {
+    const res = await fetch(selectedImageUrl.value);
+    const blob = await res.blob();
+    const a = document.createElement("a");
+    const objectUrl = URL.createObjectURL(blob);
+    a.href = objectUrl;
+    const parts = selectedImageUrl.value.split("/");
+    const filename = parts[parts.length - 1]?.split("?")[0] || "image";
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(objectUrl);
+  } catch (err) {
+    console.error("Download failed, opening in new tab", err);
+    window.open(selectedImageUrl.value, "_blank");
+  }
+};
 
 // Container ref for scrolling
 const listContainer = ref<HTMLElement | null>(null);
@@ -118,7 +163,6 @@ watch(
 
 onMounted(async () => {
   await fetchMessages(props.roomId, limit, offset.value);
-  // Don't scroll to bottom initially for pagination
 });
 
 const formatTime = (timestamp: Date) => {
@@ -261,11 +305,19 @@ const isReplyMessage = (message: any) => {
               }"
               @contextmenu.stop
             >
-              <UAvatar
-                :src="message.author?.avatar"
-                :alt="message.author?.username"
-                size="xl"
-              />
+              <div class="relative">
+                <UAvatar
+                  :src="message.author?.avatar"
+                  :alt="message.author?.username"
+                  size="xl"
+                />
+                <img
+                  v-if="getAvatarEffectUrl(message.author)"
+                  :src="getAvatarEffectUrl(message.author)"
+                  alt="avatar-effect"
+                  class="absolute top-1/2 left-1/2 w-full h-full -translate-x-1/2 -translate-y-1/2 scale-110 object-contain pointer-events-none z-20"
+                />
+              </div>
             </UContextMenu>
           </div>
           <div class="flex-1 min-w-0">
@@ -306,7 +358,9 @@ const isReplyMessage = (message: any) => {
                 <img
                   :src="message.content"
                   alt="image"
-                  class="max-w-[400px] max-h-[400px] rounded-md object-contain"
+                  loading="lazy"
+                  class="message-image rounded-md object-contain cursor-zoom-in"
+                  @click="openImageViewer(message.content)"
                 />
               </template>
               <template v-else>
@@ -363,6 +417,24 @@ const isReplyMessage = (message: any) => {
       </div>
     </UContextMenu>
   </div>
+  <UModal v-model:open="isImageModalOpen" class="max-w-4xl">
+    <template #content>
+      <div class="flex flex-col items-center gap-4 p-4">
+        <img
+          v-if="selectedImageUrl"
+          :src="selectedImageUrl"
+          alt="full-image"
+          class="max-h-[80vh] max-w-full object-contain rounded"
+        />
+        <div class="flex gap-2">
+          <UButton color="primary" @click="downloadImage">Tải xuống</UButton>
+          <UButton variant="ghost" @click="isImageModalOpen = false"
+            >Đóng</UButton
+          >
+        </div>
+      </div>
+    </template>
+  </UModal>
 </template>
 
 <style scoped>
@@ -378,5 +450,26 @@ const isReplyMessage = (message: any) => {
   /* Allow long messages to wrap and preserve newlines */
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Regular message image sizing */
+.message-image {
+  width: 160px;
+  height: auto;
+  max-height: 300px;
+}
+
+@media (max-width: 640px) {
+  .message-image {
+    width: 120px !important;
+    max-height: 180px !important;
+  }
+}
+
+@media (min-width: 1024px) {
+  .message-image {
+    width: 400px;
+    max-height: 400px;
+  }
 }
 </style>
