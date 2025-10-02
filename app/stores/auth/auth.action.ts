@@ -111,6 +111,7 @@ export const authActions = {
     });
 
     const store = useAuthStore();
+    store.decoration = [];
     store.decoration.push(...response.decorator);
 
     return response.decorator;
@@ -168,6 +169,7 @@ export const authActions = {
         method: "GET",
       });
 
+      store.profileDecoration = [];
       store.profileDecoration.push(single);
     } catch (e) {}
   },
@@ -184,6 +186,7 @@ export const authActions = {
     });
 
     const store = useAuthStore();
+    store.nameTagDecoration = [];
     store.nameTagDecoration.push(...response.decorator);
 
     return response.decorator;

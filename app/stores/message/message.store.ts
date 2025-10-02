@@ -3,7 +3,6 @@ import type { Message, MessageState, Thread } from "./message.type";
 import { useWebSocketStore } from "../websocket/websocket.store";
 import { joinRoom } from "../websocket/websocket.action";
 import type { ChannelType } from "../channels/channel.type";
-import { toast } from "#build/ui";
 
 export const useMessageStore = defineStore("message", {
   state: (): MessageState => ({

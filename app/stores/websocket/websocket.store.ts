@@ -595,11 +595,6 @@ export const useWebSocketStore = defineStore("websocket", {
             const room = data.room ?? "";
 
             if (!room.startsWith("channel_") || !room.endsWith("_init")) {
-              console.debug(
-                "Ignored user_joined for non-voice-init room:",
-                room,
-                data
-              );
               return;
             }
 

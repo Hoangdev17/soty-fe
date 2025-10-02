@@ -7,6 +7,16 @@ import { joinRoom } from "~/stores/websocket/websocket.action";
 const authStore = useAuthStore();
 const user = authStore.user;
 
+const getAvatarEffectUrl = (author: any) => {
+  if (!author?.avatarEffectId) return null;
+  const effect = authStore.decoration?.find(
+    (d: any) => d.id === author.avatarEffectId
+  );
+  if (!effect) {
+    authStore.fetchAvatarDecorationById(author.avatarEffectId);
+  }
+  return effect?.metadata?.link || effect?.metadata?.image || null;
+};
 const {
   init,
   leave,
@@ -103,12 +113,20 @@ function handleLeave(channelId: string) {
             v-if="!isVideoEnabled"
             class="absolute inset-0 flex items-center justify-center bg-gray-700"
           >
-            <UAvatar
-              :src="user?.avatar || ''"
-              :alt="user?.username || 'User Avatar'"
-              size="lg"
-              class="border-4 border-gray-600 w-24 h-24 object-cover rounded-full"
-            />
+            <div class="relative">
+              <UAvatar
+                :src="user?.avatar || ''"
+                :alt="user?.username || 'User Avatar'"
+                size="lg"
+                class="border-4 border-gray-600 w-24 h-24 object-cover rounded-full"
+              />
+              <img
+                v-if="getAvatarEffectUrl(user)"
+                :src="getAvatarEffectUrl(user)"
+                alt="avatar-effect"
+                class="absolute inset-0 w-full h-full object-contain pointer-events-none rounded-full"
+              />
+            </div>
           </div>
           <span
             class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs"
@@ -140,12 +158,20 @@ function handleLeave(channelId: string) {
             v-if="!usersInfo[id]?.isVideoEnabled"
             class="absolute inset-0 flex items-center justify-center bg-gray-700 z-10"
           >
-            <UAvatar
-              :src="usersInfo[id]?.avatar || ''"
-              :alt="usersInfo[id]?.username || 'Remote User'"
-              size="lg"
-              class="border-4 border-gray-600 w-24 h-24 object-cover rounded-full"
-            />
+            <div class="relative">
+              <UAvatar
+                :src="usersInfo[id]?.avatar || ''"
+                :alt="usersInfo[id]?.username || 'Remote User'"
+                size="lg"
+                class="border-4 border-gray-600 w-24 h-24 object-cover rounded-full"
+              />
+              <img
+                v-if="getAvatarEffectUrl(usersInfo[id])"
+                :src="getAvatarEffectUrl(usersInfo[id])"
+                alt="avatar-effect"
+                class="absolute inset-0 w-full h-full object-contain pointer-events-none rounded-full"
+              />
+            </div>
           </div>
           <span
             class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs z-20"
@@ -167,12 +193,20 @@ function handleLeave(channelId: string) {
               :key="userId"
               class="flex flex-col items-center"
             >
-              <UAvatar
-                :src="usersInfo[userId]?.avatar || ''"
-                :alt="usersInfo[userId]?.username || 'User'"
-                size="md"
-                class="border-2 border-gray-600"
-              />
+              <div class="relative">
+                <UAvatar
+                  :src="usersInfo[userId]?.avatar || ''"
+                  :alt="usersInfo[userId]?.username || 'User'"
+                  size="md"
+                  class="border-2 border-gray-600"
+                />
+                <img
+                  v-if="getAvatarEffectUrl(usersInfo[userId])"
+                  :src="getAvatarEffectUrl(usersInfo[userId])"
+                  alt="avatar-effect"
+                  class="absolute inset-0 w-full h-full object-contain pointer-events-none rounded-full"
+                />
+              </div>
               <span class="text-xs text-gray-300 mt-1">{{
                 usersInfo[userId]?.username
               }}</span>
