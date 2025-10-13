@@ -9,6 +9,7 @@ export const useAuthStore = defineStore("auth", {
     user: null as User | null,
     token: null as string | null,
     decoration: [] as Decorations[],
+    userDecoration: [] as Decorations[],
     profileDecoration: [] as Decorations[],
     nameTagDecoration: [] as Decorations[],
     isAuthenticated: false,

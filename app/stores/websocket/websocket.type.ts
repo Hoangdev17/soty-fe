@@ -142,6 +142,7 @@ export interface ChannelCreatedData {
     nsfw: boolean;
     parentId: string | null;
     position: number;
+    isPrivate: boolean;
     topic: string | null;
     type: ChannelType;
     viewAble: boolean;

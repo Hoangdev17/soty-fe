@@ -30,7 +30,6 @@ const handleDeleteChannel = async () => {
     // navigate away to community home
     await navigateTo(`/community/introduce/${props.guildId}`);
   } catch (error) {
-    console.error("Failed to delete channel:", error);
     isLoading.value = false;
   }
 };

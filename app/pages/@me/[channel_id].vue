@@ -38,8 +38,6 @@ useHead({
 onMounted(async () => {
   const { initializeForDM } = useInitializeForDM();
   await initializeForDM();
-
-  // Channel is already fetched, no need to fetch again
 });
 </script>
 

@@ -24,12 +24,6 @@ const state = ref({
   users: [] as any[], // danh sách tất cả users
 });
 
-// Giả sử fetch users từ API
-async function fetchUsers() {
-  // TODO: implement fetch users
-  state.value.users = []; // replace with actual fetch
-}
-
 const filteredUsers = computed(() => {
   if (!state.value.search) return state.value.users;
   return state.value.users.filter((user) =>
@@ -56,11 +50,6 @@ async function onCreateChannelDM(userIds: string[]) {
   state.value.isOpenModal = false;
   state.value.addedUsers = [];
 }
-
-// Computed property để tính unread count cho mỗi DM channel
-const getUnreadCount = (channelId: string) => {
-  return wsStore.unreadByChannel[channelId]?.size || 0;
-};
 
 // Computed property để track tất cả unread counts (cho reactivity)
 const allUnreadCounts = computed(() => {
@@ -103,17 +92,9 @@ const handleDMChannelClick = async (channel: any) => {
       setTimeout(async () => {
         try {
           await wsStore.sendReadReceipt(channel.id, lastReadMessageId);
-        } catch (error) {
-          console.warn(
-            `⚠️ Failed to mark DM channel ${channel.id} as read:`,
-            error
-          );
-        }
+        } catch (error) {}
       }, 100); // Small delay to ensure navigation completes first
     } else {
-      console.warn(
-        `⚠️ Cannot mark channel ${channel.id} as read: no message ID found`
-      );
     }
   }
 };

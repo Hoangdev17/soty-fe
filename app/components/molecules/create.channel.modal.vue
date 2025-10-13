@@ -147,8 +147,6 @@ const createChannel = async () => {
       `/community/@${currentCommunity.value?.name}-${currentCommunity.value?.id}/${createdChannel.id}`
     );
   } catch (error: any) {
-    console.error("Error creating channel:", error);
-
     // Show error notification
     const toast = useToast();
     toast.add({

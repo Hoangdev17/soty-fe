@@ -121,6 +121,7 @@ export interface Decorations {
   assetType: number; // 0: nameplate; 1: avatarDecoration; 2: profile_effects
   name: string;
   description?: string;
+  assetId: string; // UUID
   price: number;
   salePrice: number;
   metadata: any; // Json type
@@ -133,4 +134,15 @@ export interface Decorations {
   collections: DecoratorCollection[];
   User?: User;
   userId?: string;
+}
+
+export interface collecetiblePayload {
+  id: string;
+  asset: Decorations;
+  assetId: string;
+}
+
+export interface getUserDecorationInterface {
+  collectibles: collecetiblePayload[];
+  total: number;
 }

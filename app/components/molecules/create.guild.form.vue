@@ -81,7 +81,6 @@ const handleFileChange = async (event: Event) => {
       };
       reader.readAsDataURL(file);
     } catch (error) {
-      console.error("Upload error:", error);
       toast.add({
         title: "Upload failed",
         description: error instanceof Error ? error.message : "Unknown error",

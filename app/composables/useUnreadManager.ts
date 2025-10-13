@@ -54,7 +54,7 @@ export const useUnreadManager = () => {
       // 30s cache
       return cache.count;
     }
-    return wsStore.getUnreadCountForCommunity(communityId); // Fallback to local state
+    return wsStore.getCommunityUnreadCount(communityId); // Fallback to local state
   };
 
   // Force refresh unread count (bypasses cache)
