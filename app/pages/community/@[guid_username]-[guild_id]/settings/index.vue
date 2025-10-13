@@ -16,6 +16,14 @@ const router = useRouter();
 const communityStore = useCommunityStore();
 const channelStore = useChannelStore();
 
+const channelCount = computed(() => {
+  return (
+    channelStore.channels?.filter(
+      (ch) => ch.type === "GUILD_TEXT" || ch.type === "GUILD_VOICE"
+    ).length ?? 0
+  );
+});
+
 const guildId = ref(route.params.guild_id as string | undefined);
 
 // Fetch community data before rendering
@@ -47,6 +55,7 @@ watch(
   () => route.params.guild_id,
   (newGuildId) => {
     guildId.value = newGuildId as string | undefined;
+    console.log("Channel Count:", channelCount.value);
   },
   { immediate: true }
 );
@@ -291,7 +300,7 @@ onMounted(async () => {
             <div class="flex items-center justify-between text-xs">
               <span class="text-gray-400">Kênh</span>
               <span class="text-white font-semibold">{{
-                channelStore.channels?.length || 0
+                channelCount || 0
               }}</span>
             </div>
             <div class="flex items-center justify-between text-xs">
@@ -469,7 +478,7 @@ onMounted(async () => {
                       </div>
                       <div>
                         <p class="text-2xl font-bold text-white">
-                          {{ channelStore.channels?.length || 0 }}
+                          {{ channelCount || 0 }}
                         </p>
                         <p class="text-sm text-gray-400">Kênh</p>
                       </div>

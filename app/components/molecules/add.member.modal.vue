@@ -103,7 +103,6 @@ const fetchCommunityMembers = async () => {
     isLoadingMembers.value = true;
     await memberStore.fetchMembers(props.guildId);
   } catch (error) {
-    console.error("Failed to fetch community members:", error);
     toast.add({
       title: "Error",
       description: "Failed to load community members",
@@ -117,10 +116,7 @@ const fetchCommunityMembers = async () => {
 const fetchRoleMembers = async () => {
   try {
     await roleStore.fetchRoleMembers(props.guildId, props.roleId);
-  } catch (error) {
-    console.error("Failed to fetch role members:", error);
-    // Don't show error toast here as it's just for filtering
-  }
+  } catch (error) {}
 };
 
 const addMemberToRole = async (memberId: string) => {
@@ -136,7 +132,6 @@ const addMemberToRole = async (memberId: string) => {
     // Close modal after successful addition
     emit("update:open", false);
   } catch (error) {
-    console.error("Failed to add member to role:", error);
     // Show error toast
     toast.add({
       title: "Error",

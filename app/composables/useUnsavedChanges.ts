@@ -6,7 +6,6 @@ export const useUnsavedChanges = () => {
   const beforeUnloadHandler = (event: BeforeUnloadEvent) => {
     if (hasUnsavedChanges.value) {
       event.preventDefault();
-      event.returnValue = changeMessage.value;
       return changeMessage.value;
     }
   };

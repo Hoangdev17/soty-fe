@@ -1167,18 +1167,6 @@ export const useWebSocketStore = defineStore("websocket", {
       };
 
       this.sendMessage("channel_read", payload);
-
-      // Only call API as fallback if WebSocket fails (async, non-blocking)
-      setTimeout(async () => {
-        try {
-          const { markChannelAsRead } = await import(
-            "../message/message.action"
-          );
-          await markChannelAsRead(validId);
-        } catch (error) {
-          console.warn("⚠️ API mark as read fallback failed:", error);
-        }
-      }, 100); // Small delay to prioritize socket response
     },
 
     // Helper to determine if ID is a thread

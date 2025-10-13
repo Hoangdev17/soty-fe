@@ -225,8 +225,8 @@ const isActiveNav = (nav: any) => {
 const createState = ref({
   name: "",
   description: "",
-  avatar: undefined as string | undefined,
-  banner: undefined as File | undefined,
+  avatar: "",
+  banner: "",
   isPrivate: false,
 });
 
@@ -251,8 +251,8 @@ async function createGuild() {
     createState.value = {
       name: "",
       description: "",
-      avatar: undefined,
-      banner: undefined,
+      avatar: "",
+      banner: "",
       isPrivate: false,
     };
 

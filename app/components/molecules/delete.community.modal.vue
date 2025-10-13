@@ -37,7 +37,6 @@ const handleDeleteCommunity = async () => {
       await navigateTo("/@me/channels");
     }
   } catch (error) {
-    console.error("Failed to delete community:", error);
     isLoading.value = false;
   }
 };

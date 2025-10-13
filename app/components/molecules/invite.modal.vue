@@ -20,12 +20,7 @@
           </p>
 
           <div class="flex gap-2">
-            <UInput
-              v-model="displayLink"
-              readonly
-              class="flex-1"
-              :ui="{ icon: { trailing: { pointer: '' } } }"
-            >
+            <UInput v-model="displayLink" readonly class="flex-1">
               <template #trailing>
                 <UButton
                   icon="i-heroicons-clipboard-document-20-solid"
@@ -112,7 +107,6 @@ const copyToClipboard = async () => {
       icon: "i-heroicons-check-circle",
     });
   } catch (error) {
-    console.error("Failed to copy:", error);
     // Show error toast notification
     const toast = useToast();
     toast.add({

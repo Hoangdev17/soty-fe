@@ -157,8 +157,6 @@ const createCategory = async () => {
       color: "success",
     });
   } catch (error: any) {
-    console.error("Error creating category:", error);
-
     // Show error notification
     const toast = useToast();
     toast.add({

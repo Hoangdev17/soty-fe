@@ -7,6 +7,7 @@ const props = defineProps<{
   content: string;
   nitroId?: string;
   nitroAmount?: number;
+  avatarEffectId?: string;
 }>();
 
 const emit = defineEmits(["update:show", "close", "success"]);
@@ -65,6 +66,7 @@ async function createQRCode(): Promise<void> {
           amount: props.amount,
           content: props.content,
           nitroId: props.nitroId,
+          avatarEffectId: props.avatarEffectId,
         }),
       }
     );

@@ -1,4 +1,8 @@
-import type { Decorations, User } from "./auth.type";
+import type {
+  Decorations,
+  getUserDecorationInterface,
+  User,
+} from "./auth.type";
 import { useAuthStore } from "./auth.store";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
 import {
@@ -111,7 +115,7 @@ export const authActions = {
     });
 
     const store = useAuthStore();
-    store.decoration = [];
+
     store.decoration.push(...response.decorator);
 
     return response.decorator;
@@ -214,6 +218,33 @@ export const authActions = {
       return single;
     } catch (e) {
       console.error("Failed to fetch nametag decoration by ID:", e);
+      return null;
+    }
+  },
+
+  async fetchDecorationByUserId(type: number) {
+    const store = useAuthStore();
+    const { fetchWithAuth } = useFetchWithAuth();
+
+    try {
+      const decorations = await fetchWithAuth<getUserDecorationInterface>(
+        `/collectibles/user/@me?assetType=${type}`,
+        { method: "GET" }
+      );
+
+      const newDecorations = decorations.collectibles.map((c) => c.asset);
+
+      store.userDecoration = newDecorations;
+
+      const uniqueNewDecorations = newDecorations.filter(
+        (d) => !store.decoration.some((existing) => existing.id === d.id)
+      );
+
+      store.decoration.unshift(...uniqueNewDecorations);
+
+      return decorations;
+    } catch (e) {
+      console.error("Failed to fetch user decorations by user ID:", e);
       return null;
     }
   },

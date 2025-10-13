@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useAuthStore } from "~/stores/auth/auth.store";
 import { useBreakpoint } from "~/composables/useBreakpoint.client";
+import { id } from "@nuxt/ui/runtime/locale/index.js";
 
 interface Props {
   open: boolean;
@@ -26,6 +27,8 @@ const isApplying = ref(false);
 const isLoading = ref(false);
 const isLoadingMore = ref(false);
 const selectedDecoration = ref<string | null>(null);
+const isOpenModalPayment = ref(false);
+const showModalSuccess = ref(false);
 
 // Computed
 const isOpen = computed({
@@ -33,18 +36,34 @@ const isOpen = computed({
   set: (value) => emit("update:open", value),
 });
 
-const decorationOptions = computed(() => [
-  { label: "Không có hiệu ứng", value: null, preview: null },
-  ...(authStore.decoration || []).map((decoration) => {
-    const previewUrl =
-      decoration.metadata?.link || decoration.metadata?.image || null;
-    return {
-      label: decoration.name,
-      value: decoration.id,
-      preview: previewUrl,
-    };
-  }),
-]);
+const decorationOptions = computed(() => {
+  const ownedIds = (authStore.userDecoration || []).map((d) => d.id);
+
+  return [
+    {
+      id: null,
+      label: "Không có hiệu ứng",
+      value: null,
+      preview: null,
+      owned: true,
+      price: 0,
+    },
+    ...(authStore.decoration || []).map((decoration) => {
+      const previewUrl =
+        decoration.metadata?.link || decoration.metadata?.image || null;
+      const owned = ownedIds.includes(decoration.id);
+
+      return {
+        id: decoration.id,
+        label: decoration.name,
+        value: decoration.id,
+        price: decoration.price || 0,
+        preview: previewUrl,
+        owned,
+      };
+    }),
+  ];
+});
 
 // Selected decoration object for preview
 const selectedDecorationItem = computed(() =>
@@ -60,7 +79,6 @@ const fetchDecorations = async () => {
     await authStore.fetchAvatarDecorations(offset.value, limit.value);
     offset.value += limit.value;
   } catch (error) {
-    console.error("Error fetching decorations:", error);
   } finally {
     isLoading.value = false;
   }
@@ -88,8 +106,6 @@ const applyDecoration = async () => {
       color: "success",
     });
   } catch (error: any) {
-    console.error("Error applying decoration:", error);
-
     const toast = useToast();
     toast.add({
       title: "Lỗi!",
@@ -118,6 +134,7 @@ watch(
   async (isOpen) => {
     if (isOpen) {
       await fetchDecorations();
+      await authStore.fetchDecorationByUserId(1);
       selectedDecoration.value = authStore.userInfo?.avatarEffectId ?? null;
     } else {
       selectedDecoration.value = null;
@@ -137,11 +154,21 @@ async function loadMoreDecorations() {
     await authStore.fetchAvatarDecorations(offset.value, limit.value);
     isLoadingMore.value = false;
   } catch (error) {
-    console.error("Error loading more decorations:", error);
   } finally {
     isLoadingMore.value = false;
   }
 }
+
+const handlePurchaseSuccess = async () => {
+  showModalSuccess.value = true;
+  isOpenModalPayment.value = false;
+
+  try {
+    await authStore.fetchDecorationByUserId(1);
+  } catch (error) {
+    console.error("Failed to refresh user decorations after purchase:", error);
+  }
+};
 </script>
 
 <template>
@@ -210,14 +237,19 @@ async function loadMoreDecorations() {
               <UTooltip
                 v-for="decoration in decorationOptions"
                 :key="decoration.value || 'none'"
-                :text="decoration.label"
+                :text="
+                  decoration.owned
+                    ? decoration.label
+                    : `${decoration.label} (Chưa sở hữu)`
+                "
               >
                 <UCard
                   :class="[
-                    'cursor-pointer transition-all aspect-square flex items-center justify-center',
+                    'cursor-pointer transition-all aspect-square flex items-center justify-center relative',
                     selectedDecoration === decoration.value
                       ? 'ring-2 ring-primary'
                       : 'hover:ring-1 hover:ring-gray-300',
+                    !decoration.owned ? 'opacity-50 ' : '',
                   ]"
                   @click="selectedDecoration = decoration.value"
                 >
@@ -231,12 +263,17 @@ async function loadMoreDecorations() {
                       :alt="decoration.label"
                       class="w-full h-full object-contain"
                     />
-
                     <div
                       v-else
                       class="w-8 h-8 border-2 border-gray-300 rounded-full"
                     ></div>
                   </div>
+
+                  <UIcon
+                    v-if="!decoration.owned"
+                    name="i-lucide-lock"
+                    class="absolute top-2 right-2 text-gray-400 w-4 h-4"
+                  />
                 </UCard>
               </UTooltip>
             </div>
@@ -272,6 +309,32 @@ async function loadMoreDecorations() {
                   alt="Effect overlay"
                 />
               </div>
+
+              <div
+                v-if="
+                  selectedDecorationItem &&
+                  !selectedDecorationItem.owned &&
+                  selectedDecorationItem.value
+                "
+                class="mt-4 flex flex-col items-center space-y-2"
+              >
+                <p class="text-sm text-gray-500">
+                  Hiệu ứng này chưa được sở hữu.
+                </p>
+                <p
+                  v-if="selectedDecorationItem.price"
+                  class="text-base font-medium text-primary"
+                >
+                  Giá: {{ selectedDecorationItem.price }} VND
+                </p>
+                <UButton
+                  color="primary"
+                  icon="i-lucide-shopping-cart"
+                  @click="isOpenModalPayment = true"
+                >
+                  Mua ngay
+                </UButton>
+              </div>
             </div>
           </div>
         </div>
@@ -293,10 +356,32 @@ async function loadMoreDecorations() {
         >
           Hủy
         </UButton>
-        <UButton color="primary" @click="applyDecoration" :loading="isApplying">
+        <UButton
+          color="primary"
+          @click="applyDecoration"
+          :loading="isApplying"
+          :disabled="
+            !selectedDecorationItem ||
+            !selectedDecorationItem.owned ||
+            isApplying
+          "
+        >
           Áp dụng
         </UButton>
       </div>
     </template>
   </UModal>
+
+  <OrganismsModalPayment
+    v-model:show="isOpenModalPayment"
+    :amount="selectedDecorationItem?.price || 0"
+    :content="`Mua avatar effect ${selectedDecorationItem?.label || ''}`"
+    avatar
+    effect
+    :avatar-effect-id="selectedDecorationItem?.id || undefined"
+    @close="isOpenModalPayment = false"
+    @success="handlePurchaseSuccess"
+  />
+
+  <OrganismsModalSuccess v-model:show="showModalSuccess" />
 </template>
