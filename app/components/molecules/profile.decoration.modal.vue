@@ -25,6 +25,8 @@ const isLoading = ref(false);
 const isLoadingMore = ref(false);
 const selectedDecoration = ref<string | null>(null);
 const { isMobile } = useBreakpoint();
+const isOpenModalPayment = ref(false);
+const showModalSuccess = ref(false);
 
 // Computed
 const isOpen = computed({
@@ -32,9 +34,23 @@ const isOpen = computed({
   set: (value) => emit("update:open", value),
 });
 
-const decorationOptions = computed(() => [
-  { label: "Không có hiệu ứng", value: null, preview: null, metadata: null },
-  ...(authStore.profileDecoration || []).map((decoration) => {
+const decorationOptions = computed(() => {
+  // Danh sách decoration user đang sở hữu
+  const ownedIds = (authStore.userDecoration || []).map((d) => d.id);
+
+  // Mặc định "Không có hiệu ứng"
+  const defaultOption = {
+    id: null,
+    label: "Không có hiệu ứng",
+    value: null,
+    preview: null,
+    metadata: {},
+    owned: true,
+    price: 0,
+  };
+
+  // Map tất cả decoration
+  const allOptions = (authStore.profileDecoration || []).map((decoration) => {
     const previewUrl =
       decoration.metadata?.thumbnailPreviewSrc ||
       decoration.metadata?.reducedMotionSrc ||
@@ -42,14 +58,20 @@ const decorationOptions = computed(() => [
       decoration.metadata?.link ||
       decoration.metadata?.image ||
       null;
+
     return {
+      id: decoration.id,
       label: decoration.name,
       value: decoration.id,
       preview: previewUrl,
-      metadata: decoration.metadata,
+      owned: ownedIds.includes(decoration.id),
+      metadata: decoration.metadata || {},
+      price: decoration.price || 0,
     };
-  }),
-]);
+  });
+
+  return [defaultOption, ...allOptions];
+});
 
 // Selected decoration object for preview
 const selectedDecorationItem = computed(() =>
@@ -149,11 +171,17 @@ const applyDecoration = async () => {
   }
 };
 
-const closeModal = () => {
+const closeModal = async () => {
   isOpen.value = false;
   resetSelection();
   offset.value = 0;
   limit.value = 20;
+
+  //reset state
+  const store = useAuthStore();
+  store.profileDecoration = [];
+
+  await store.fetchProfileDecorationById(store.userInfo?.profileEffectId || "");
 };
 
 const resetSelection = () => {
@@ -165,7 +193,9 @@ watch(
   () => props.open,
   async (isOpen) => {
     if (isOpen) {
+      authStore.profileDecoration = [];
       await fetchDecorations();
+      await authStore.fetchDecorationByUserId(2);
       selectedDecoration.value = authStore.userInfo?.profileEffectId ?? null;
     } else {
       selectedDecoration.value = null;
@@ -174,6 +204,8 @@ watch(
       isLoading.value = false;
       isLoadingMore.value = false;
       isApplying.value = false;
+
+      closeModal();
     }
   }
 );
@@ -190,6 +222,17 @@ async function loadMoreDecorations() {
     isLoadingMore.value = false;
   }
 }
+
+const handlePurchaseSuccess = async () => {
+  showModalSuccess.value = true;
+  isOpenModalPayment.value = false;
+
+  try {
+    await authStore.fetchDecorationByUserId(2);
+  } catch (error) {
+    console.error("Failed to refresh user decorations after purchase:", error);
+  }
+};
 </script>
 
 <template>
@@ -315,14 +358,21 @@ async function loadMoreDecorations() {
               <UTooltip
                 v-for="decoration in decorationOptions"
                 :key="decoration.value || 'none'"
-                :text="decoration.label"
+                :text="
+                  decoration.owned
+                    ? decoration.label
+                    : `${decoration.label} (Chưa sở hữu)`
+                "
               >
                 <UCard
                   :class="[
-                    'cursor-pointer transition-all aspect-square flex items-center justify-center',
+                    'cursor-pointer transition-all aspect-square flex items-center justify-center relative',
                     selectedDecoration === decoration.value
                       ? 'ring-2 ring-primary'
                       : 'hover:ring-1 hover:ring-gray-300',
+                    !decoration.owned && decoration.price !== 0
+                      ? 'opacity-50'
+                      : '',
                   ]"
                   @click="selectedDecoration = decoration.value"
                 >
@@ -341,6 +391,12 @@ async function loadMoreDecorations() {
                       class="w-8 h-8 border-2 border-gray-300 rounded-full"
                     ></div>
                   </div>
+
+                  <UIcon
+                    v-if="!decoration.owned && decoration.price !== 0"
+                    name="i-lucide-lock"
+                    class="absolute top-2 right-2 text-gray-400 w-4 h-4"
+                  />
                 </UCard>
               </UTooltip>
             </div>
@@ -438,6 +494,32 @@ async function loadMoreDecorations() {
                   </div>
                 </div>
               </div>
+
+              <div
+                v-if="
+                  selectedDecorationItem &&
+                  !selectedDecorationItem.owned &&
+                  selectedDecorationItem.price !== 0 &&
+                  selectedDecorationItem.value
+                "
+                class="mt-4 flex flex-col items-center space-y-2"
+              >
+                <p class="text-sm text-gray-500">
+                  Hiệu ứng này chưa được sở hữu.
+                </p>
+                <p class="text-base font-medium text-primary">
+                  Giá:
+
+                  <span>{{ selectedDecorationItem.price }} VND</span>
+                </p>
+                <UButton
+                  color="primary"
+                  icon="i-lucide-shopping-cart"
+                  @click="isOpenModalPayment = true"
+                >
+                  Mua ngay
+                </UButton>
+              </div>
             </div>
           </div>
         </div>
@@ -454,10 +536,33 @@ async function loadMoreDecorations() {
         >
           Hủy
         </UButton>
-        <UButton color="primary" @click="applyDecoration" :loading="isApplying">
+        <UButton
+          color="primary"
+          @click="applyDecoration"
+          :loading="isApplying"
+          :disabled="
+            !selectedDecorationItem ||
+            (!selectedDecorationItem.owned &&
+              selectedDecorationItem.price !== 0) ||
+            isApplying
+          "
+        >
           Áp dụng
         </UButton>
       </div>
     </template>
   </UModal>
+
+  <OrganismsModalPayment
+    v-model:show="isOpenModalPayment"
+    :amount="selectedDecorationItem?.price || 0"
+    :content="`Mua profile effect ${selectedDecorationItem?.label || ''}`"
+    avatar
+    effect
+    :avatar-effect-id="selectedDecorationItem?.id || undefined"
+    @close="isOpenModalPayment = false"
+    @success="handlePurchaseSuccess"
+  />
+
+  <OrganismsModalSuccess v-model:show="showModalSuccess" />
 </template>

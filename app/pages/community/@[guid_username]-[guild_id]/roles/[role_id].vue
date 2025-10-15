@@ -100,10 +100,6 @@ const colorOptions = [
   "#ffffff", // White
 ];
 
-// Computed
-const role = computed(() => roleStore.getRoleById(guildId, roleId));
-const currentCommunity = computed(() => communityStore.currentCommunity);
-
 // Permission categories
 const permissionCategories = computed(() => {
   const categoryMapping = {
@@ -156,7 +152,7 @@ const loadRole = async () => {
     formData.color = currentRole.color;
     formData.hoist = currentRole.hoist;
     formData.mentionable = currentRole.mentionable;
-    formData.permissions = [...currentRole.permissions];
+    formData.permissions = currentRole.permissions;
 
     // Store original data for comparison
     originalRole.value = { ...currentRole };
@@ -248,8 +244,7 @@ watch(
       newData.color !== originalRole.value.color ||
       newData.hoist !== originalRole.value.hoist ||
       newData.mentionable !== originalRole.value.mentionable ||
-      JSON.stringify(newData.permissions?.sort()) !==
-        JSON.stringify(originalRole.value.permissions?.sort());
+      newData.permissions !== originalRole.value.permissions;
 
     setUnsavedChanges(
       hasChanges,

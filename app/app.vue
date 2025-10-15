@@ -9,10 +9,14 @@ const showLoading = ref(true);
 const loadingMessage =
   "Chào mừng bạn đến với Soty – nơi kết nối cộng đồng và học hỏi cùng nhau!";
 
-onMounted(async () => {
+onMounted(() => {
   if (import.meta.server) return;
+  handleMounted();
+});
+
+async function handleMounted() {
   const route = useRoute();
-  // Không hiển thị loading nếu route hiện tại là index, login, register hoặc forgot-password
+
   showLoading.value =
     route.path !== "/" &&
     route.path !== "/auth/login" &&
@@ -23,7 +27,7 @@ onMounted(async () => {
     await authStore.initializeAuth();
   }
   showLoading.value = false;
-});
+}
 </script>
 
 <template>

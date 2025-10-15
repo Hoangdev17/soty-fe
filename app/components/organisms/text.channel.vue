@@ -13,6 +13,7 @@ import type { ContextMenuItem } from "@nuxt/ui";
 import { onMounted, onBeforeUnmount, watch, computed } from "vue";
 import { useWebSocketStore } from "~/stores/websocket/websocket.store";
 import { joinRoom } from "~/stores/websocket/websocket.action";
+import { GuildPermissions } from "~/stores/roles/role.type";
 
 interface Props {
   channelId: string;
@@ -308,75 +309,39 @@ const membersByRole = computed(() => {
 
   const result: Record<string, any[]> = {};
 
-  // Sort roles by position (highest first), but with special handling for permissions
-  const sortedRoles = [...guildRoles.value].sort((a, b) => {
-    // Special case: @everyone should always be last regardless of position
-    if (a.name === "@everyone") return 1;
-    if (b.name === "@everyone") return -1;
-
-    // Prioritize roles with ADMINISTRATOR permission
-    const aHasAdmin = a.permissions?.includes("ADMINISTRATOR") || false;
-    const bHasAdmin = b.permissions?.includes("ADMINISTRATOR") || false;
-
-    if (aHasAdmin && !bHasAdmin) return -1;
-    if (!aHasAdmin && bHasAdmin) return 1;
-
-    // Then sort by position (highest first)
-    return b.position - a.position;
+  // Khởi tạo tất cả role
+  guildRoles.value.forEach((role) => {
+    if (role.id) result[role.id] = [];
   });
 
-  // Initialize result with all roles
-  sortedRoles.forEach((role) => {
-    if (role.id) {
-      result[role.id] = [];
+  // Gán member vào role ưu tiên cao nhất
+  guildMembers.value.forEach((member) => {
+    // Lấy các role của member
+    const memberRoles = member
+      .roles!.map((r) => r.role)
+      .filter((r) => r.id && result[r.id] !== undefined)
+      .sort((a, b) => {
+        // @everyone luôn cuối
+        if (a.name === "@everyone") return 1;
+        if (b.name === "@everyone") return -1;
+
+        // Check admin bằng BigInt
+        const aPerm = BigInt(a.permissions ?? 0);
+        const bPerm = BigInt(b.permissions ?? 0);
+        const aHasAdmin = (aPerm & GuildPermissions.ADMINISTRATOR) !== 0n;
+        const bHasAdmin = (bPerm & GuildPermissions.ADMINISTRATOR) !== 0n;
+
+        if (aHasAdmin && !bHasAdmin) return -1;
+        if (!aHasAdmin && bHasAdmin) return 1;
+
+        // Sau đó sort theo position (cao xuống thấp)
+        return b.position - a.position;
+      });
+
+    if (memberRoles.length > 0) {
+      // Push member vào role ưu tiên cao nhất
+      result[memberRoles[0].id]?.push(member);
     }
-  });
-
-  // Group members by their roles based on role.members array
-  sortedRoles.forEach((role) => {
-    if (!role.id || !role.members) return;
-
-    role.members.forEach((roleMember: any) => {
-      // Find the actual member object by memberId
-      const member = guildMembers.value.find(
-        (m) => m.id === roleMember.memberId
-      );
-      if (member && result[role.id]) {
-        // Check if member is already in a higher priority role
-        const alreadyAssigned = Object.keys(result).some((roleId) => {
-          if (roleId === role.id) return false;
-          const assignedRole = sortedRoles.find((r) => r.id === roleId);
-          if (!assignedRole) return false;
-
-          // Check if this role has higher priority
-          const currentRoleIndex = sortedRoles.findIndex(
-            (r) => r.id === role.id
-          );
-          const assignedRoleIndex = sortedRoles.findIndex(
-            (r) => r.id === roleId
-          );
-
-          return (
-            assignedRoleIndex < currentRoleIndex &&
-            result[roleId] &&
-            result[roleId].some((m) => m.id === member.id)
-          );
-        });
-
-        if (!alreadyAssigned) {
-          // Remove from lower priority roles
-          Object.keys(result).forEach((roleId) => {
-            if (roleId !== role.id && result[roleId]) {
-              result[roleId] = result[roleId].filter((m) => m.id !== member.id);
-            }
-          });
-
-          if (result[role.id]) {
-            result[role.id]!.push(member);
-          }
-        }
-      }
-    });
   });
 
   return result;
@@ -390,20 +355,33 @@ const rolesWithMembers = computed(() => {
     return roleMembers && roleMembers.length > 0;
   });
 
-  // Sort with same priority logic: ADMIN first, then position, @everyone last
   return roles.sort((a, b) => {
-    // Special case: @everyone should always be last
+    // @everyone luôn last
     if (a.name === "@everyone") return 1;
     if (b.name === "@everyone") return -1;
 
-    // Prioritize roles with ADMINISTRATOR permission
-    const aHasAdmin = a.permissions?.includes("ADMINISTRATOR") || false;
-    const bHasAdmin = b.permissions?.includes("ADMINISTRATOR") || false;
+    // Check quyền ADMIN bằng BigInt
+    const aPerm =
+      typeof a.permissions === "string"
+        ? BigInt(a.permissions)
+        : Array.isArray(a.permissions)
+        ? a.permissions.map(BigInt).reduce((acc, p) => acc | p, 0n) // gộp array permissions thành 1 BigInt
+        : a.permissions ?? 0n; // fallback 0n nếu undefined
+
+    const bPerm =
+      typeof b.permissions === "string"
+        ? BigInt(b.permissions)
+        : Array.isArray(b.permissions)
+        ? b.permissions.map(BigInt).reduce((acc, p) => acc | p, 0n)
+        : b.permissions ?? 0n;
+
+    const aHasAdmin = (aPerm & GuildPermissions.ADMINISTRATOR) !== 0n;
+    const bHasAdmin = (bPerm & GuildPermissions.ADMINISTRATOR) !== 0n;
 
     if (aHasAdmin && !bHasAdmin) return -1;
     if (!aHasAdmin && bHasAdmin) return 1;
 
-    // Then sort by position (highest first)
+    // Sort theo position (cao xuống thấp)
     return b.position - a.position;
   });
 });

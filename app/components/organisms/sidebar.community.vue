@@ -12,6 +12,7 @@ import { useMessageStore } from "~/stores/message/message.store";
 import type { Member } from "~/stores/member/member.type";
 import { useWebSocketStore } from "~/stores/websocket/websocket.store";
 import ModalEventCommunity from "./modal.event.community.vue";
+import { GuildPermissions } from "~/stores/roles/role.type";
 
 const route = useRoute();
 const communityStore = useCommunityStore();
@@ -325,17 +326,19 @@ const canManageServer = computed(() => {
 
   const userRoles = allRoles.filter((role: any) => {
     const roleMembers = role?.members || [];
-    return roleMembers.some((member: any) => {
-      return member?.memberId === memberId;
-    });
+    return roleMembers.some((member: any) => member?.memberId === memberId);
   });
 
-  // đảm bảo permissions tồn tại trước khi gọi includes
-  const hasPermission = userRoles.some(
-    (role: any) =>
-      (role?.permissions || []).includes("ADMINISTRATOR") ||
-      (role?.permissions || []).includes("MANAGE_GUILD")
-  );
+  // Kiểm tra quyền BigInt
+  const hasPermission = userRoles.some((role: any) => {
+    const perms: bigint = BigInt(role?.permissions ?? "0");
+
+    return (
+      (perms & GuildPermissions.ADMINISTRATOR) ===
+        GuildPermissions.ADMINISTRATOR ||
+      (perms & GuildPermissions.MANAGE_GUILD) === GuildPermissions.MANAGE_GUILD
+    );
+  });
 
   return hasPermission;
 });
