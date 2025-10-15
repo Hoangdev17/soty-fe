@@ -59,6 +59,7 @@ export const useAuthStore = defineStore("auth", {
             localStorage.removeItem("userData");
             localStorage.removeItem("accessToken");
             localStorage.removeItem("refreshToken");
+            this.logout();
           }
         } else if (token) {
           await this.verifyToken(token);

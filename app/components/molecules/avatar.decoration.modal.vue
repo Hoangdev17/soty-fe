@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useAuthStore } from "~/stores/auth/auth.store";
 import { useBreakpoint } from "~/composables/useBreakpoint.client";
-import { id } from "@nuxt/ui/runtime/locale/index.js";
 
 interface Props {
   open: boolean;
@@ -117,11 +116,17 @@ const applyDecoration = async () => {
   }
 };
 
-const closeModal = () => {
+const closeModal = async () => {
   isOpen.value = false;
   resetSelection();
   offset.value = 0;
   limit.value = 20;
+
+  //réset state
+  const store = useAuthStore();
+  store.decoration = [];
+
+  await store.fetchAvatarDecorationById(store.userInfo?.avatarEffectId || "");
 };
 
 const resetSelection = () => {
@@ -143,6 +148,8 @@ watch(
       isLoading.value = false;
       isLoadingMore.value = false;
       isApplying.value = false;
+
+      closeModal();
     }
   }
 );

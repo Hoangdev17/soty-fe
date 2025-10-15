@@ -133,7 +133,11 @@ export const authActions = {
         method: "GET",
       });
 
-      store.decoration.push(single);
+      const exists = store.decoration.some((d) => d.id === single.id);
+      if (!exists) {
+        store.decoration.push(single);
+      }
+
       return single;
     } catch (e) {}
   },
@@ -150,7 +154,11 @@ export const authActions = {
     });
 
     const store = useAuthStore();
-    store.profileDecoration.push(...response.decorator);
+    const uniqueDecorations = response.decorator.filter(
+      (d) => !store.profileDecoration.some((existing) => existing.id === d.id)
+    );
+
+    store.profileDecoration.push(...uniqueDecorations);
 
     return response.decorator;
   },
@@ -173,7 +181,6 @@ export const authActions = {
         method: "GET",
       });
 
-      store.profileDecoration = [];
       store.profileDecoration.push(single);
     } catch (e) {}
   },
@@ -232,15 +239,30 @@ export const authActions = {
         { method: "GET" }
       );
 
-      const newDecorations = decorations.collectibles.map((c) => c.asset);
+      const newDecorations = decorations.collectibles
+        .map((c) => c.asset)
+        .filter((asset) => asset.assetType === type);
 
       store.userDecoration = newDecorations;
 
-      const uniqueNewDecorations = newDecorations.filter(
-        (d) => !store.decoration.some((existing) => existing.id === d.id)
-      );
-
-      store.decoration.unshift(...uniqueNewDecorations);
+      if (type === 1) {
+        const unique = newDecorations.filter(
+          (d) => !store.decoration.some((existing) => existing.id === d.id)
+        );
+        store.decoration.unshift(...unique);
+      } else if (type === 2) {
+        const unique = newDecorations.filter(
+          (d) =>
+            !store.profileDecoration.some((existing) => existing.id === d.id)
+        );
+        store.profileDecoration.unshift(...unique);
+      } else if (type === 0) {
+        const unique = newDecorations.filter(
+          (d) =>
+            !store.nameTagDecoration.some((existing) => existing.id === d.id)
+        );
+        store.nameTagDecoration.unshift(...unique);
+      }
 
       return decorations;
     } catch (e) {
