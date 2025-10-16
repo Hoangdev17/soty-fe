@@ -67,9 +67,7 @@ onMounted(async () => {
     }
     // capture snapshot after initial load so it's not considered "unsaved"
     originalForm.value = cloneForm(form);
-  } catch (e) {
-    console.error("Failed to load channel:", e);
-  }
+  } catch (e) {}
 });
 
 const deleteChannel = async () => {
@@ -86,8 +84,6 @@ const handleConfirmDelete = async () => {
     // after delete go to community home
     router.push(`/community/@${guildUsername}-${guildId}`);
   } catch (err) {
-    console.error("Delete channel failed:", err);
-    window.alert("Failed to delete channel");
   } finally {
     isDeleting.value = false;
     isDeleteModalOpen.value = false;
@@ -116,8 +112,6 @@ const saveChanges = async () => {
     // navigate back to channel view
     router.push(`/community/@${guildUsername}-${guildId}/${channelId}`);
   } catch (err) {
-    console.error("Save channel failed:", err);
-    window.alert("Failed to save channel settings");
   } finally {
     isSaving.value = false;
     // saved -> clear unsaved flag

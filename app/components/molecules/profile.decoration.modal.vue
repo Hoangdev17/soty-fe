@@ -129,7 +129,6 @@ const fetchDecorations = async () => {
     await authStore.fetchProfileDecorations(offset.value, limit.value);
     offset.value += limit.value;
   } catch (error) {
-    console.error("Error fetching profile decorations:", error);
   } finally {
     isLoading.value = false;
   }
@@ -158,8 +157,6 @@ const applyDecoration = async () => {
       color: "success",
     });
   } catch (error: any) {
-    console.error("Error applying profile decoration:", error);
-
     const toast = useToast();
     toast.add({
       title: "Lỗi!",
@@ -217,7 +214,6 @@ async function loadMoreDecorations() {
     await authStore.fetchProfileDecorations(offset.value, limit.value);
     isLoadingMore.value = false;
   } catch (error) {
-    console.error("Error loading more profile decorations:", error);
   } finally {
     isLoadingMore.value = false;
   }
@@ -229,9 +225,7 @@ const handlePurchaseSuccess = async () => {
 
   try {
     await authStore.fetchDecorationByUserId(2);
-  } catch (error) {
-    console.error("Failed to refresh user decorations after purchase:", error);
-  }
+  } catch (error) {}
 };
 </script>
 

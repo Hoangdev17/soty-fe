@@ -62,7 +62,6 @@ const fetchDecorations = async () => {
     await authStore.fetchNameTagDecorations(offset.value, limit.value);
     offset.value += limit.value;
   } catch (error) {
-    console.error("Error fetching nametag decorations:", error);
   } finally {
     isLoading.value = false;
   }
@@ -90,8 +89,6 @@ const applyDecoration = async () => {
       color: "success",
     });
   } catch (error: any) {
-    console.error("Error applying nametag decoration:", error);
-
     const toast = useToast();
     toast.add({
       title: "Lỗi!",
@@ -139,7 +136,6 @@ async function loadMoreDecorations() {
     await authStore.fetchNameTagDecorations(offset.value, limit.value);
     isLoadingMore.value = false;
   } catch (error) {
-    console.error("Error loading more nametag decorations:", error);
   } finally {
     isLoadingMore.value = false;
   }

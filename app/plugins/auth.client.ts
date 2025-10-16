@@ -15,7 +15,6 @@ export default defineNuxtPlugin(async () => {
         const endTime = performance.now();
       })
       .catch((error) => {
-        console.error("🔐 Failed to initialize auth:", error);
       });
   }
 });

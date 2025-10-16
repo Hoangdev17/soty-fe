@@ -44,9 +44,7 @@ watch(channelId, async (newChannelId, oldChannelId) => {
   if (newChannelId && newChannelId !== oldChannelId) {
     try {
       await messageStore.fetchMessages(newChannelId);
-    } catch (error) {
-      console.error("Error loading messages for new channel:", error);
-    }
+    } catch (error) {}
   }
 });
 
@@ -74,9 +72,7 @@ onMounted(async () => {
   if (channelId.value) {
     try {
       await messageStore.fetchMessages(channelId.value);
-    } catch (error) {
-      console.error("Error loading messages:", error);
-    }
+    } catch (error) {}
   }
 });
 </script>

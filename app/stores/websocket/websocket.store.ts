@@ -117,9 +117,7 @@ export const useWebSocketStore = defineStore("websocket", {
                 this.joinRoom(userRoom);
               }, 100);
             }
-          } catch (e) {
-            console.warn("⚠️ Failed to identify to server on connect", e);
-          }
+          } catch (e) {}
 
           setTimeout(() => {
             this.syncUnreadState();
@@ -148,7 +146,6 @@ export const useWebSocketStore = defineStore("websocket", {
         });
 
         this.connection.on("connect_error", (error: Error) => {
-          console.error("❌ Socket.IO connection error:", error.message);
           this.isConnected = false;
 
           // Retry connection with exponential backoff
@@ -165,7 +162,6 @@ export const useWebSocketStore = defineStore("websocket", {
               }
             }, delay);
           } else {
-            console.error("❌ Max reconnection attempts reached");
           }
         });
 
@@ -488,9 +484,7 @@ export const useWebSocketStore = defineStore("websocket", {
                 `lastReadTime_${targetChannelId}`,
                 lastRead || new Date().toISOString()
               );
-            } catch (e) {
-              console.warn("Failed to persist lastRead locally:", e);
-            }
+            } catch (e) {}
           }
         });
 
@@ -505,7 +499,6 @@ export const useWebSocketStore = defineStore("websocket", {
               this.connect(url, newToken);
             }
           } catch (error) {
-            console.error("❌ Failed to refresh token:", error);
             authStore.logout();
           }
         });
@@ -522,7 +515,6 @@ export const useWebSocketStore = defineStore("websocket", {
             requestedBy: string;
             timestamp: Date;
           }) => {
-            console.debug("room_users payload:", data);
             const users = data.users || [];
 
             // Build a fresh map for users currently in this room.
@@ -574,9 +566,6 @@ export const useWebSocketStore = defineStore("websocket", {
 
             this.usersInfo = newUsersInfo;
             this.usersInRoom = [...newRoomKeys];
-
-            console.debug("usersInfo after room_users:", this.usersInfo);
-            console.debug("usersInRoom after room_users:", this.usersInRoom);
           }
         );
 
@@ -716,9 +705,7 @@ export const useWebSocketStore = defineStore("websocket", {
               this.usersInRoom = (this.usersInRoom || []).filter(
                 (k: string) => k !== resolvedSocketId && k !== userIdFromPayload
               );
-            } catch (e) {
-              console.warn("Failed to handle user_left:", e);
-            }
+            } catch (e) {}
           }
         );
 
@@ -734,9 +721,7 @@ export const useWebSocketStore = defineStore("websocket", {
             });
           } catch (e) {}
         });
-      } catch (error) {
-        console.error("❌ Failed to create Socket.IO connection:", error);
-      }
+      } catch (error) {}
     },
 
     disconnect() {
@@ -751,7 +736,6 @@ export const useWebSocketStore = defineStore("websocket", {
       if (this.connection && this.isConnected) {
         this.connection.emit(event, data);
       } else {
-        console.warn("Socket.IO is not connected");
       }
     },
 
@@ -760,7 +744,6 @@ export const useWebSocketStore = defineStore("websocket", {
       if (this.connection && this.isConnected) {
         this.sendMessage("join_room", { room });
       } else {
-        console.warn(`⚠️ Cannot join room ${room}: Socket.IO is not connected`);
       }
     },
 
@@ -768,9 +751,6 @@ export const useWebSocketStore = defineStore("websocket", {
       if (this.connection && this.isConnected) {
         this.sendMessage("leave", { room });
       } else {
-        console.warn(
-          `⚠️ Cannot leave room ${room}: Socket.IO is not connected`
-        );
       }
     },
 
@@ -792,9 +772,7 @@ export const useWebSocketStore = defineStore("websocket", {
       if (this.connection && this.isConnected) {
         this.connection.emit("get_members", { communityId });
       } else {
-        console.warn(
-          `⚠️ Cannot emit get_members for community ${communityId}: Socket.IO is not connected`
-        );
+       
       }
     },
     //create channel
@@ -802,9 +780,7 @@ export const useWebSocketStore = defineStore("websocket", {
       if (this.connection && this.isConnected) {
         this.connection.emit("create_channel", data);
       } else {
-        console.warn(
-          `⚠️ Cannot create channel in guild ${data.guildId}: Socket.IO is not connected`
-        );
+       
       }
     },
 
@@ -817,9 +793,7 @@ export const useWebSocketStore = defineStore("websocket", {
           this.ensureRoomJoined(room, maxRetries - 1);
         }, 1000);
       } else {
-        console.error(
-          `❌ Failed to join room ${room} after ${maxRetries} retries`
-        );
+       
       }
     },
 
@@ -931,10 +905,7 @@ export const useWebSocketStore = defineStore("websocket", {
 
         return response.totalUnreadCount;
       } catch (error) {
-        console.error(
-          "❌ Failed to fetch community unread count from API:",
-          error
-        );
+        
         // Fallback to local state
         return this.getUnreadCountForCommunity(communityId);
       }
@@ -966,10 +937,7 @@ export const useWebSocketStore = defineStore("websocket", {
 
         return response.unreadCount;
       } catch (error) {
-        console.error(
-          "❌ Failed to fetch channel unread count from API:",
-          error
-        );
+        
         // Fallback to local state
         return this.unreadByChannel[channelId]?.size || 0;
       }
@@ -991,10 +959,7 @@ export const useWebSocketStore = defineStore("websocket", {
             );
             return { communityId, count };
           } catch (error) {
-            console.error(
-              `❌ Failed to init unread for community ${communityId}:`,
-              error
-            );
+            
             return { communityId, count: 0 };
           }
         });
@@ -1003,7 +968,6 @@ export const useWebSocketStore = defineStore("websocket", {
 
         this.isUnreadInitialized = true;
       } catch (error) {
-        console.error("❌ Error during unread state initialization:", error);
       }
     },
 
@@ -1075,7 +1039,6 @@ export const useWebSocketStore = defineStore("websocket", {
           JSON.stringify(unreadArray)
         );
       } catch (error) {
-        console.error("Error saving unread to localStorage:", error);
       }
     },
 
@@ -1089,7 +1052,6 @@ export const useWebSocketStore = defineStore("websocket", {
           return new Set(unreadArray);
         }
       } catch (error) {
-        console.error("Error loading unread from localStorage:", error);
       }
       return new Set();
     },
@@ -1099,7 +1061,6 @@ export const useWebSocketStore = defineStore("websocket", {
       try {
         localStorage.removeItem(`unreadMessages_${channelId}`);
       } catch (error) {
-        console.error("Error clearing unread from localStorage:", error);
       }
     },
 
@@ -1121,7 +1082,6 @@ export const useWebSocketStore = defineStore("websocket", {
           }
         }
       } catch (error) {
-        console.error("Error restoring unread state:", error);
       }
 
       this.isUnreadStateRestored = true;
@@ -1133,18 +1093,15 @@ export const useWebSocketStore = defineStore("websocket", {
       lastReadMessageId: string
     ) {
       if (!channelOrThreadId) {
-        console.warn("⚠️ Missing channelOrThreadId:", { channelOrThreadId });
         return;
       }
 
       const validId = String(channelOrThreadId).trim();
       if (!validId || validId === "undefined" || validId === "null") {
-        console.warn("⚠️ Invalid channelOrThreadId:", channelOrThreadId);
         return;
       }
 
       if (!lastReadMessageId) {
-        console.warn("⚠️ Missing lastReadMessageId:", { lastReadMessageId });
         return;
       }
 
@@ -1168,7 +1125,6 @@ export const useWebSocketStore = defineStore("websocket", {
           new Date().toISOString()
         );
       } catch (e) {
-        console.warn("Failed to persist lastRead locally:", e);
       }
 
       // Prioritize WebSocket for real-time updates (faster and more efficient)
@@ -1200,7 +1156,6 @@ export const useWebSocketStore = defineStore("websocket", {
       try {
         return localStorage.getItem(`lastRead_${channelId}`);
       } catch (error) {
-        console.error("Error getting last read message ID:", error);
         return null;
       }
     },
@@ -1211,7 +1166,6 @@ export const useWebSocketStore = defineStore("websocket", {
       try {
         return localStorage.getItem(`lastReadTime_${channelId}`);
       } catch (error) {
-        console.error("Error getting last read time:", error);
         return null;
       }
     },

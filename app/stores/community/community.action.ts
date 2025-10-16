@@ -174,8 +174,6 @@ export const communityActions = {
       try {
         await memberStore.addMember(communityId, response);
       } catch (err) {
-        // If local add fails, ignore and continue to attempt refresh
-        console.warn("Failed to add member locally:", err);
       }
 
       // Refresh members in background to guarantee consistency with server

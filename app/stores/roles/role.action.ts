@@ -31,10 +31,7 @@ export const roleActions = {
             const members = await this.fetchRoleMembers(guildId, role.id);
             role.memberCount = members.length;
           } catch (error) {
-            console.warn(
-              `Failed to fetch member count for role ${role.id}:`,
-              error
-            );
+            
             role.memberCount = 0;
           }
         }

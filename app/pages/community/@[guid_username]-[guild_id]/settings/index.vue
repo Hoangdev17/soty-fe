@@ -55,7 +55,6 @@ watch(
   () => route.params.guild_id,
   (newGuildId) => {
     guildId.value = newGuildId as string | undefined;
-    console.log("Channel Count:", channelCount.value);
   },
   { immediate: true }
 );
@@ -163,7 +162,6 @@ const saveChanges = async () => {
 
     setUnsavedChanges(false);
   } catch (error) {
-    console.error("Failed to save changes:", error);
     // You can add toast notification here
   }
 };
@@ -209,7 +207,6 @@ const handleBannerUploadSuccess = async (url: string) => {
 };
 
 const handleUploadError = (error: string) => {
-  console.error("Upload failed:", error);
   // You can add toast notification here
 };
 

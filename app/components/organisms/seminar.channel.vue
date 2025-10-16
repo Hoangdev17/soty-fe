@@ -26,7 +26,6 @@ const refreshMembers = async () => {
     try {
       await memberStore.fetchMembersViaWebSocket(currentGuildId);
     } catch (error) {
-      console.error("Failed to refresh members:", error);
     }
   }
 };

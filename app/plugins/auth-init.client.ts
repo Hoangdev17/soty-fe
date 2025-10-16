@@ -31,11 +31,9 @@ export default defineNuxtPlugin(async () => {
             await initializeUnreadForCommunities(communityIds);
           }
         } catch (unreadError) {
-          console.warn("Failed to initialize unread state:", unreadError);
         }
       }
     } catch (error) {
-      console.error("Auth initialization failed:", error);
     }
   });
 });

@@ -174,12 +174,7 @@ onMounted(async () => {
       if (unreadData.channels) {
         wsStore.syncUnreadCountsFromAPI(unreadData.channels);
       }
-    } catch (error) {
-      console.error(
-        "❌ Failed to fetch community channels unread count:",
-        error
-      );
-    }
+    } catch (error) {}
   }
 
   // Initialize expanded categories
@@ -637,7 +632,6 @@ function handleRoomUsersForSidebar(payload: any) {
     });
     if (socketDebugEventsSidebar.value.length > 30)
       socketDebugEventsSidebar.value.pop();
-    console.debug("sidebar room-users for", roomId, users);
   } catch (e) {
     // ignore
   }
@@ -671,10 +665,7 @@ function handleChannelPresence(payload: any) {
     });
     if (socketDebugEventsSidebar.value.length > 30)
       socketDebugEventsSidebar.value.pop();
-    console.debug("sidebar channel-presence", roomId, usersCount);
-  } catch (e) {
-    console.debug("error handling channel-presence", e);
-  }
+  } catch (e) {}
 }
 
 async function refreshVoicePresence() {
@@ -690,7 +681,6 @@ async function refreshVoicePresence() {
 
   // Ensure socket connection
   if (!wsStore.connection) {
-    console.debug("refreshVoicePresence: websocket not connected");
     return;
   }
 
@@ -699,11 +689,8 @@ async function refreshVoicePresence() {
     const roomId = c.id;
     _pendingRoomQueue.value.push(roomId);
     try {
-      console.debug("emit get-room-users for", roomId);
       wsStore.connection.emit("get-room-users", { roomId });
-    } catch (e) {
-      console.debug("emit failed for", roomId, e);
-    }
+    } catch (e) {}
     // small delay to avoid flooding and keep response order
     // eslint-disable-next-line no-await-in-loop
     await new Promise((r) => setTimeout(r, 40));
@@ -717,19 +704,12 @@ watch(
     if (conn) {
       try {
         conn.on("room-users", handleRoomUsersForSidebar);
-        console.debug("sidebar registered room-users handler");
-      } catch (e) {
-        console.debug("sidebar failed to register room-users handler", e);
-      }
+      } catch (e) {}
       try {
         conn.on("channel-presence", handleChannelPresence);
-        console.debug("sidebar registered channel-presence handler");
-      } catch (e) {
-        console.debug("sidebar failed to register channel-presence handler", e);
-      }
+      } catch (e) {}
       // Kick off a refresh when socket becomes available
-      console.debug("sidebar socket connected, refreshing voice presence");
-      refreshVoicePresence().catch((err) => console.debug(err));
+      refreshVoicePresence();
     } else {
       try {
         // remove listener if existed

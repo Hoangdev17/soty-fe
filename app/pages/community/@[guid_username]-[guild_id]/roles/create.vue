@@ -149,7 +149,6 @@ const saveRole = async () => {
     // Navigate back to roles list
     closeRoleCreate();
   } catch (err) {
-    console.error("Failed to create role:", err);
     error.value = "Failed to create role";
   } finally {
     isSaving.value = false;

@@ -222,7 +222,6 @@ export const useAuthStore = defineStore("auth", {
 
         return updatedUser;
       } catch (error) {
-        console.error("Failed to update user profile:", error);
         throw error;
       }
     },

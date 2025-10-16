@@ -209,9 +209,7 @@ const saveChanges = async () => {
     originalState.avatar = state.avatar;
     originalState.banner = state.banner;
     originalState.bio = state.bio;
-  } catch (error) {
-    console.error("Failed to save changes:", error);
-  }
+  } catch (error) {}
 };
 
 // Reset changes function
@@ -232,9 +230,7 @@ const handleBannerUploadSuccess = (url: string) => {
   state.banner = url;
 };
 
-const handleUploadError = (error: string) => {
-  console.error("Upload failed:", error);
-};
+const handleUploadError = (error: string) => {};
 
 // Avatar decoration methods
 const openDecorationModal = () => {
@@ -245,9 +241,7 @@ const handleDecorationUpdated = async (decoration: any) => {
   try {
     await authStore.initializeAuth();
     await authStore.fetchAvatarDecorations();
-  } catch (error) {
-    console.error("Failed to refresh user data:", error);
-  }
+  } catch (error) {}
 };
 
 // Profile decoration methods
@@ -259,9 +253,7 @@ const handleProfileDecorationUpdated = async (decoration: any) => {
   try {
     await authStore.initializeAuth();
     await authStore.fetchProfileDecorations();
-  } catch (error) {
-    console.error("Failed to refresh user data:", error);
-  }
+  } catch (error) {}
 };
 
 // Nametag decoration methods
@@ -273,9 +265,7 @@ const handleNametagDecorationUpdated = async (decoration: any) => {
   try {
     await authStore.initializeAuth();
     await authStore.fetchNameTagDecorations();
-  } catch (error) {
-    console.error("Failed to refresh user data:", error);
-  }
+  } catch (error) {}
 };
 </script>
 

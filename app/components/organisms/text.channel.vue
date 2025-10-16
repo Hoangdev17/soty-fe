@@ -14,6 +14,7 @@ import { onMounted, onBeforeUnmount, watch, computed } from "vue";
 import { useWebSocketStore } from "~/stores/websocket/websocket.store";
 import { joinRoom } from "~/stores/websocket/websocket.action";
 import { GuildPermissions } from "~/stores/roles/role.type";
+import { useChannelStore } from "~/stores/channels/channel.store";
 
 interface Props {
   channelId: string;
@@ -24,20 +25,77 @@ interface Props {
 }
 
 const props = defineProps<Props>();
-const { isMobile } = useBreakpoint();
+const channelStore = useChannelStore();
+const toast = useToast();
 
-const items = ref<ContextMenuItem[][]>([
-  [
-    {
-      label: "Hồ sơ",
-      icon: "i-lucide-user",
-    },
-    {
-      label: "Nhắn tin",
-      icon: "i-lucide-message-circle",
-    },
-  ],
-]);
+const handleCreateDM = async (userId: string) => {
+  try {
+    const channelDM = await channelStore.createChannelDm([userId]);
+    navigateTo(`/@me/${channelDM.id}`);
+  } catch (error) {}
+};
+
+const handleAddFriend = async (receiverId: string) => {
+  const res = await authStore.sendFriendRequest(receiverId);
+};
+
+const getContextMenuUserItems = (member: any): ContextMenuItem[][] => {
+  if (isMe(member.user.id)) {
+    return [
+      [
+        {
+          label: "Hồ sơ",
+          icon: "i-lucide-user",
+        },
+      ],
+    ];
+  }
+
+  return [
+    [
+      {
+        label: "Hồ sơ",
+        icon: "i-lucide-user",
+      },
+      ...(!isFriend(member.user.id)
+        ? [
+            {
+              label: "Nhắn tin",
+              icon: "i-lucide-message-circle",
+              onSelect: () => handleCreateDM(member.user.id),
+            },
+            {
+              label: "Kết bạn",
+              icon: "i-lucide-user-plus",
+              onSelect: () => handleAddFriend(member.user.id),
+            },
+          ]
+        : [
+            {
+              label: "Nhắn tin",
+              icon: "i-lucide-message-circle",
+              onSelect: () => handleCreateDM(member.user.id),
+            },
+          ]),
+    ],
+  ];
+};
+
+const isFriend = (userId: string) => {
+  if (authStore.friends?.some((f) => f.id === userId)) {
+    return true;
+  }
+
+  return false;
+};
+
+const isMe = (userId: string) => {
+  if (authStore.user?.id === userId) {
+    return true;
+  }
+
+  return false;
+};
 
 const memberStore = useMemberStore();
 const roleStore = useRoleStore();
@@ -594,46 +652,42 @@ const getMemberStatus = (member: any) => {
               </div>
 
               <!-- Members in this role -->
-              <UContextMenu
-                :items="items"
-                :ui="{
-                  content: 'w-48',
-                }"
-                class="space-y-1 ml-2"
-              >
-                <div
-                  v-for="member in membersByRole[role.id!]"
-                  :key="member.id"
-                  class="flex items-center gap-3 p-2 rounded-md hover:bg-dark-700 transition-colors"
+              <div v-for="member in membersByRole[role.id!]" :key="member.id">
+                <UContextMenu
+                  :items="getContextMenuUserItems(member)"
+                  :ui="{ content: 'w-48' }"
                 >
-                  <UAvatar
-                    :src="member.avatar"
-                    :alt="member.nickname || member.user?.username"
-                    size="md"
-                    :chip="{
-                      color: 'success',
-                      position: 'bottom-right',
-                    }"
-                    class="flex-shrink-0"
-                  />
-                  <div class="flex-1 min-w-0">
-                    <div class="flex items-center gap-2">
-                      <span class="text-white font-medium text-sm truncate">
-                        {{ member.nickname || member.user?.username }}
-                      </span>
-                      <span
-                        v-if="member.user?.id === authStore.user?.id"
-                        class="text-xs text-green-400 font-medium"
+                  <div
+                    class="flex items-center gap-3 p-2 rounded-md hover:bg-dark-700 transition-colors"
+                  >
+                    <UAvatar
+                      :src="member.user?.avatar"
+                      :alt="member.nickname || member.user?.username"
+                      size="md"
+                      :chip="{ color: 'success', position: 'bottom-right' }"
+                      class="flex-shrink-0"
+                    />
+                    <div class="flex-1 min-w-0">
+                      <div class="flex items-center gap-2">
+                        <span class="text-white font-medium text-sm truncate">
+                          {{ member.nickname || member.user?.username }}
+                        </span>
+                        <span
+                          v-if="member.user?.id === authStore.user?.id"
+                          class="text-xs text-green-400 font-medium"
+                        >
+                          Bạn
+                        </span>
+                      </div>
+                      <div
+                        class="flex items-center gap-1 text-xs text-gray-400"
                       >
-                        Bạn
-                      </span>
-                    </div>
-                    <div class="flex items-center gap-1 text-xs text-gray-400">
-                      <span>{{ member.user?.username }}</span>
+                        <span>{{ member.user?.username }}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </UContextMenu>
+                </UContextMenu>
+              </div>
             </div>
           </div>
         </div>

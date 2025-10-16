@@ -22,7 +22,6 @@ onMounted(async () => {
     }
     await communityStore.fetchJoinRequests(guildId);
   } catch (e) {
-    console.error("Failed to fetch join requests:", e);
   } finally {
     isLoading.value = false;
   }
@@ -36,7 +35,6 @@ const approve = async (reqId) => {
   try {
     await communityStore.approveJoinRequest(guildId, reqId);
   } catch (e) {
-    console.error("Approve failed:", e);
   } finally {
     approveLoading.value[reqId] = false;
   }
@@ -47,7 +45,6 @@ const reject = async (reqId) => {
   try {
     await communityStore.rejectJoinRequest(guildId, reqId);
   } catch (e) {
-    console.error("Reject failed:", e);
   } finally {
     rejectLoading.value[reqId] = false;
   }

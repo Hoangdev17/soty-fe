@@ -30,7 +30,6 @@ export default defineNuxtPlugin(() => {
           wsStore.syncUnreadState();
         }, 1000);
       } catch (e) {
-        console.warn("⚠️ Failed to ensure/join unread rooms:", e);
       }
     })();
   }

@@ -21,7 +21,6 @@ function getMenuItems(friendId: string): DropdownMenuItem[][] {
       {
         label: "Xem hồ sơ",
         icon: "i-lucide-user",
-        click: () => console.log("Xem hồ sơ:", friendId),
       },
     ],
     [

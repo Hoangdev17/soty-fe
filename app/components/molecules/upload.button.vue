@@ -58,7 +58,6 @@ const closeModal = () => {
 const handleFileUpload = async () => {
   const file = selectedFile.value;
   if (!file) {
-    console.log("❌ No file selected");
     return;
   }
 
@@ -98,7 +97,6 @@ const handleFileUpload = async () => {
       closeModal();
     }, 1500);
   } catch (error) {
-    console.error("❌ Upload error:", error);
     uploadProgress.value = 0;
     const errorMessage =
       error instanceof Error ? error.message : "Upload failed";

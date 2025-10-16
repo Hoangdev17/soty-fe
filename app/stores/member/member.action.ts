@@ -127,7 +127,6 @@ export const memberActions = {
     // Extract communityId from the first member's guildId
     const communityId = payload.members[0]?.guildId;
     if (!communityId) {
-      console.error("No communityId found in members list payload");
       return;
     }
 

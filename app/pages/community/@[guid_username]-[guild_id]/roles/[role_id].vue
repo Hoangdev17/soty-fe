@@ -157,7 +157,6 @@ const loadRole = async () => {
     // Store original data for comparison
     originalRole.value = { ...currentRole };
   } catch (err) {
-    console.error("Failed to load role:", err);
     error.value = "Failed to load role";
   } finally {
     isLoading.value = false;
@@ -196,7 +195,6 @@ const saveRole = async () => {
     // Navigate back to roles list
     closeRoleEdit();
   } catch (err) {
-    console.error("Failed to save role:", err);
     error.value = "Failed to save role";
   } finally {
     isSaving.value = false;

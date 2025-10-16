@@ -79,7 +79,6 @@ async function createQRCode(): Promise<void> {
     state.instructions = response.instructions;
     state.bankInfo.transferContent = props.content;
   } catch (error) {
-    console.error("Error creating payment:", error);
   } finally {
     state.loading = false;
   }
@@ -140,7 +139,6 @@ async function checkStatus(): Promise<void> {
       emit("update:show", false);
     }
   } catch (error) {
-    console.error("Error checking payment status:", error);
   }
 }
 
@@ -188,7 +186,6 @@ async function handleCompletePayment() {
       });
     }
   } catch (error) {
-    console.error("Error checking payment status:", error);
     toast.add({
       title: "Có lỗi xảy ra",
       description: "Cần thanh toán lại. Vui lòng thử lại hoặc liên hệ hỗ trợ.",

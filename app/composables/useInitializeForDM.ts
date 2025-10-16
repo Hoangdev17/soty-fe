@@ -31,14 +31,11 @@ export const useInitializeForDM = () => {
       if (wsStore.isWebSocketConnected) {
         wsStore.ensureRoomJoined(userRoom);
       } else {
-        console.warn(
-          `⚠️ Failed to connect WebSocket after ${maxRetries} retries`
-        );
+        
         // Try joining anyway - ensureRoomJoined will retry if needed
         wsStore.ensureRoomJoined(userRoom);
       }
     } else {
-      console.warn("⚠️ No user ID found, cannot join user room");
     }
   };
 

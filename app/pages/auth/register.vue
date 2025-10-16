@@ -39,18 +39,13 @@ async function onSubmit() {
 
     navigateTo("/");
   } catch (err) {
-    toast.add({
-      title: "Register failed",
-      color: "error",
-    });
-    console.error("Login failed:", err);
+    isLoading.value = false;
   }
 }
 
 const isLoading = ref(false);
 
 const handleForgotPassword = () => {
-  console.log("Forgot password clicked");
 };
 
 definePageMeta({

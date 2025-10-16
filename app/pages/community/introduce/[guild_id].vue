@@ -102,7 +102,6 @@ const joinCommunity = async () => {
 
     isJoinLoading.value = false;
   } catch (error) {
-    console.error("Failed to join community:", error);
     isJoinLoading.value = false;
   }
 };
