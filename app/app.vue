@@ -15,14 +15,6 @@ onMounted(() => {
 });
 
 async function handleMounted() {
-  const route = useRoute();
-
-  showLoading.value =
-    route.path !== "/" &&
-    route.path !== "/auth/login" &&
-    route.path !== "/auth/register" &&
-    route.path !== "/auth/forgot-password";
-
   if (!authStore.isInitialized) {
     await authStore.initializeAuth();
   }

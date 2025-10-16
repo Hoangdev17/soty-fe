@@ -5,7 +5,6 @@ import { useMessage } from "~/composables/useMessage";
 import { useChannelStore } from "~/stores/channels/channel.store";
 import { useAuthStore } from "~/stores/auth/auth.store";
 import { navigateTo } from "#app";
-import type { User } from "~/stores/auth/auth.type";
 
 const props = defineProps<{
   roomId: string;
@@ -40,6 +39,7 @@ const offset = ref(0);
 const limit = 50;
 const hasMore = ref(true);
 const loadingMore = ref(false);
+const toast = useToast();
 
 // Image viewer state
 const selectedImageUrl = ref<string | null>(null);
@@ -110,8 +110,21 @@ const getContextMenuUserItems = (message: any): ContextMenuItem[][] => {
         icon: "i-lucide-message-circle",
         onSelect: () => handleCreateDM(message.author.id),
       },
+      {
+        label: "Kết bạn",
+        icon: "i-lucide-user-plus",
+        onSelect: () => handleAddFriend(message.author.id),
+      },
     ],
   ];
+};
+
+const handleAddFriend = async (receiverId: string) => {
+  await authStore.sendFriendRequest(receiverId);
+
+  toast.add({
+    title: "Đã gửi lời mời kết bạn",
+  });
 };
 
 const scrollToBottom = async () => {
