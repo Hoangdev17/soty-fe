@@ -46,7 +46,6 @@ const fetchRoleMembers = async () => {
     isLoadingMembers.value = true;
     await roleStore.fetchRoleMembers(props.guildId, props.roleId);
   } catch (error) {
-    console.error("Failed to fetch role members:", error);
     toast.add({
       title: "Error",
       description: "Failed to load role members",
@@ -61,7 +60,6 @@ const isLoadingRemove = ref(false);
 
 const removeMemberFromRole = async (memberId: string | undefined) => {
   if (!memberId) {
-    console.error("Cannot remove member: memberId is undefined");
     toast.add({
       title: "Error",
       description: "Cannot remove member: invalid member data",
@@ -76,7 +74,6 @@ const removeMemberFromRole = async (memberId: string | undefined) => {
     await roleStore.removeMemberRole(props.guildId, memberId, props.roleId);
     isLoadingRemove.value = false;
   } catch (error) {
-    console.error("Failed to remove member from role:", error);
     // Show error toast
     toast.add({
       title: "Error",

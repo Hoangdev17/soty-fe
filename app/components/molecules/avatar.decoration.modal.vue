@@ -172,9 +172,7 @@ const handlePurchaseSuccess = async () => {
 
   try {
     await authStore.fetchDecorationByUserId(1);
-  } catch (error) {
-    console.error("Failed to refresh user decorations after purchase:", error);
-  }
+  } catch (error) {}
 };
 </script>
 

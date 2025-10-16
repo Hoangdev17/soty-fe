@@ -24,7 +24,6 @@ const handleUnpin = async (messageId: string) => {
   try {
     await unpinMessage(messageId, props.channelId);
   } catch (error) {
-    console.error("Failed to unpin message:", error);
   }
 };
 </script>

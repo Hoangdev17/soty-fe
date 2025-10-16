@@ -66,7 +66,6 @@ const downloadImage = async () => {
     a.remove();
     URL.revokeObjectURL(objectUrl);
   } catch (err) {
-    console.error("Download failed, opening in new tab", err);
     window.open(selectedImageUrl.value, "_blank");
   }
 };
@@ -98,33 +97,65 @@ const getContextMenuItems = (message: any): ContextMenuItem[][] => {
 };
 
 const getContextMenuUserItems = (message: any): ContextMenuItem[][] => {
+  if (isMe(message.author.id)) {
+    return [
+      [
+        {
+          label: "Hồ sơ",
+          icon: "i-lucide-user",
+        },
+      ],
+    ];
+  }
+
   return [
     [
       {
         label: "Hồ sơ",
         icon: "i-lucide-user",
-        click: () => console.log("View profile", message.author),
       },
-      {
-        label: "Nhắn tin",
-        icon: "i-lucide-message-circle",
-        onSelect: () => handleCreateDM(message.author.id),
-      },
-      {
-        label: "Kết bạn",
-        icon: "i-lucide-user-plus",
-        onSelect: () => handleAddFriend(message.author.id),
-      },
+      ...(!isFriend(message.author.id)
+        ? [
+            {
+              label: "Nhắn tin",
+              icon: "i-lucide-message-circle",
+              onSelect: () => handleCreateDM(message.author.id),
+            },
+            {
+              label: "Kết bạn",
+              icon: "i-lucide-user-plus",
+              onSelect: () => handleAddFriend(message.author.id),
+            },
+          ]
+        : [
+            {
+              label: "Nhắn tin",
+              icon: "i-lucide-message-circle",
+              onSelect: () => handleCreateDM(message.author.id),
+            },
+          ]),
     ],
   ];
 };
 
 const handleAddFriend = async (receiverId: string) => {
   await authStore.sendFriendRequest(receiverId);
+};
 
-  toast.add({
-    title: "Đã gửi lời mời kết bạn",
-  });
+const isFriend = (userId: string) => {
+  if (authStore.friends?.some((f) => f.id === userId)) {
+    return true;
+  }
+
+  return false;
+};
+
+const isMe = (userId: string) => {
+  if (authStore.user?.id === userId) {
+    return true;
+  }
+
+  return false;
 };
 
 const scrollToBottom = async () => {
@@ -158,7 +189,6 @@ const handleScroll = async () => {
         hasMore.value = false;
       }
     } catch (error) {
-      console.error("Error loading more messages:", error);
     } finally {
       loadingMore.value = false;
     }
@@ -191,17 +221,13 @@ const handleReply = (message: any) => {
 const handlePin = async (message: any) => {
   try {
     await pinMessage(message.id, props.roomId);
-  } catch (error) {
-    console.error("Failed to pin message:", error);
-  }
+  } catch (error) {}
 };
 
 const handleUnpin = async (message: any) => {
   try {
     await unpinMessage(message.id, props.roomId);
-  } catch (error) {
-    console.error("Failed to unpin message:", error);
-  }
+  } catch (error) {}
 };
 
 const handleThreadClick = (message: any) => {
@@ -218,9 +244,7 @@ const handleCreateDM = async (userId: string) => {
   try {
     const channelDM = await channelStore.createChannelDm([userId]);
     navigateTo(`/@me/${channelDM.id}`);
-  } catch (error) {
-    console.error("Failed to create DM:", error);
-  }
+  } catch (error) {}
 };
 
 // Helper function to parse message content with mentions

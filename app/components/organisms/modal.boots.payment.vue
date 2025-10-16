@@ -56,7 +56,6 @@ async function fetchUserGems(): Promise<void> {
     const response = await fetchWithAuth<UserDataResponse>("/users/gems");
     userGems.value = response.gems;
   } catch (error) {
-    console.error("Error fetching user gems:", error);
   }
 }
 
@@ -85,7 +84,6 @@ async function createQRCode(): Promise<void> {
     state.instructions = response.instructions;
     state.bankInfo.transferContent = props.content;
   } catch (error) {
-    console.error("Error creating payment:", error);
   } finally {
     state.loading = false;
   }
@@ -161,7 +159,6 @@ async function checkStatus(): Promise<void> {
       });
     }
   } catch (error) {
-    console.error("Error checking payment status:", error);
   }
 }
 
@@ -216,7 +213,6 @@ async function handlePayment() {
         color: "success",
       });
     } catch (error) {
-      console.error("Error purchasing with gems:", error);
       toast.add({
         title: "Có lỗi xảy ra",
         description: "Không thể mua Boots. Vui lòng thử lại.",
@@ -255,7 +251,6 @@ async function handlePayment() {
         });
       }
     } catch (error) {
-      console.error("Error checking payment status:", error);
       toast.add({
         title: "Có lỗi xảy ra",
         description:

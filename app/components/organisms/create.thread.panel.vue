@@ -52,7 +52,6 @@ const handleCreateThread = async () => {
     state.value.type = ChannelType.GUILD_PUBLIC_THREAD;
     isPrivate.value = false;
   } catch (error) {
-    console.error("Failed to create thread:", error);
   } finally {
     isCreating.value = false;
   }

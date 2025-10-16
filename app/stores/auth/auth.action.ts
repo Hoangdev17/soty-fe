@@ -11,6 +11,7 @@ import {
   initializeSocketIO,
   disconnectSocketIO,
 } from "~/stores/websocket/websocket.action";
+import { useChannelStore } from "../channels/channel.store";
 
 export const authActions = {
   // Legacy method - giữ để backward compatibility
@@ -226,7 +227,6 @@ export const authActions = {
       store.nameTagDecoration.push(single);
       return single;
     } catch (e) {
-      console.error("Failed to fetch nametag decoration by ID:", e);
       return null;
     }
   },
@@ -268,7 +268,6 @@ export const authActions = {
 
       return decorations;
     } catch (e) {
-      console.error("Failed to fetch user decorations by user ID:", e);
       return null;
     }
   },
@@ -317,16 +316,29 @@ export const authActions = {
   },
 
   async sendFriendRequest(receiverId: string) {
-    const { fetchWithAuth } = useFetchWithAuth();
+    try {
+      const { fetchWithAuth } = useFetchWithAuth();
+      const toast = useToast();
 
-    const res = await fetchWithAuth("/users/friends/requests", {
-      method: "POST",
-      body: JSON.stringify({
-        receiverId,
-      }),
-    });
+      const res = await fetchWithAuth("/users/friends/requests", {
+        method: "POST",
+        body: JSON.stringify({
+          receiverId,
+        }),
+      });
 
-    return res;
+      toast.add({
+        title: "Đã gửi lời mời kết bạn",
+      });
+
+      return res;
+    } catch (e) {
+      const channelStore = useChannelStore();
+      const channel = channelStore.channelDM.find((c) =>
+        c.recipients?.some((a) => a === receiverId)
+      );
+      navigateTo(`/@me/${channel?.id}`);
+    }
   },
 
   async acceptFriendRequest(requestId: string) {

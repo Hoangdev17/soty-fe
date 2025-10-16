@@ -70,7 +70,6 @@ const refreshMembers = async () => {
     try {
       await memberStore.fetchMembersViaWebSocket(currentGuildId);
     } catch (error) {
-      console.error("Failed to refresh members:", error);
     }
   }
 };
@@ -148,7 +147,6 @@ const sendReadReceiptForChannel = async () => {
     try {
       await wsStore.sendReadReceipt(props.channelId, messageIdToSend);
     } catch (error) {
-      console.error("❌ Failed to send read receipt on channel open:", error);
     }
   }
 };
@@ -174,10 +172,7 @@ const handleScrolledToBottom = async () => {
       try {
         await wsStore.sendReadReceipt(props.channelId, messageIdToSend);
       } catch (error) {
-        console.error(
-          "❌ Failed to send read receipt on scroll to bottom:",
-          error
-        );
+       
       }
     }
   }
@@ -197,10 +192,7 @@ watch(
         try {
           await wsStore.sendReadReceipt(newId, messageIdToSend);
         } catch (error) {
-          console.error(
-            "❌ Failed to send read receipt on channel switch:",
-            error
-          );
+        
         }
       }
     }

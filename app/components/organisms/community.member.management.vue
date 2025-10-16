@@ -105,7 +105,6 @@ const kickMember = async () => {
 
     closeKickConfirm();
   } catch (error) {
-    console.error("Failed to kick member:", error);
     toast.add({
       title: "Error",
       description: "Failed to kick member",
@@ -132,7 +131,6 @@ const banMember = async () => {
 
     closeBanConfirm();
   } catch (error) {
-    console.error("Failed to ban member:", error);
     toast.add({
       title: "Error",
       description: "Failed to ban member",

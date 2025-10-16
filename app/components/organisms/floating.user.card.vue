@@ -67,17 +67,14 @@ onMounted(async () => {
         );
       }
     } catch (error) {
-      console.error("Failed to fetch decorations:", error);
     }
   }
 });
 
 const onClickMute = () => {
-  console.log("Toggle mute");
 };
 
 const onClickDeafen = () => {
-  console.log("Toggle deafen");
 };
 
 const onClickSettings = () => {

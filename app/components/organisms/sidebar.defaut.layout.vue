@@ -39,7 +39,6 @@ watch(
           try {
             await communityStore.fetchCommunityById(communityId);
           } catch (error) {
-            console.error("❌ Sidebar: Error fetching community:", error);
           } finally {
             // Reset flag sau khi fetch xong
           }
@@ -103,10 +102,7 @@ const fetchCommunityUnreadCount = async (communityId: string) => {
     const count = await wsStore.fetchCommunityUnreadCount(communityId);
     communityUnreadCounts.value[communityId] = count;
   } catch (error) {
-    console.error(
-      `❌ Sidebar: Failed to fetch unread count for community ${communityId}:`,
-      error
-    );
+    
     // Fallback to cached local state
     const localCount = getCachedCommunityUnreadCount(communityId);
     communityUnreadCounts.value[communityId] = localCount;
@@ -258,7 +254,6 @@ async function createGuild() {
 
     isOpen.value = false;
   } catch (error) {
-    console.error("Lỗi khi tạo máy chủ:", error);
   } finally {
     isLoading.value = false;
   }

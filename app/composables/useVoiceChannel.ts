@@ -170,7 +170,6 @@ export function useVoiceChannel() {
     };
 
     pc.onconnectionstatechange = () => {
-      console.log(`PeerConnection(${socketId}) state:`, pc.connectionState);
     };
 
     return pc;

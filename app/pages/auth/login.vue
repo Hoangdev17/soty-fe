@@ -20,6 +20,7 @@ const state = reactive({
 const authStore = useAuthStore();
 const toast = useToast();
 const isLoading = ref(false);
+const errorMessage = ref("");
 
 onMounted(async () => {
   if (!authStore.isInitialized) {
@@ -39,28 +40,19 @@ async function onSubmit() {
     const res = await authStore.login(state.email, state.password);
 
     isLoading.value = false;
-
-    toast.add({
-      title: "Login successfully",
-      color: "success",
-    });
+    errorMessage.value = "";
 
     navigateTo("/");
   } catch (err) {
-    toast.add({
-      title: "Login failed",
-      color: "error",
-    });
-    console.error("Login failed:", err);
+    isLoading.value = false;
+    errorMessage.value = "Sai tai khoan hoac mat khau";
   }
 }
 
 const handleForgotPassword = () => {
-  console.log("Forgot password clicked");
 };
 
 const handleRegister = () => {
-  console.log("Register clicked");
 };
 </script>
 
@@ -154,6 +146,15 @@ const handleRegister = () => {
                   class="w-full rounded-lg bg-gray-900/50 text-white border-gray-600 focus:border-indigo-500"
                 />
               </UFormField>
+
+              <UBadge
+                v-if="errorMessage"
+                color="error"
+                variant="subtle"
+                class="w-full py-2 rounded-xl font-medium flex items-center justify-center text-center"
+              >
+                {{ errorMessage }}
+              </UBadge>
 
               <!-- Submit Button -->
               <UButton

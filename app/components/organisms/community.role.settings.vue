@@ -81,9 +81,7 @@ const permissionCategories = computed(() => {
 onMounted(async () => {
   try {
     await roleStore.fetchRoles(props.guildId);
-  } catch (err) {
-    console.error("Failed to fetch roles:", err);
-  }
+  } catch (err) {}
 });
 
 // Methods
@@ -301,8 +299,6 @@ const handleDrop = async (event: DragEvent, targetRoleId: string) => {
       duration: 2000,
     });
   } catch (err) {
-    console.error("Failed to persist role order:", err);
-
     const toast = useToast();
     toast.add({
       title: "Failed to update role order",

@@ -86,8 +86,7 @@ export const useMessageStore = defineStore("message", {
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to send message";
-        console.error("Error sending message:", error);
-        throw error; // Re-throw to let component handle it
+        throw error;
       } finally {
         this.loading = false;
       }
@@ -183,13 +182,11 @@ export const useMessageStore = defineStore("message", {
               }
             });
           } catch (error) {
-            console.error("Error fetching pinned messages:", error);
           }
         }
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to fetch messages";
-        console.error("Error fetching messages:", error);
       } finally {
         this.loading = false;
       }
@@ -240,7 +237,6 @@ export const useMessageStore = defineStore("message", {
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to reply to message";
-        console.error("Error replying to message:", error);
         throw error;
       } finally {
         this.loading = false;
@@ -284,7 +280,6 @@ export const useMessageStore = defineStore("message", {
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to pin message";
-        console.error("Error pinning message:", error);
         throw error;
       } finally {
         this.loading = false;
@@ -329,7 +324,6 @@ export const useMessageStore = defineStore("message", {
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to unpin message";
-        console.error("Error unpinning message:", error);
         throw error;
       } finally {
         this.loading = false;
@@ -357,7 +351,6 @@ export const useMessageStore = defineStore("message", {
           error instanceof Error
             ? error.message
             : "Failed to fetch pinned messages";
-        console.error("Error fetching pinned messages:", error);
       } finally {
         if (setLoading) this.loading = false;
       }
@@ -417,7 +410,6 @@ export const useMessageStore = defineStore("message", {
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to create thread";
-        console.error("Error creating thread:", error);
         throw error;
       } finally {
         this.loading = false;
@@ -468,7 +460,6 @@ export const useMessageStore = defineStore("message", {
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to fetch thread";
-        console.error("Error fetching thread:", error);
       } finally {
         this.loading = false;
       }
@@ -515,7 +506,6 @@ export const useMessageStore = defineStore("message", {
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to fetch threads";
-        console.error("Error fetching threads:", error);
       } finally {
         this.loading = false;
       }
@@ -560,7 +550,6 @@ export const useMessageStore = defineStore("message", {
           error instanceof Error
             ? error.message
             : "Failed to send message to thread";
-        console.error("Error sending message to thread:", error);
         throw error;
       } finally {
         this.loading = false;
@@ -633,8 +622,6 @@ export const useMessageStore = defineStore("message", {
         // Assign back to trigger reactivity in Vue
         this.messages[channelId] = updatedMessages;
       } catch (error) {
-        console.error("Error fetching message references:", error);
-        // Don't throw error as this is optional enhancement
       }
     },
 
@@ -652,7 +639,6 @@ export const useMessageStore = defineStore("message", {
 
         return response;
       } catch (error) {
-        console.error("Error getting unread count:", error);
         throw error;
       }
     },
@@ -672,7 +658,6 @@ export const useMessageStore = defineStore("message", {
 
         return response;
       } catch (error) {
-        console.error("Error marking channel/thread as read:", error);
         throw error;
       }
     },
@@ -691,7 +676,6 @@ export const useMessageStore = defineStore("message", {
 
         return response;
       } catch (error) {
-        console.error("Error getting community unread count:", error);
         throw error;
       }
     },
@@ -713,7 +697,6 @@ export const useMessageStore = defineStore("message", {
 
         return response;
       } catch (error) {
-        console.error("Error getting community channels unread count:", error);
         throw error;
       }
     },

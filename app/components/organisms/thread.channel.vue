@@ -49,7 +49,6 @@ const sendReadReceiptForThread = async () => {
     try {
       await wsStore.sendReadReceipt(props.threadId, messageIdToSend);
     } catch (error) {
-      console.error("❌ Failed to send read receipt on thread open:", error);
     }
   }
 };
@@ -64,10 +63,7 @@ const handleScrolledToBottom = async () => {
       try {
         await wsStore.sendReadReceipt(props.threadId, messageIdToSend);
       } catch (error) {
-        console.error(
-          "❌ Failed to send read receipt on scroll to bottom in thread:",
-          error
-        );
+       
       }
     }
   }
@@ -92,10 +88,7 @@ watch(
           try {
             await wsStore.sendReadReceipt(newThreadId, messageIdToSend);
           } catch (error) {
-            console.error(
-              "❌ Failed to send read receipt on thread switch:",
-              error
-            );
+            
           }
         }
       }

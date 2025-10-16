@@ -86,7 +86,6 @@ const loadData = async () => {
       memberStore.fetchMembers(props.guildId),
     ]);
   } catch (err) {
-    console.error("Failed to load data:", err);
   } finally {
     isLoading.value = false;
   }
@@ -297,7 +296,7 @@ const getColorClass = (color: string) => {
 
     <template #footer>
       <div class="flex justify-end gap-2">
-        <UButton variant="outline" color="gray" @click="isOpen = false">
+        <UButton variant="outline" color="neutral" @click="isOpen = false">
           Cancel
         </UButton>
         <UButton

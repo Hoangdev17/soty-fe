@@ -75,7 +75,6 @@ const navigateToIntroduce = async (communityId: string) => {
     // Navigate to introduce page after data is loaded
     await navigateTo(`/community/introduce/${communityId}`);
   } catch (error) {
-    console.error("Failed to load community data:", error);
     // You might want to show a toast notification here
   } finally {
     isNavigating.value = false;

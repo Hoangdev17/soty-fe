@@ -203,7 +203,6 @@ const submit = async () => {
     isOpen.value = false;
     resetState();
   } catch (err) {
-    console.error("Create event error", err);
   } finally {
     isSubmitting.value = false;
   }

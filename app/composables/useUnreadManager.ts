@@ -34,7 +34,6 @@ export const useUnreadManager = () => {
     if (messageId) {
       await wsStore.sendReadReceipt(channelId, messageId);
     } else {
-      console.warn("No message ID available for read receipt");
     }
   };
 

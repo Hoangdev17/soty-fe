@@ -153,9 +153,7 @@ const handleSendMessage = async () => {
 
     messageText.value = "";
     inlineImagePreviews.value = [];
-  } catch (err) {
-    console.error("Failed to send message:", err);
-  }
+  } catch (err) {}
 };
 
 const cancelReply = () => emit("reply-cancelled");
