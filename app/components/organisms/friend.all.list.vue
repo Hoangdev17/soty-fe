@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from "@nuxt/ui";
 import { useAuthStore } from "~/stores/auth/auth.store";
+import { useChannelStore } from "~/stores/channels/channel.store";
 
 const authStore = useAuthStore();
+const channelStore = useChannelStore();
 const { friends } = storeToRefs(authStore);
 
 onMounted(() => {
@@ -34,7 +36,10 @@ function getMenuItems(friendId: string): DropdownMenuItem[][] {
 }
 
 async function handleGoToDmMessage(id: string) {
-  navigateTo(`/@me/channels/${id}`);
+  const channel = channelStore.channelDM.find((c) =>
+    c.recipients?.some((a) => a === id)
+  );
+  navigateTo(`/@me/${channel?.id}`);
 }
 </script>
 
@@ -65,7 +70,11 @@ async function handleGoToDmMessage(id: string) {
       </div>
 
       <div class="flex gap-4 items-center">
-        <UButton variant="ghost" @click="handleGoToDmMessage(friend.id)">
+        <UButton
+          color="neutral"
+          variant="ghost"
+          @click="handleGoToDmMessage(friend.id)"
+        >
           <UIcon name="i-lucide-message-circle" class="size-5 cursor-pointer"
         /></UButton>
 
