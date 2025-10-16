@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { TabsItem } from "@nuxt/ui";
 import { ref } from "vue";
-import { useInitializeForDM } from "~/composables/useInitializeForDM";
+import FriendPendingList from "~/components/organisms/friend.pending.list.vue";
 
 definePageMeta({
   layout: "main",
@@ -23,7 +23,7 @@ const items = ref<TabsItem[]>([
   { label: "Trực tuyến", value: "online" },
   { label: "Tất cả", value: "all" },
   { label: "Đang chờ xử lý", value: "pending" },
-  { label: "Thêm bạn", value: "add" },
+  { label: "Lời mời kết bạn", value: "invite" },
 ]);
 
 const isOpenSlideover = ref(false);
@@ -77,17 +77,15 @@ const { isMobile } = useBreakpoint();
 
         <!-- === Nội dung theo tab (RA NGOÀI header) === -->
         <div class="mt-4">
-          <div v-if="selected === 'online'">
-            Online component (hiện nội dung cho tab Trực tuyến)
-          </div>
+          <div v-if="selected === 'online'"><OrganismsFriendAllList /></div>
           <div v-else-if="selected === 'all'">
-            All component (nội dung Tất cả)
+            <OrganismsFriendAllList />
           </div>
           <div v-else-if="selected === 'pending'">
-            Pending component (nội dung Đang chờ xử lý)
+            <FriendPendingList />
           </div>
-          <div v-else-if="selected === 'add'">
-            Add component (form Thêm bạn)
+          <div v-else-if="selected === 'invite'">
+            <OrganismsFriendInvitePending />
           </div>
         </div>
       </div>

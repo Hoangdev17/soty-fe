@@ -99,6 +99,32 @@ export interface User {
   updatedAt: Date;
 }
 
+export interface getRequestSentPayload {
+  id: string;
+  receiver: User;
+  receiverId: string;
+  sender: User;
+  senderId: string;
+  status: string;
+  createdAt: Date;
+}
+export interface FriendRequest {
+  id: string;
+  senderId: string;
+  receiverId: string;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+  sender: User;
+}
+export interface FriendPayload {
+  id: string;
+  friendId: string;
+  userId: string;
+  friend: User;
+  createdAt: Date;
+}
+
 export interface LoginResponse {
   token: string;
   user: User;

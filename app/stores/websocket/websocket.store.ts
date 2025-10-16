@@ -24,6 +24,11 @@ import { useChannelStore } from "../channels/channel.store";
 import { useCommunityStore } from "../community/community.store";
 import { useAuthStore } from "../auth/auth.store";
 import { toast } from "#build/ui";
+import type {
+  FriendRequest,
+  getRequestSentPayload,
+  User,
+} from "../auth/auth.type";
 
 export const useWebSocketStore = defineStore("websocket", {
   state: (): WebSocketState => ({
@@ -716,6 +721,19 @@ export const useWebSocketStore = defineStore("websocket", {
             }
           }
         );
+
+        this.connection.on("friend_request", (data: getRequestSentPayload) => {
+          try {
+            const authStore = useAuthStore();
+            const toast = useToast();
+            authStore.friendRequest?.push(data);
+
+            toast.add({
+              title: `${data.sender.username} đã gửi cho bạn lời mời kết bạn`,
+              color: "success",
+            });
+          } catch (e) {}
+        });
       } catch (error) {
         console.error("❌ Failed to create Socket.IO connection:", error);
       }

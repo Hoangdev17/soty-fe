@@ -1,5 +1,7 @@
 import type {
   Decorations,
+  FriendPayload,
+  getRequestSentPayload,
   getUserDecorationInterface,
   User,
 } from "./auth.type";
@@ -269,5 +271,126 @@ export const authActions = {
       console.error("Failed to fetch user decorations by user ID:", e);
       return null;
     }
+  },
+
+  async getUserFriendList() {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const authStore = useAuthStore();
+
+    const friendList = await fetchWithAuth<FriendPayload[]>("/users/friends", {
+      method: "GET",
+    });
+
+    authStore.friends = friendList.map((a) => a.friend);
+
+    return friendList;
+  },
+
+  async getUserFriendRequestList() {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const authStore = useAuthStore();
+
+    const requestList = await fetchWithAuth<getRequestSentPayload[]>(
+      "/users/friends/requests",
+      {
+        method: "GET",
+      }
+    );
+
+    authStore.friendRequest = requestList;
+
+    return requestList;
+  },
+
+  async getUserFriendRequestListSent() {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const authStore = useAuthStore();
+
+    const requestList = await fetchWithAuth<getRequestSentPayload[]>(
+      "/users/friends/requests/me",
+      {
+        method: "GET",
+      }
+    );
+
+    authStore.friendRequestSent = requestList;
+  },
+
+  async sendFriendRequest(receiverId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+
+    const res = await fetchWithAuth("/users/friends/requests", {
+      method: "POST",
+      body: JSON.stringify({
+        receiverId,
+      }),
+    });
+
+    return res;
+  },
+
+  async acceptFriendRequest(requestId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const authStore = useAuthStore();
+
+    const res = await fetchWithAuth(`/users/friends/request/${requestId}`, {
+      method: "PATCH",
+    });
+
+    authStore.friendRequest =
+      authStore.friendRequest?.filter((a) => a.id !== requestId) ?? [];
+
+    authStore.friendRequestSent =
+      authStore.friendRequestSent?.filter((a) => a.id !== requestId) ?? [];
+
+    return res;
+  },
+
+  async rejectFriendRequest(requestId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const authStore = useAuthStore();
+
+    const res = await fetchWithAuth(
+      `/users/friends/request/${requestId}/reject`,
+      {
+        method: "PATCH",
+      }
+    );
+
+    authStore.friendRequest =
+      authStore.friendRequest?.filter((a) => a.id !== requestId) ?? [];
+
+    authStore.friendRequestSent =
+      authStore.friendRequestSent?.filter((a) => a.id !== requestId) ?? [];
+
+    return res;
+  },
+
+  async deleteFriend(friendId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const authStore = useAuthStore();
+
+    const res = await fetchWithAuth(`/users/friends/${friendId}`, {
+      method: "DELETE",
+    });
+
+    authStore.friends =
+      authStore.friends?.filter((a) => a.id !== friendId) ?? [];
+
+    return res;
+  },
+
+  async removeFriendRequest(requestId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const authStore = useAuthStore();
+
+    const res = await fetchWithAuth(`/users/friends/request/${requestId}`, {
+      method: "DELETE",
+    });
+
+    authStore.friendRequestSent =
+      authStore.friendRequestSent?.filter((a) => a.id !== requestId) ?? [];
+
+    return res;
   },
 };

@@ -1,5 +1,5 @@
 import { defineStore } from "pinia";
-import type { Decorations, User } from "./auth.type";
+import type { Decorations, getRequestSentPayload, User } from "./auth.type";
 import { authActions } from "./auth.action";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
 import { initializeSocketIO } from "~/stores/websocket/websocket.action";
@@ -12,6 +12,9 @@ export const useAuthStore = defineStore("auth", {
     userDecoration: [] as Decorations[],
     profileDecoration: [] as Decorations[],
     nameTagDecoration: [] as Decorations[],
+    friends: [] as User[] | null,
+    friendRequest: [] as getRequestSentPayload[] | null,
+    friendRequestSent: [] as getRequestSentPayload[] | null,
     isAuthenticated: false,
     isInitialized: false,
     isLoading: false,
