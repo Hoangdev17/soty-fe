@@ -14,7 +14,7 @@ export type Premium = {
   expiresAt: Date | null;
 };
 
-enum PresenceStatus {
+export enum PresenceStatus {
   ONLINE = "ONLINE",
   OFFLINE = "OFFLINE",
   IDLE = "IDLE",

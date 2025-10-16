@@ -66,16 +66,13 @@ onMounted(async () => {
           authStore.userInfo.nameplateId
         );
       }
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 });
 
-const onClickMute = () => {
-};
+const onClickMute = () => {};
 
-const onClickDeafen = () => {
-};
+const onClickDeafen = () => {};
 
 const onClickSettings = () => {
   if (user.value?.username) {
@@ -151,7 +148,10 @@ const onClickSettings = () => {
         <h3 class="font-semibold text-sm text-white drop-shadow-lg">
           {{ user?.username }}
         </h3>
-        <p class="text-xs text-gray-300">Offline</p>
+        <UBadge v-if="user.presence?.status === `ONLINE`" variant="soft">
+          Online
+        </UBadge>
+        <UBadge v-else color="neutral" variant="soft">Offline</UBadge>
       </div>
     </div>
 
