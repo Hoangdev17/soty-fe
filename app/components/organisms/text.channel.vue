@@ -661,10 +661,19 @@ const getMemberStatus = (member: any) => {
                     class="flex items-center gap-3 p-2 rounded-md hover:bg-dark-700 transition-colors"
                   >
                     <UAvatar
+                      v-if="member.user.presence.status === `ONLINE`"
                       :src="member.user?.avatar"
                       :alt="member.nickname || member.user?.username"
                       size="md"
                       :chip="{ color: 'success', position: 'bottom-right' }"
+                      class="flex-shrink-0"
+                    />
+                    <UAvatar
+                      v-else
+                      :src="member.user?.avatar"
+                      :alt="member.nickname || member.user?.username"
+                      size="md"
+                      :chip="{ color: 'error', position: 'bottom-right' }"
                       class="flex-shrink-0"
                     />
                     <div class="flex-1 min-w-0">

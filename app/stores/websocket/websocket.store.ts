@@ -24,10 +24,11 @@ import { useChannelStore } from "../channels/channel.store";
 import { useCommunityStore } from "../community/community.store";
 import { useAuthStore } from "../auth/auth.store";
 import { toast } from "#build/ui";
-import type {
-  FriendRequest,
-  getRequestSentPayload,
-  User,
+import {
+  PresenceStatus,
+  type FriendRequest,
+  type getRequestSentPayload,
+  type User,
 } from "../auth/auth.type";
 
 export const useWebSocketStore = defineStore("websocket", {
@@ -141,7 +142,7 @@ export const useWebSocketStore = defineStore("websocket", {
 
                 this.connect(url, token);
               }
-            }, 1000 * this.reconnectAttempts); // Exponential backoff
+            }, 1000 * this.reconnectAttempts);
           }
         });
 
@@ -721,6 +722,105 @@ export const useWebSocketStore = defineStore("websocket", {
             });
           } catch (e) {}
         });
+
+        this.connection.on("presence_online_friend", async (userId: string) => {
+          const authStore = useAuthStore();
+          const { friends } = storeToRefs(authStore);
+
+          if (!friends.value) return;
+
+          const index = friends.value.findIndex((a) => a.id === userId);
+          const user = friends.value[index];
+          if (!user || !user.id) return;
+
+          friends.value[index] = {
+            ...user,
+            presence: {
+              status: PresenceStatus.ONLINE,
+              customText: "",
+              activities: [],
+              lastUpdated: new Date(),
+            },
+          };
+        });
+
+        this.connection.on("online", (data: any) => {
+          const authStore = useAuthStore();
+
+          if (!authStore.user) return;
+
+          authStore.user.presence = {
+            ...authStore.user.presence,
+            status: PresenceStatus.ONLINE,
+            customText: data.customText ?? "",
+            activities: data.activities ?? [],
+            lastUpdated: new Date(),
+          };
+        });
+
+        this.connection.on(
+          "presence_offline_friend",
+          async (userId: string) => {
+            const authStore = useAuthStore();
+            const { friends } = storeToRefs(authStore);
+
+            if (!friends.value) return;
+
+            const index = friends.value.findIndex((a) => a.id === userId);
+            const user = friends.value[index];
+            if (!user || !user.id) return;
+
+            friends.value[index] = {
+              ...user,
+              presence: {
+                status: PresenceStatus.OFFLINE,
+                customText: "",
+                activities: [],
+                lastUpdated: new Date(),
+              },
+            };
+          }
+        );
+
+        this.connection.on("presence_online_community", (userId: string) => {
+          const memberStore = useMemberStore();
+          const { members } = storeToRefs(memberStore);
+
+          if (!members.value) return;
+
+          const allMembers = Object.values(members.value).flat();
+
+          const member = allMembers.find((m) => m.user?.id === userId);
+          if (!member || !member.user) return;
+
+          // update presence
+          member.user.presence = {
+            status: PresenceStatus.ONLINE,
+            customText: "",
+            activities: [],
+            lastUpdated: new Date(),
+          };
+        });
+
+        this.connection.on("presence_offline_community", (userId: string) => {
+          const memberStore = useMemberStore();
+          const { members } = storeToRefs(memberStore);
+
+          if (!members.value) return;
+
+          const allMembers = Object.values(members.value).flat();
+
+          const member = allMembers.find((m) => m.user?.id === userId);
+          if (!member || !member.user) return;
+
+          // update presence
+          member.user.presence = {
+            status: PresenceStatus.OFFLINE,
+            customText: "",
+            activities: [],
+            lastUpdated: new Date(),
+          };
+        });
       } catch (error) {}
     },
 
@@ -772,7 +872,6 @@ export const useWebSocketStore = defineStore("websocket", {
       if (this.connection && this.isConnected) {
         this.connection.emit("get_members", { communityId });
       } else {
-       
       }
     },
     //create channel
@@ -780,7 +879,6 @@ export const useWebSocketStore = defineStore("websocket", {
       if (this.connection && this.isConnected) {
         this.connection.emit("create_channel", data);
       } else {
-       
       }
     },
 
@@ -793,7 +891,6 @@ export const useWebSocketStore = defineStore("websocket", {
           this.ensureRoomJoined(room, maxRetries - 1);
         }, 1000);
       } else {
-       
       }
     },
 
@@ -905,7 +1002,6 @@ export const useWebSocketStore = defineStore("websocket", {
 
         return response.totalUnreadCount;
       } catch (error) {
-        
         // Fallback to local state
         return this.getUnreadCountForCommunity(communityId);
       }
@@ -937,7 +1033,6 @@ export const useWebSocketStore = defineStore("websocket", {
 
         return response.unreadCount;
       } catch (error) {
-        
         // Fallback to local state
         return this.unreadByChannel[channelId]?.size || 0;
       }
@@ -959,7 +1054,6 @@ export const useWebSocketStore = defineStore("websocket", {
             );
             return { communityId, count };
           } catch (error) {
-            
             return { communityId, count: 0 };
           }
         });
@@ -967,8 +1061,7 @@ export const useWebSocketStore = defineStore("websocket", {
         await Promise.all(promises);
 
         this.isUnreadInitialized = true;
-      } catch (error) {
-      }
+      } catch (error) {}
     },
 
     // Clear cache khi cần fresh data
@@ -1038,8 +1131,7 @@ export const useWebSocketStore = defineStore("websocket", {
           `unreadMessages_${channelId}`,
           JSON.stringify(unreadArray)
         );
-      } catch (error) {
-      }
+      } catch (error) {}
     },
 
     loadUnreadFromStorage(channelId: string): Set<string> {
@@ -1051,8 +1143,7 @@ export const useWebSocketStore = defineStore("websocket", {
 
           return new Set(unreadArray);
         }
-      } catch (error) {
-      }
+      } catch (error) {}
       return new Set();
     },
 
@@ -1060,8 +1151,7 @@ export const useWebSocketStore = defineStore("websocket", {
       if (!channelId) return;
       try {
         localStorage.removeItem(`unreadMessages_${channelId}`);
-      } catch (error) {
-      }
+      } catch (error) {}
     },
 
     // Restore unread state from localStorage
@@ -1081,8 +1171,7 @@ export const useWebSocketStore = defineStore("websocket", {
             }
           }
         }
-      } catch (error) {
-      }
+      } catch (error) {}
 
       this.isUnreadStateRestored = true;
     },
@@ -1124,8 +1213,7 @@ export const useWebSocketStore = defineStore("websocket", {
           `lastReadTime_${validId}`,
           new Date().toISOString()
         );
-      } catch (e) {
-      }
+      } catch (e) {}
 
       // Prioritize WebSocket for real-time updates (faster and more efficient)
       const roomName =

@@ -61,10 +61,12 @@ async function handleGoToDmMessage(id: string) {
         />
         <div class="flex flex-col ml-3">
           <span class="text-md font-medium">{{ friend.username }}</span>
-          <span v-if="friend.presence" class="text-sm text-gray-600">
-            {{ friend.presence }}
+          <span v-if="friend.presence?.status === `ONLINE`">
+            <UBadge variant="soft">Online</UBadge>
           </span>
-          <span v-else><UBadge variant="soft">Offline</UBadge></span>
+          <span v-else>
+            <UBadge color="neutral" variant="soft">Offline</UBadge>
+          </span>
         </div>
       </div>
 

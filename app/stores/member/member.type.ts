@@ -1,3 +1,5 @@
+import type { Presence } from "../auth/auth.type";
+
 export interface Member {
   id: string;
   userId: string;
@@ -35,6 +37,7 @@ export interface Member {
     username: string;
     avatar?: string;
     globalName?: string;
+    presence: Presence | null;
   };
   guild?: {
     id: string;
