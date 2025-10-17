@@ -96,6 +96,9 @@ const getContextMenuItems = (message: any): ContextMenuItem[][] => {
   ];
 };
 
+const isOpenProfileModal = ref(false);
+const userProfileId = ref("");
+
 const getContextMenuUserItems = (message: any): ContextMenuItem[][] => {
   if (isMe(message.author.id)) {
     return [
@@ -103,6 +106,10 @@ const getContextMenuUserItems = (message: any): ContextMenuItem[][] => {
         {
           label: "Hồ sơ",
           icon: "i-lucide-user",
+          onSelect(e) {
+            isOpenProfileModal.value = true;
+            userProfileId.value = message.author.id;
+          },
         },
       ],
     ];
@@ -113,6 +120,10 @@ const getContextMenuUserItems = (message: any): ContextMenuItem[][] => {
       {
         label: "Hồ sơ",
         icon: "i-lucide-user",
+        onSelect(e) {
+          isOpenProfileModal.value = true;
+          userProfileId.value = message.author.id;
+        },
       },
       ...(!isFriend(message.author.id)
         ? [
@@ -472,6 +483,12 @@ const isReplyMessage = (message: any) => {
       </div>
     </template>
   </UModal>
+
+  <OrganismsProfileModal
+    v-model:open="isOpenProfileModal"
+    :user-id="userProfileId"
+    :key="userProfileId"
+  />
 </template>
 
 <style scoped>
