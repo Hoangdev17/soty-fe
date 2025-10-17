@@ -405,4 +405,14 @@ export const authActions = {
 
     return res;
   },
+
+  async fetchUserById(userId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+
+    const res = await fetchWithAuth<User>(`/users/findById?userId=${userId}`, {
+      method: "GET",
+    });
+
+    return res;
+  },
 };

@@ -26,6 +26,7 @@ interface Props {
 
 const props = defineProps<Props>();
 const channelStore = useChannelStore();
+const userProfileId = ref("");
 const toast = useToast();
 
 const handleCreateDM = async (userId: string) => {
@@ -39,6 +40,8 @@ const handleAddFriend = async (receiverId: string) => {
   const res = await authStore.sendFriendRequest(receiverId);
 };
 
+const isOpenProfileModal = ref(false);
+
 const getContextMenuUserItems = (member: any): ContextMenuItem[][] => {
   if (isMe(member.user.id)) {
     return [
@@ -46,6 +49,10 @@ const getContextMenuUserItems = (member: any): ContextMenuItem[][] => {
         {
           label: "Hồ sơ",
           icon: "i-lucide-user",
+          onSelect(e) {
+            isOpenProfileModal.value = true;
+            userProfileId.value = member.user.id;
+          },
         },
       ],
     ];
@@ -56,6 +63,10 @@ const getContextMenuUserItems = (member: any): ContextMenuItem[][] => {
       {
         label: "Hồ sơ",
         icon: "i-lucide-user",
+        onSelect(e) {
+          isOpenProfileModal.value = true;
+          userProfileId.value = member.user.id;
+        },
       },
       ...(!isFriend(member.user.id)
         ? [
@@ -443,16 +454,6 @@ const rolesWithMembers = computed(() => {
     return b.position - a.position;
   });
 });
-
-// Computed property to get member status
-const getMemberStatus = (member: any) => {
-  // You can customize this based on your member data structure
-  // For now, return a default online status
-  return {
-    color: "success" as const,
-    text: "●",
-  };
-};
 </script>
 
 <template>
@@ -719,6 +720,12 @@ const getMemberStatus = (member: any) => {
     :starterMessageContent="selectedMessageForThread?.content"
     @close="handleCloseCreateThread"
     @threadCreated="handleThreadCreated"
+  />
+
+  <OrganismsProfileModal
+    v-model:open="isOpenProfileModal"
+    :user-id="userProfileId"
+    :key="userProfileId"
   />
 </template>
 
