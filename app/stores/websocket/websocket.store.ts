@@ -30,6 +30,8 @@ import {
   type getRequestSentPayload,
   type User,
 } from "../auth/auth.type";
+import type { FeedComment, FeedLike } from "../newfeed/newfeed.type";
+import { useNewFeedStore } from "../newfeed/newfeed.store";
 
 export const useWebSocketStore = defineStore("websocket", {
   state: (): WebSocketState => ({
@@ -820,6 +822,81 @@ export const useWebSocketStore = defineStore("websocket", {
             activities: [],
             lastUpdated: new Date(),
           };
+        });
+
+        this.connection.on("like_post", (res: FeedLike) => {
+          const newFeedStore = useNewFeedStore();
+          const authStore = useAuthStore();
+          const { user } = storeToRefs(authStore);
+
+          if (res.user.id !== user.value?.id) {
+            newFeedStore.postLike.push(res);
+            const post = newFeedStore.post.find((a) => a.id === res.postId);
+            if (post) {
+              post.likeCount++;
+              post.FeedLike.push(res);
+            }
+
+            if (
+              newFeedStore.currentPost &&
+              newFeedStore.currentPost.id === res.postId
+            ) {
+              newFeedStore.currentPost.likeCount++;
+              newFeedStore.currentPost.FeedLike.push(res);
+            }
+          }
+        });
+
+        this.connection.on("unlike_post", (res: FeedLike) => {
+          const newFeedStore = useNewFeedStore();
+          const authStore = useAuthStore();
+          const { user } = storeToRefs(authStore);
+
+          if (res.authorId !== user.value?.id) {
+            newFeedStore.postLike = newFeedStore.postLike.filter(
+              (a) => a.user.id !== res.authorId
+            );
+            const post = newFeedStore.post.find((a) => a.id === res.postId);
+            if (post) {
+              post.likeCount--;
+              post.FeedLike = post.FeedLike.filter(
+                (a) => a.user.id !== res.authorId
+              );
+            }
+
+            if (
+              newFeedStore.currentPost &&
+              newFeedStore.currentPost.id === res.postId
+            ) {
+              newFeedStore.currentPost.likeCount--;
+              newFeedStore.currentPost.FeedLike =
+                newFeedStore.currentPost.FeedLike.filter(
+                  (a) => a.user.id !== res.authorId
+                );
+            }
+          }
+        });
+
+        this.connection.on("add_comment", (res: FeedComment) => {
+          const newFeedStore = useNewFeedStore();
+          const authStore = useAuthStore();
+          const { user } = storeToRefs(authStore);
+
+          if (res.user.id !== user.value?.id) {
+            const post = newFeedStore.post.find((a) => a.id === res.postId);
+            if (post) {
+              post.FeedComment.push(res);
+              post.commentCount++;
+            }
+
+            if (
+              newFeedStore.currentPost &&
+              newFeedStore.currentPost.id === res.postId
+            ) {
+              newFeedStore.currentPost.FeedComment.push(res);
+              newFeedStore.currentPost.commentCount++;
+            }
+          }
         });
       } catch (error) {}
     },

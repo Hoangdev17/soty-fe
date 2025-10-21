@@ -185,6 +185,8 @@ export const authActions = {
       });
 
       store.profileDecoration.push(single);
+
+      return single;
     } catch (e) {}
   },
 
