@@ -42,6 +42,17 @@ function handleOpenModalEvent() {
 const itemsNavigates = computed<NavigationMenuItem[][]>(() => [
   [
     {
+      label: "New feed",
+      icon: "i-lucide-newspaper",
+      to:
+        "/community/@" +
+        currentCommunity.value?.name +
+        "-" +
+        currentCommunity.value?.id +
+        "/newfeed",
+      disabled: false,
+    },
+    {
       label: "Sự kiện",
       icon: "i-lucide-users",
       disabled: !communityStore.currentCommunity || !isMember.value,

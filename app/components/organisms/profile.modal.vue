@@ -44,8 +44,13 @@ async function fetchUser() {
     (p) => p.id === user.value?.profileEffectId
   );
 
+  if (!profileEffect) {
+    const profile = await authStore.fetchProfileDecorationById(
+      res.profileEffectId!
+    );
+    if (profile) profileEffectUser.value = profile;
+  }
   if (profileEffect) profileEffectUser.value = profileEffect;
-  console.log("profile", profileEffectUser.value);
 }
 
 watch(
