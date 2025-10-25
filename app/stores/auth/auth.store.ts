@@ -29,7 +29,6 @@ export const useAuthStore = defineStore("auth", {
   actions: {
     ...authActions,
 
-    // Khởi tạo auth state từ localStorage (Fast mode) - Tối ưu performance
     async initializeAuth() {
       if (this.isInitialized) {
         return;
@@ -51,13 +50,6 @@ export const useAuthStore = defineStore("auth", {
             const userData = JSON.parse(userDataString);
             this.user = userData;
             this.token = token;
-
-            // ⚡ TỐI ƯU: Chỉ verify token sau 5 phút hoặc khi cần thiết
-            const lastVerified = localStorage.getItem("lastTokenVerify");
-            const now = Date.now();
-            if (!lastVerified || now - parseInt(lastVerified) > 5 * 60 * 1000) {
-              this.verifyTokenInBackground();
-            }
           } catch (e) {
             localStorage.removeItem("userData");
             localStorage.removeItem("accessToken");
@@ -80,79 +72,6 @@ export const useAuthStore = defineStore("auth", {
       }
     },
 
-    // Check if token is expired
-    isTokenExpired(token: string | null): boolean {
-      if (!token) return true;
-
-      try {
-        // JWT has 3 parts separated by '.'
-        const parts = token.split(".");
-        if (parts.length !== 3 || !parts[1]) return true;
-
-        // Decode payload (second part)
-        const payload = JSON.parse(atob(parts[1]));
-        const currentTime = Math.floor(Date.now() / 1000);
-
-        // Check if token has exp claim and if it's expired
-        return payload.exp && payload.exp < currentTime;
-      } catch (error) {
-        return true;
-      }
-    },
-
-    // Verify token trong background
-    async verifyTokenInBackground() {
-      // Check if token is expired before making request
-      if (this.isTokenExpired(this.token)) {
-        const refreshToken = localStorage.getItem("refreshToken");
-        if (refreshToken) {
-          try {
-            const { fetchWithAuth } = useFetchWithAuth();
-            // This will trigger the refresh logic in useFetchWithAuth
-            await fetchWithAuth<User>("/auth/me");
-            return;
-          } catch (refreshError) {
-            await this.logout();
-            return;
-          }
-        } else {
-          await this.logout();
-          return;
-        }
-      }
-
-      try {
-        const { fetchWithAuth } = useFetchWithAuth();
-        const user = await fetchWithAuth<User>("/auth/me", {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${this.token}`,
-          },
-        });
-
-        // Update user nếu có thay đổi
-        if (JSON.stringify(user) !== JSON.stringify(this.user)) {
-          this.user = user;
-          localStorage.setItem("userData", JSON.stringify(user));
-        }
-      } catch (error) {
-        // Try to refresh token first
-        const refreshToken = localStorage.getItem("refreshToken");
-        if (refreshToken) {
-          try {
-            const { fetchWithAuth } = useFetchWithAuth();
-            // This will trigger the refresh logic in useFetchWithAuth
-            await fetchWithAuth<User>("/auth/me");
-
-            return;
-          } catch (refreshError) {}
-        }
-
-        // If refresh failed or no refresh token, logout
-        await this.logout();
-      }
-    },
-
     // Verify token immediately (blocking)
     async verifyToken(token: string) {
       const { fetchWithAuth } = useFetchWithAuth();
@@ -166,7 +85,6 @@ export const useAuthStore = defineStore("auth", {
       this.user = user;
       this.token = token;
 
-      // Cache user data
       localStorage.setItem("userData", JSON.stringify(user));
     },
 
