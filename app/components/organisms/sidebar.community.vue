@@ -78,6 +78,24 @@ const itemsNavigates = computed<NavigationMenuItem[][]>(() => [
       to: "/community/introduce/" + currentCommunity.value?.id,
       disabled: false,
     },
+    {
+      label: "Project",
+      icon: "i-lucide-book",
+      to:
+        "/community/@" +
+        currentCommunity.value?.name +
+        "-" +
+        currentCommunity.value?.id +
+        "/project",
+      active: route.path.startsWith(
+        "/community/@" +
+          currentCommunity.value?.name +
+          "-" +
+          currentCommunity.value?.id +
+          "/project"
+      ),
+      disabled: false,
+    },
   ],
 ]);
 

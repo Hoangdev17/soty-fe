@@ -28,7 +28,7 @@ export interface Community {
       globalName: string;
       avatar?: string;
     };
-  };
+  }[];
 
   // Các field mới từ BE
   available: boolean;
