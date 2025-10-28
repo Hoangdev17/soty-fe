@@ -48,8 +48,7 @@ const sendReadReceiptForThread = async () => {
   if (props.threadId && messageIdToSend) {
     try {
       await wsStore.sendReadReceipt(props.threadId, messageIdToSend);
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 };
 
@@ -62,9 +61,7 @@ const handleScrolledToBottom = async () => {
     if (messageIdToSend) {
       try {
         await wsStore.sendReadReceipt(props.threadId, messageIdToSend);
-      } catch (error) {
-       
-      }
+      } catch (error) {}
     }
   }
 };
@@ -87,9 +84,7 @@ watch(
         if (messageIdToSend) {
           try {
             await wsStore.sendReadReceipt(newThreadId, messageIdToSend);
-          } catch (error) {
-            
-          }
+          } catch (error) {}
         }
       }
     }
@@ -185,6 +180,7 @@ const handleReplyCancelled = () => {
         <MoleculesMessageInput
           :channelId="threadId"
           :replyTo="replyToMessage!"
+          :mentionAuthor="true"
           @reply-sent="handleReplySent"
           @reply-cancelled="handleReplyCancelled"
         />

@@ -274,9 +274,39 @@ const parseMessageContent = (content: string, replyTo?: any) => {
   });
 };
 
+// Helper function to highlight mentions in message content
+const highlightMentions = (content: string) => {
+  if (!content) return content;
+
+  // Regex to match @username pattern
+  const mentionRegex = /@(\w+)/g;
+
+  return content.replace(
+    mentionRegex,
+    '<span class="mention-highlight">@$1</span>'
+  );
+};
+
 // Helper function to check if message type indicates a reply
 const isReplyMessage = (message: any) => {
   return message.type === 19 || message.type === "reply" || message.replyTo;
+};
+
+const parseLinkMessage = (content: string) => {
+  if (!content) return "";
+
+  // Tìm tất cả link trong nội dung và wrap thẻ <a>
+  const urlRegex = /(https?:\/\/[^\s]+)/g;
+  let safeHtml = content.replace(
+    urlRegex,
+    (url) =>
+      `<a href="${url}" target="_blank" class="text-blue-400 underline hover:text-blue-300">${url}</a>`
+  );
+
+  // Highlight mentions
+  safeHtml = highlightMentions(safeHtml);
+
+  return safeHtml;
 };
 </script>
 
@@ -338,7 +368,16 @@ const isReplyMessage = (message: any) => {
               />
             </template>
             <template v-else>
-              {{ message.replyTo.content }}
+              <div
+                v-html="
+                  highlightMentions(
+                    parseMessageContent(
+                      message.replyTo.content,
+                      message.replyTo
+                    )
+                  )
+                "
+              ></div>
             </template>
           </div>
         </div>
@@ -412,7 +451,13 @@ const isReplyMessage = (message: any) => {
                 />
               </template>
               <template v-else>
-                {{ parseMessageContent(message.content, message.replyTo) }}
+                <div
+                  v-html="
+                    parseLinkMessage(
+                      parseMessageContent(message.content, message.replyTo)
+                    )
+                  "
+                ></div>
               </template>
             </div>
           </div>
@@ -504,6 +549,21 @@ const isReplyMessage = (message: any) => {
   /* Allow long messages to wrap and preserve newlines */
   white-space: pre-wrap;
   word-break: break-word;
+}
+
+/* Mention highlight styling */
+:deep(.mention-highlight) {
+  background-color: rgba(88, 101, 242, 0.3);
+  color: #5865f2;
+  border-radius: 3px;
+  padding: 2px 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+:deep(.mention-highlight):hover {
+  background-color: rgba(88, 101, 242, 0.5);
 }
 
 /* Regular message image sizing */

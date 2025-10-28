@@ -569,6 +569,7 @@ const rolesWithMembers = computed(() => {
           <MoleculesMessageInput
             :channelId="channelId"
             :replyTo="replyToMessage!"
+            :mentionAuthor="true"
             @reply-sent="handleReplySent"
             @reply-cancelled="handleReplyCancelled"
             @user-active="handleUserActive"

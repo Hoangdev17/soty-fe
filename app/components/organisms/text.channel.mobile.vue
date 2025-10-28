@@ -69,8 +69,7 @@ const refreshMembers = async () => {
   if (currentGuildId) {
     try {
       await memberStore.fetchMembersViaWebSocket(currentGuildId);
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 };
 
@@ -146,8 +145,7 @@ const sendReadReceiptForChannel = async () => {
   if (props.channelId && messageIdToSend) {
     try {
       await wsStore.sendReadReceipt(props.channelId, messageIdToSend);
-    } catch (error) {
-    }
+    } catch (error) {}
   }
 };
 
@@ -171,9 +169,7 @@ const handleScrolledToBottom = async () => {
     if (messageIdToSend) {
       try {
         await wsStore.sendReadReceipt(props.channelId, messageIdToSend);
-      } catch (error) {
-       
-      }
+      } catch (error) {}
     }
   }
 };
@@ -191,9 +187,7 @@ watch(
       if (messageIdToSend) {
         try {
           await wsStore.sendReadReceipt(newId, messageIdToSend);
-        } catch (error) {
-        
-        }
+        } catch (error) {}
       }
     }
   },
@@ -497,6 +491,7 @@ const getMemberStatus = (member: any) => {
       <MoleculesMessageInput
         :channelId="channelId"
         :replyTo="replyToMessage!"
+        :mentionAuthor="true"
         @reply-sent="handleReplySent"
         @reply-cancelled="handleReplyCancelled"
         @user-active="handleUserActive"

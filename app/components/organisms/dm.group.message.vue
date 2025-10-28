@@ -24,17 +24,10 @@ const { currentChannel } = storeToRefs(channelStore);
 
 // Get the other user in the DM (not the current user)
 const dmRecipient = computed(() => {
-  if (!currentChannel.value?.recipients) return null;
+  const recipients = currentChannel.value?.recipients;
+  if (!recipients?.length) return null;
 
-  if (Array.isArray(currentChannel.value.recipients)) {
-    return currentChannel.value.recipients.find(
-      (recipient) => recipient.id !== authStore.user?.id
-    );
-  }
-
-  return currentChannel.value.recipients.id !== authStore.user?.id
-    ? currentChannel.value.recipients
-    : null;
+  return recipients.find((r) => r.id !== authStore.user?.id) || null;
 });
 
 const hasMessages = computed(() => {
@@ -97,7 +90,7 @@ onMounted(async () => {
       >
         <div class="flex items-center space-x-3">
           <UAvatar
-            :src="dmRecipient?.avatar"
+            :src="dmRecipient?.avatar!"
             :alt="dmRecipient?.username || 'User'"
             size="sm"
             class="flex-shrink-0"
@@ -112,7 +105,7 @@ onMounted(async () => {
         <div class="ml-auto flex items-center space-x-3">
           <UButton
             class="p-1 text-[#b9bbbe] hover:text-white"
-            color="transparent"
+            variant="ghost"
             @click="toggleUserProfile"
           >
             <UIcon name="i-lucide-user" class="w-5 h-5" />
@@ -130,7 +123,7 @@ onMounted(async () => {
         >
           <div class="flex items-center mb-4">
             <UAvatar
-              :src="dmRecipient?.avatar"
+              :src="dmRecipient?.avatar!"
               :alt="dmRecipient?.username || 'User'"
               size="lg"
               class="mr-3"
@@ -165,7 +158,7 @@ onMounted(async () => {
         >
           <MoleculesMessageInput
             :channelId="channelId"
-            :replyTo="replyToMessage"
+            :replyTo="replyToMessage!"
             @reply-sent="handleReplySent"
             @reply-cancelled="handleReplyCancelled"
           />
@@ -186,7 +179,7 @@ onMounted(async () => {
           </h3>
           <UButton
             @click="closeUserProfile"
-            color="transparent"
+            variant="ghost"
             class="text-[#b9bbbe] hover:text-white p-1"
           >
             <UIcon name="i-lucide-x" class="w-5 h-5" />
@@ -200,7 +193,7 @@ onMounted(async () => {
             class="flex flex-col items-center text-center p-4 bg-dark-700 rounded-lg"
           >
             <UAvatar
-              :src="dmRecipient?.avatar"
+              :src="dmRecipient?.avatar!"
               :alt="dmRecipient?.username"
               size="xl"
               class="mb-3"
@@ -229,7 +222,7 @@ onMounted(async () => {
             >
               Add Friend
             </UButton>
-            <UButton color="red" variant="soft" block icon="i-lucide-user-x">
+            <UButton color="error" variant="soft" block icon="i-lucide-user-x">
               Block User
             </UButton>
           </div>

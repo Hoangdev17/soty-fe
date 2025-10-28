@@ -77,7 +77,7 @@ const emit = defineEmits<{
         </div>
         <UButton
           size="sm"
-          color="gray"
+          color="neutral"
           variant="ghost"
           @click="$emit('close')"
           class="p-1"
@@ -114,7 +114,16 @@ const emit = defineEmits<{
     <div class="thread-input mb-2">
       <MoleculesMessageInput
         :channelId="threadId"
-        :replyTo="replyToMessage"
+        :replyTo="
+          replyToMessage && replyToMessage.author
+            ? {
+                id: replyToMessage.id,
+                content: replyToMessage.content,
+                author: replyToMessage.author,
+              }
+            : undefined
+        "
+        :mentionAuthor="true"
         @reply-sent="handleReplySent"
         @reply-cancelled="handleReplyCancelled"
       />

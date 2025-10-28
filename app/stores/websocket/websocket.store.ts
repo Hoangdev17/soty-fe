@@ -356,7 +356,6 @@ export const useWebSocketStore = defineStore("websocket", {
           const toast = useToast();
           const channelStore = useChannelStore();
 
-          // Add channel to all clients' channel list
           channelStore.channels.push(data.channel);
         });
 
@@ -992,7 +991,6 @@ export const useWebSocketStore = defineStore("websocket", {
       if (timestamp) {
         this.messageTimestamps[String(messageId)] = timestamp;
       }
-      this.saveUnreadToStorage(channelId);
 
       // Clear community cache to trigger refresh when new message added
       if (communityId) {
@@ -1053,65 +1051,31 @@ export const useWebSocketStore = defineStore("websocket", {
 
     // Fetch unread count từ API cho community với cache
     async fetchCommunityUnreadCount(communityId: string, forceRefresh = false) {
-      const cacheKey = communityId;
-      const now = Date.now();
-      const cacheExpiry = 30000; // 30 seconds cache
-
-      // Check cache first unless force refresh
-      if (!forceRefresh && this.unreadCacheByCommunity[cacheKey]) {
-        const cache = this.unreadCacheByCommunity[cacheKey];
-        if (now - cache.lastFetched < cacheExpiry) {
-          return cache.count;
-        }
-      }
-
+      // Always fetch from backend, ignore cache
       try {
         const { getCommunityUnreadCount } = await import(
           "../message/message.action"
         );
         const response = await getCommunityUnreadCount(communityId);
 
-        // Update cache
-        this.unreadCacheByCommunity[cacheKey] = {
-          count: response.totalUnreadCount,
-          lastFetched: now,
-        };
-
         return response.totalUnreadCount;
       } catch (error) {
-        // Fallback to local state
-        return this.getUnreadCountForCommunity(communityId);
+        // Return 0 on error instead of fallback to local state
+        return 0;
       }
     },
 
     // Fetch unread count từ API cho channel với cache
     async fetchChannelUnreadCount(channelId: string, forceRefresh = false) {
-      const cacheKey = channelId;
-      const now = Date.now();
-      const cacheExpiry = 30000; // 30 seconds cache
-
-      // Check cache first unless force refresh
-      if (!forceRefresh && this.unreadCacheByChannel[cacheKey]) {
-        const cache = this.unreadCacheByChannel[cacheKey];
-        if (now - cache.lastFetched < cacheExpiry) {
-          return cache.count;
-        }
-      }
-
+      // Always fetch from backend, ignore cache
       try {
         const { getUnreadCount } = await import("../message/message.action");
         const response = await getUnreadCount(channelId);
 
-        // Update cache
-        this.unreadCacheByChannel[cacheKey] = {
-          count: response.unreadCount,
-          lastFetched: now,
-        };
-
         return response.unreadCount;
       } catch (error) {
-        // Fallback to local state
-        return this.unreadByChannel[channelId]?.size || 0;
+        // Return 0 on error instead of fallback to local state
+        return 0;
       }
     },
 
@@ -1170,61 +1134,18 @@ export const useWebSocketStore = defineStore("websocket", {
     syncUnreadCountsFromAPI(
       channelUnreadData: Array<{ channelId: string; unreadCount: number }>
     ) {
-      channelUnreadData.forEach(({ channelId, unreadCount }) => {
-        if (unreadCount > 0) {
-          // If we don't have local unread data, create placeholder unread messages
-          if (
-            !this.unreadByChannel[channelId] ||
-            this.unreadByChannel[channelId].size !== unreadCount
-          ) {
-            // Create a Set with placeholder message IDs to match the unread count
-            const placeholderMessages = new Set<string>();
-            for (let i = 0; i < unreadCount; i++) {
-              placeholderMessages.add(`api_unread_${channelId}_${i}`);
-            }
-            this.unreadByChannel[channelId] = placeholderMessages;
-
-            // Save to storage
-            this.saveUnreadToStorage(channelId);
-          }
-        } else {
-          // Clear any local unread data if API says 0 unread
-          if (
-            this.unreadByChannel[channelId] &&
-            this.unreadByChannel[channelId].size > 0
-          ) {
-            this.clearUnread(channelId);
-          }
-        }
-      });
-    },
-
-    // LocalStorage methods for unread messages
-    saveUnreadToStorage(channelId: string) {
-      if (!channelId || !this.unreadByChannel[channelId]) return;
-      try {
-        const unreadArray = Array.from(this.unreadByChannel[channelId]);
-        localStorage.setItem(
-          `unreadMessages_${channelId}`,
-          JSON.stringify(unreadArray)
-        );
-      } catch (error) {}
+      // Disabled: Do not sync from API to local state
+      // Always fetch fresh data from backend when needed
+      return;
     },
 
     loadUnreadFromStorage(channelId: string): Set<string> {
-      if (!channelId) return new Set();
-      try {
-        const stored = localStorage.getItem(`unreadMessages_${channelId}`);
-        if (stored) {
-          const unreadArray = JSON.parse(stored);
-
-          return new Set(unreadArray);
-        }
-      } catch (error) {}
+      // Disabled: Do not load unread messages from localStorage
       return new Set();
     },
 
     clearUnreadFromStorage(channelId: string) {
+      // Still clear localStorage to clean up old data
       if (!channelId) return;
       try {
         localStorage.removeItem(`unreadMessages_${channelId}`);
@@ -1233,24 +1154,10 @@ export const useWebSocketStore = defineStore("websocket", {
 
     // Restore unread state from localStorage
     restoreUnreadState() {
-      if (this.isUnreadStateRestored) {
-        return;
-      }
-
-      try {
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && key.startsWith("unreadMessages_")) {
-            const channelId = key.replace("unreadMessages_", "");
-            const unreadSet = this.loadUnreadFromStorage(channelId);
-            if (unreadSet.size > 0) {
-              this.unreadByChannel[channelId] = unreadSet;
-            }
-          }
-        }
-      } catch (error) {}
-
+      // Disabled: Do not restore from localStorage
+      // Always fetch fresh data from backend
       this.isUnreadStateRestored = true;
+      return;
     },
 
     // Send read receipt with optimistic updates - prioritize socket over API for performance
