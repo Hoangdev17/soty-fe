@@ -1,5 +1,3 @@
-import type { Member } from "../member/member.type";
-
 export interface Permission {
   id: string;
   name: string;

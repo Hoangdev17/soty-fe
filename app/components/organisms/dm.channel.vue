@@ -3,7 +3,6 @@ import { ref } from "vue";
 import { useRoute } from "vue-router";
 import { useMemberStore } from "~/stores/member/member.store";
 import { useAuthStore } from "~/stores/auth/auth.store";
-import { useMessage } from "~/composables/useMessage";
 import type { Channel } from "~/stores/channels/channel.type";
 
 interface Props {
@@ -60,7 +59,7 @@ const recipient = getRecipient();
       >
         <div class="flex items-center space-x-2">
           <UAvatar
-            :src="recipient?.avatar"
+            :src="recipient?.avatar!"
             :alt="recipient?.username"
             size="sm"
             class="rounded-full"
@@ -70,40 +69,22 @@ const recipient = getRecipient();
           </h1>
         </div>
         <div class="ml-auto flex items-center space-x-3">
-          <UButton
-            class="p-1 text-[#b9bbbe] hover:text-white"
-            color="transparent"
-          >
+          <UButton class="p-1 text-[#b9bbbe] hover:text-white" variant="ghost">
             <UIcon name="i-lucide-phone" class="w-5 h-5" />
           </UButton>
-          <UButton
-            class="p-1 text-[#b9bbbe] hover:text-white"
-            color="transparent"
-          >
+          <UButton class="p-1 text-[#b9bbbe] hover:text-white" variant="ghost">
             <UIcon name="i-lucide-video" class="w-5 h-5" />
           </UButton>
-          <UButton
-            class="p-1 text-[#b9bbbe] hover:text-white"
-            color="transparent"
-          >
+          <UButton class="p-1 text-[#b9bbbe] hover:text-white" variant="ghost">
             <UIcon name="i-lucide-pin" class="w-5 h-5" />
           </UButton>
-          <UButton
-            class="p-1 text-[#b9bbbe] hover:text-white"
-            color="transparent"
-          >
+          <UButton class="p-1 text-[#b9bbbe] hover:text-white" variant="ghost">
             <UIcon name="i-lucide-user-plus" class="w-5 h-5" />
           </UButton>
-          <UButton
-            class="p-1 text-[#b9bbbe] hover:text-white"
-            color="transparent"
-          >
+          <UButton class="p-1 text-[#b9bbbe] hover:text-white" variant="ghost">
             <UIcon name="i-lucide-search" class="w-5 h-5" />
           </UButton>
-          <UButton
-            class="p-1 text-[#b9bbbe] hover:text-white"
-            color="transparent"
-          >
+          <UButton class="p-1 text-[#b9bbbe] hover:text-white" variant="ghost">
             <UIcon name="i-lucide-more-vertical" class="w-5 h-5" />
           </UButton>
         </div>
@@ -119,7 +100,7 @@ const recipient = getRecipient();
         >
           <div class="flex items-center mb-4">
             <UAvatar
-              :src="recipient?.avatar"
+              :src="recipient?.avatar!"
               :alt="recipient?.username"
               size="lg"
               class="rounded-full mr-3"
@@ -147,7 +128,7 @@ const recipient = getRecipient();
         <div class="max-w-full">
           <MoleculesMessageInput
             :channelId="channelId"
-            :replyTo="replyToMessage"
+            :replyTo="replyToMessage!"
             @reply-sent="handleReplySent"
             @reply-cancelled="handleReplyCancelled"
           />

@@ -39,21 +39,13 @@ export const useUnreadManager = () => {
 
   // Get cached unread count (fast, may be stale)
   const getCachedChannelUnreadCount = (channelId: string): number => {
-    const cache = wsStore.unreadCacheByChannel[channelId];
-    if (cache && Date.now() - cache.lastFetched < 30000) {
-      // 30s cache
-      return cache.count;
-    }
-    return wsStore.getUnreadCount(channelId); // Fallback to local state
+    // Always fetch from backend, no cache
+    return 0; // Return 0 as placeholder, use refreshChannelUnreadCount instead
   };
 
   const getCachedCommunityUnreadCount = (communityId: string): number => {
-    const cache = wsStore.unreadCacheByCommunity[communityId];
-    if (cache && Date.now() - cache.lastFetched < 30000) {
-      // 30s cache
-      return cache.count;
-    }
-    return wsStore.getCommunityUnreadCount(communityId); // Fallback to local state
+    // Always fetch from backend, no cache
+    return 0; // Return 0 as placeholder, use refreshCommunityUnreadCount instead
   };
 
   // Force refresh unread count (bypasses cache)

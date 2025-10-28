@@ -7,6 +7,7 @@ import type {
   UpdateRoleData,
   Permission,
 } from "~/stores/roles/role.type";
+import { PermissionUtils } from "~/stores/roles/role.type";
 import RoleIcon from "~/components/atoms/role.icon.vue";
 import UnsavedChangesBar from "~/components/atoms/unsave.change.vue";
 import RoleMemberManagement from "~/components/organisms/role.member.management.vue";
@@ -152,10 +153,23 @@ const loadRole = async () => {
     formData.color = currentRole.color;
     formData.hoist = currentRole.hoist;
     formData.mentionable = currentRole.mentionable;
-    formData.permissions = currentRole.permissions;
+    // Convert permissions: if it's a BigInt string, convert to array; if array, copy it
+    if (Array.isArray(currentRole.permissions)) {
+      formData.permissions = [...currentRole.permissions];
+    } else if (typeof currentRole.permissions === "string") {
+      // Convert BigInt string to permission array
+      const permissionsBigInt = BigInt(currentRole.permissions);
+      formData.permissions =
+        PermissionUtils.bigIntToStringArray(permissionsBigInt);
+    } else {
+      formData.permissions = [];
+    }
 
     // Store original data for comparison
-    originalRole.value = { ...currentRole };
+    originalRole.value = {
+      ...currentRole,
+      permissions: [...formData.permissions], // Use the converted permissions
+    };
   } catch (err) {
     error.value = "Failed to load role";
   } finally {
@@ -226,7 +240,9 @@ const resetChanges = () => {
   formData.color = originalRole.value.color;
   formData.hoist = originalRole.value.hoist;
   formData.mentionable = originalRole.value.mentionable;
-  formData.permissions = [...originalRole.value.permissions];
+  formData.permissions = Array.isArray(originalRole.value.permissions)
+    ? [...originalRole.value.permissions]
+    : [];
 
   setUnsavedChanges(false);
 };
@@ -237,12 +253,20 @@ watch(
   (newData) => {
     if (!originalRole.value) return;
 
+    // Deep compare permissions arrays
+    const permissionsChanged =
+      !originalRole.value.permissions ||
+      newData.permissions?.length !== originalRole.value.permissions.length ||
+      newData.permissions?.some(
+        (perm, index) => perm !== originalRole.value!.permissions[index]
+      );
+
     const hasChanges =
       newData.name !== originalRole.value.name ||
       newData.color !== originalRole.value.color ||
       newData.hoist !== originalRole.value.hoist ||
       newData.mentionable !== originalRole.value.mentionable ||
-      newData.permissions !== originalRole.value.permissions;
+      permissionsChanged;
 
     setUnsavedChanges(
       hasChanges,

@@ -30,7 +30,11 @@ export type Channel = {
   isPrivate: boolean;
   rateLimitPerUser: number | null;
 
-  recipients?: string[];
+  recipients?: {
+    id: string;
+    username: string;
+    avatar: string | null;
+  }[];
 
   maxMembers: number | null;
 

@@ -147,7 +147,7 @@ export interface ChannelCreatedData {
     type: ChannelType;
     viewAble: boolean;
     rateLimitPerUser: number | null;
-    recipients?: string[]; // Sửa từ object thành array để khớp với Channel type
+    recipients?: string[];
     maxMembers: number | null;
     createdAt: Date;
     updatedAt: Date;
