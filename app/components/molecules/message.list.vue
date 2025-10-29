@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { ContextMenuItem } from "@nuxt/ui";
 import { ref, watch, nextTick, onMounted, computed } from "vue";
+import { marked } from "marked";
+import DOMPurify from "dompurify";
 import { useMessage } from "~/composables/useMessage";
 import { useChannelStore } from "~/stores/channels/channel.store";
 import { useAuthStore } from "~/stores/auth/auth.store";
@@ -292,21 +294,69 @@ const isReplyMessage = (message: any) => {
   return message.type === 19 || message.type === "reply" || message.replyTo;
 };
 
+// Configure marked options for better security and rendering
+const renderer = new marked.Renderer();
+
+// Configure marked
+marked.use({
+  breaks: true,
+  gfm: true,
+  renderer,
+});
+
 const parseLinkMessage = (content: string) => {
   if (!content) return "";
 
-  // Tìm tất cả link trong nội dung và wrap thẻ <a>
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  let safeHtml = content.replace(
-    urlRegex,
-    (url) =>
-      `<a href="${url}" target="_blank" class="text-blue-400 underline hover:text-blue-300">${url}</a>`
-  );
+  try {
+    // Parse markdown
+    let parsedContent = marked.parse(content) as string;
 
-  // Highlight mentions
-  safeHtml = highlightMentions(safeHtml);
+    // Sanitize HTML to prevent XSS attacks
+    parsedContent = DOMPurify.sanitize(parsedContent, {
+      ALLOWED_TAGS: [
+        "p",
+        "br",
+        "strong",
+        "em",
+        "u",
+        "s",
+        "del",
+        "code",
+        "pre",
+        "a",
+        "ul",
+        "ol",
+        "li",
+        "blockquote",
+        "h1",
+        "h2",
+        "h3",
+        "h4",
+        "h5",
+        "h6",
+        "table",
+        "thead",
+        "tbody",
+        "tr",
+        "th",
+        "td",
+        "hr",
+        "span",
+      ],
+      ALLOWED_ATTR: ["href", "target", "class", "rel"],
+    });
 
-  return safeHtml;
+    // Remove extra whitespace between tags
+    parsedContent = parsedContent.replace(/>\s+</g, "><");
+
+    // Highlight mentions
+    parsedContent = highlightMentions(parsedContent);
+
+    return parsedContent;
+  } catch (error) {
+    console.error("Error parsing markdown:", error);
+    return content;
+  }
 };
 </script>
 
@@ -335,7 +385,7 @@ const parseLinkMessage = (content: string) => {
       }"
     >
       <div
-        class="message p-3 rounded mb-2 hover:bg-dark-500 transition-colors group relative"
+        class="message rounded hover:bg-dark-500 transition-colors group relative"
         :class="{
           'mt-auto': index === 0,
           'bg-cyan-50 dark:bg-cyan-700/25': isReplyMessage(message),
@@ -549,6 +599,138 @@ const parseLinkMessage = (content: string) => {
   /* Allow long messages to wrap and preserve newlines */
   white-space: pre-wrap;
   word-break: break-word;
+  line-height: 1.5;
+}
+
+/* Markdown styling */
+.message-content :deep(h1),
+.message-content :deep(h2),
+.message-content :deep(h3),
+.message-content :deep(h4),
+.message-content :deep(h5),
+.message-content :deep(h6) {
+  font-weight: bold;
+  margin-top: 0.25rem;
+  margin-bottom: 0.25rem;
+}
+
+.message-content :deep(h1) {
+  font-size: 1.5rem;
+}
+.message-content :deep(h2) {
+  font-size: 1.25rem;
+}
+.message-content :deep(h3) {
+  font-size: 1.1rem;
+}
+
+.message-content :deep(p) {
+  margin-bottom: 0;
+  line-height: 1.5;
+}
+
+.message-content :deep(p:last-child) {
+  margin-bottom: 0;
+}
+
+.message-content :deep(p + ul),
+.message-content :deep(p + ol) {
+  margin-top: 1;
+}
+
+.message-content :deep(a) {
+  color: #60a5fa;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.message-content :deep(a:hover) {
+  color: #93c5fd;
+}
+
+.message-content :deep(code) {
+  background-color: rgba(0, 0, 0, 0.3);
+  padding: 0.125rem 0.25rem;
+  border-radius: 0.25rem;
+  font-family: "Courier New", monospace;
+  font-size: 0.875rem;
+}
+
+.message-content :deep(pre) {
+  background-color: rgba(0, 0, 0, 0.3);
+  padding: 0.5rem;
+  border-radius: 0.375rem;
+  overflow-x: auto;
+  margin: 0.25rem 0;
+}
+
+.message-content :deep(pre code) {
+  background-color: transparent;
+  padding: 0;
+}
+
+.message-content :deep(blockquote) {
+  border-left: 3px solid #6b7280;
+  padding-left: 0.75rem;
+  margin: 0.25rem 0;
+  color: #9ca3af;
+}
+
+.message-content :deep(ul),
+.message-content :deep(ol) {
+  margin-left: 1.25rem;
+  margin-bottom: 0;
+  margin-top: 1;
+  padding-left: 0;
+}
+
+.message-content :deep(li) {
+  margin-bottom: 0.5rem;
+  line-height: 1.4;
+}
+
+.message-content :deep(ul) {
+  list-style-type: disc;
+}
+
+.message-content :deep(ol) {
+  list-style-type: decimal;
+}
+
+.message-content :deep(strong) {
+  font-weight: bold;
+}
+
+.message-content :deep(em) {
+  font-style: italic;
+}
+
+.message-content :deep(del) {
+  text-decoration: line-through;
+}
+
+.message-content :deep(hr) {
+  border: none;
+  border-top: 1px solid #4b5563;
+  margin: 0.5rem 0;
+}
+
+.message-content :deep(table) {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.25rem 0;
+}
+
+.message-content :deep(th),
+.message-content :deep(td) {
+  border: 1px solid #4b5563;
+  padding: 0.5rem;
+  text-align: left;
+}
+
+.message-content :deep(th) {
+  background-color: rgba(0, 0, 0, 0.3);
+  font-weight: bold;
 }
 
 /* Mention highlight styling */

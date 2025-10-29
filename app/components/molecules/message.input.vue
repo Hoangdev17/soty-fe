@@ -58,6 +58,7 @@ const filteredMembers = computed(() => {
 // --- State ---
 const messageText = ref("");
 const inlineImagePreviews = ref<string[]>([]);
+const showMarkdownHelp = ref(false);
 
 const effectiveChannelId = computed(() => {
   return (
@@ -328,9 +329,23 @@ const handleContentEditablePaste = (event: ClipboardEvent) => {
 const handleContentEditableKeyDown = (event: KeyboardEvent) => {
   emit("user-active");
 
-  // Handle Enter to submit
+  // Handle Shift+Enter for new line (allow default behavior)
+  if (event.key === "Enter" && event.shiftKey) {
+    // Let the browser handle the newline
+    return;
+  }
+
+  // Handle Enter to submit (without Shift)
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
+
+    // If mention dropdown is open, select the mention
+    if (showMentionDropdown.value && filteredMembers.value.length > 0) {
+      selectMention(filteredMembers.value[selectedMentionIndex.value]);
+      return;
+    }
+
+    // Otherwise send the message
     handleSendMessage();
     return;
   }
@@ -738,6 +753,17 @@ const cancelReply = () => emit("reply-cancelled");
       ></div>
 
       <div class="input-actions flex items-center space-x-2 ml-3">
+        <UButton
+          variant="ghost"
+          size="sm"
+          class="text-[#b9bbbe] hover:text-white"
+          type="button"
+          @click="showMarkdownHelp = !showMarkdownHelp"
+          title="Markdown help"
+        >
+          <UIcon name="i-lucide-info" class="w-5 h-5" />
+        </UButton>
+
         <div class="mr-1">
           <UploadButton
             variant="ghost"
@@ -761,6 +787,27 @@ const cancelReply = () => emit("reply-cancelled");
         </UButton>
       </div>
     </form>
+
+    <!-- Markdown Help Tooltip -->
+    <div
+      v-if="showMarkdownHelp"
+      class="px-4 py-3 border-t border-gray-700 bg-[#2f3136] text-xs text-gray-300"
+    >
+      <div class="font-semibold mb-2 text-white">
+        Markdown Support - Shift+Enter để xuống dòng
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div><code>**bold**</code> → <strong>bold</strong></div>
+        <div><code>*italic*</code> → <em>italic</em></div>
+        <div>
+          <code>`code`</code> →
+          <code class="px-1 bg-black/30 rounded">code</code>
+        </div>
+        <div><code>~~strikethrough~~</code> → <del>strikethrough</del></div>
+        <div><code>- list item</code> → • list item</div>
+        <div><code>[link](url)</code> → link</div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -768,6 +815,7 @@ const cancelReply = () => emit("reply-cancelled");
 .mention-input {
   word-wrap: break-word;
   white-space: pre-wrap;
+  line-height: 1.4;
 }
 
 .mention-input:empty:before {

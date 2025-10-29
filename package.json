@@ -12,6 +12,8 @@
   "dependencies": {
     "@nuxt/ui": "^3.3.3",
     "@pinia/nuxt": "^0.11.2",
+    "dompurify": "^3.3.0",
+    "marked": "^16.4.1",
     "nuxt": "^4.1.0",
     "pinia": "^3.0.3",
     "process": "^0.11.10",
@@ -21,6 +23,7 @@
     "vue-router": "^4.5.1"
   },
   "devDependencies": {
+    "@types/dompurify": "^3.0.5",
     "@types/node": "^24.3.1",
     "@types/simple-peer": "^9.11.8",
     "@types/socket.io-client": "^1.4.36"
