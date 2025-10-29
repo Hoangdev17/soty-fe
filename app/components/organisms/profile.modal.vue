@@ -3,6 +3,8 @@ import type { TabsItem } from "@nuxt/ui";
 import { useAuthStore } from "~/stores/auth/auth.store";
 import type { Decorations, User } from "~/stores/auth/auth.type";
 import { useChannelStore } from "~/stores/channels/channel.store";
+import { useBotStore } from "~/stores/bots/bot.store";
+import type { Bot } from "~/stores/bots/bot.type";
 
 const props = defineProps<{
   userId: string;
@@ -12,7 +14,7 @@ const user = ref<User | null>(null);
 const avatarEffectUser = ref<Decorations | null>(null);
 const profileEffectUser = ref<Decorations | null>(null);
 
-const items = [
+const baseItems = [
   {
     label: "Hoạt động",
     slot: "actions" as const,
@@ -25,7 +27,14 @@ const items = [
     label: "Máy chủ chung",
     slot: "communitysame" as const,
   },
-] satisfies TabsItem[];
+] as TabsItem[];
+
+const botStore = useBotStore();
+
+// selectedBot if the profile corresponds to a bot id
+const selectedBot = computed<Bot | null>(() => {
+  return botStore.bots.find((b) => b.id === props.userId) ?? null;
+});
 
 const authStore = useAuthStore();
 
@@ -58,6 +67,12 @@ watch(
   async (newId) => {
     if (newId) {
       fetchUser();
+      // ensure bot list is available so we can detect bot profiles and show commands
+      try {
+        await botStore.fetchAllBot();
+      } catch (e) {
+        // ignore
+      }
     }
   },
   { immediate: true }
@@ -204,13 +219,31 @@ const handleCreateDM = async (userId: string) => {
                 formatDate(user?.createdAt)
               }}</span>
             </div>
+
+            <!-- Commands section (only for bots) -->
+            <div
+              v-if="selectedBot && selectedBot.BotCommand?.length"
+              class="mt-5"
+            >
+              <p class="font-semibold mb-2">Commands</p>
+              <div class="flex flex-wrap gap-2">
+                <UBadge
+                  v-for="cmd in selectedBot.BotCommand"
+                  :key="cmd.id"
+                  color="neutral"
+                  variant="soft"
+                >
+                  {{ cmd.pattern || cmd.name }}
+                </UBadge>
+              </div>
+            </div>
           </div>
         </div>
 
         <!-- Right section -->
         <div class="flex-1 p-6 text-white">
           <UTabs
-            :items="items"
+            :items="baseItems"
             variant="link"
             :ui="{ trigger: 'grow' }"
             class="gap-4"
