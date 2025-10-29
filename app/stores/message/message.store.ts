@@ -66,8 +66,6 @@ export const useMessageStore = defineStore("message", {
       type: string = "text"
     ) {
       try {
-        const socketStore = useWebSocketStore();
-        const messageStore = useMessageStore();
         const { fetchWithAuth } = useFetchWithAuth();
 
         this.loading = true;
@@ -78,11 +76,7 @@ export const useMessageStore = defineStore("message", {
           body: JSON.stringify({ channelId, content, type }),
         });
 
-        messageStore.addMessage(channelId, res);
-
-        socketStore.sendChatMessage(`channel_${channelId}`, content, type, {
-          channelId,
-        });
+        // Message will be added via websocket when broadcast
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to send message";
@@ -181,8 +175,7 @@ export const useMessageStore = defineStore("message", {
                 msg.pinned = true;
               }
             });
-          } catch (error) {
-          }
+          } catch (error) {}
         }
       } catch (error) {
         this.error =
@@ -226,14 +219,7 @@ export const useMessageStore = defineStore("message", {
           }),
         });
 
-        this.addMessage(channelId, res);
-
-        const socketStore = useWebSocketStore();
-        socketStore.sendChatMessage(`channel_${channelId}`, content, "reply", {
-          channelId,
-          replyToMessageId,
-          mentionAuthor,
-        });
+        // Message will be added via websocket when broadcast
       } catch (error) {
         this.error =
           error instanceof Error ? error.message : "Failed to reply to message";
@@ -529,21 +515,13 @@ export const useMessageStore = defineStore("message", {
             method: "POST",
             body: JSON.stringify({
               content,
-              threadId, // Add threadId to the request body
+              threadId,
               type,
             }),
           }
         );
 
-        // Add message to thread's message list
-        this.addMessage(threadId, res);
-
-        // Send via WebSocket if needed
-        const socketStore = useWebSocketStore();
-        socketStore.sendChatMessage(`thread_${threadId}`, content, type, {
-          threadId,
-        });
-
+        // Message will be added via websocket when broadcast
         return res;
       } catch (error) {
         this.error =
@@ -621,8 +599,7 @@ export const useMessageStore = defineStore("message", {
 
         // Assign back to trigger reactivity in Vue
         this.messages[channelId] = updatedMessages;
-      } catch (error) {
-      }
+      } catch (error) {}
     },
 
     // Get unread count for a channel or thread (same API)
