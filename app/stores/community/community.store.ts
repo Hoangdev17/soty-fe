@@ -1,5 +1,11 @@
 import { defineStore } from "pinia";
-import type { Community, CommunityMember, joinRequest } from "./community.type";
+import type {
+  Community,
+  CommunityMember,
+  GuildEmoji,
+  GuildSticker,
+  joinRequest,
+} from "./community.type";
 import { communityActions } from "./community.action";
 
 export const useCommunityStore = defineStore("community", {
@@ -9,6 +15,8 @@ export const useCommunityStore = defineStore("community", {
     currentCommunity: null as Community | null,
     currentCommunityMembers: [] as CommunityMember[],
     joinRequests: null as joinRequest[] | null,
+    GuildStickers: [] as GuildSticker[],
+    GuildEmojis: [] as GuildEmoji[],
     // Loading states
     isLoading: false,
     isLoadingCommunities: false,

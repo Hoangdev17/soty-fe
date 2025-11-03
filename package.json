@@ -13,6 +13,7 @@
     "@nuxt/ui": "^3.3.3",
     "@pinia/nuxt": "^0.11.2",
     "dompurify": "^3.3.0",
+    "emoji-picker-element": "^1.27.0",
     "marked": "^16.4.1",
     "nuxt": "^4.1.0",
     "pinia": "^3.0.3",

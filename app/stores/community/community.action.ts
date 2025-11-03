@@ -6,8 +6,11 @@ import type {
   CommunityMember,
   CreateCommunityData,
   CreateEventPayload,
+  GuildEmoji,
   GuildEvent,
+  GuildSticker,
   joinRequest,
+  TenorEmojiResult,
 } from "./community.type";
 import { useFetchWithAuth } from "~/composables/useFetchWithAuth";
 import {
@@ -173,8 +176,7 @@ export const communityActions = {
       const memberStore = useMemberStore();
       try {
         await memberStore.addMember(communityId, response);
-      } catch (err) {
-      }
+      } catch (err) {}
 
       // Refresh members in background to guarantee consistency with server
       memberStore.fetchMembers(communityId).catch(() => {
@@ -375,9 +377,9 @@ export const communityActions = {
       }
     );
 
-    communityStore.joinRequests = communityStore.joinRequests?.filter(
-      (req) => req.id !== requestId
-    );
+    communityStore.joinRequests =
+      communityStore.joinRequests?.filter((req) => req.id !== requestId) ||
+      null;
 
     memberStore.addMember(communityId, {
       id: request.id,
@@ -396,7 +398,10 @@ export const communityActions = {
       xepo: 0,
       currentLevel: 0,
       dailyStreak: 0,
-      user: request.user,
+      user: {
+        ...request.user,
+        presence: null,
+      },
     });
 
     return request;
@@ -413,10 +418,165 @@ export const communityActions = {
       }
     );
 
-    communityStore.joinRequests = communityStore.joinRequests?.filter(
-      (req) => req.id !== requestId
-    );
+    communityStore.joinRequests =
+      communityStore.joinRequests?.filter((req) => req.id !== requestId) ||
+      null;
 
     return request;
+  },
+
+  async searchStickersByTenor(
+    q: string,
+    limit: number = 20,
+    guildId: string,
+    type: "gif" | "sticker" | "emoji" | "all" = "sticker"
+  ) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const communityStore = useCommunityStore();
+
+    const response = await fetchWithAuth<TenorEmojiResult>(
+      `/guilds/${guildId}/stickers/search?q=${q}&limit=${limit}&type=${type}`,
+      {
+        method: "GET",
+      }
+    );
+
+    return response;
+  },
+
+  async fetchCommunityStickers(communityId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const communityStore = useCommunityStore();
+
+    const response = await fetchWithAuth<GuildSticker[]>(
+      `/guilds/${communityId}/stickers`,
+      {
+        method: "GET",
+      }
+    );
+
+    communityStore.GuildStickers.push(...response);
+
+    return response;
+  },
+
+  async createCommunitySticker(
+    communityId: string,
+    dto: {
+      name: string;
+      description?: string;
+      tags?: string;
+      url: string;
+      format: number;
+      type: number;
+      packId?: string;
+    }
+  ) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const communityStore = useCommunityStore();
+
+    const response = await fetchWithAuth<GuildSticker>(
+      `/guilds/${communityId}/stickers`,
+      {
+        method: "POST",
+        body: JSON.stringify(dto),
+      }
+    );
+
+    communityStore.GuildStickers.push(response);
+
+    return response;
+  },
+
+  async deleteCommunitySticker(communityId: string, stickerId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const communityStore = useCommunityStore();
+
+    const response = await fetchWithAuth<{ message: string }>(
+      `/guilds/${communityId}/stickers/${stickerId}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    communityStore.GuildStickers = communityStore.GuildStickers.filter(
+      (sticker) => sticker.id !== stickerId
+    );
+
+    return response;
+  },
+
+  async getEmojisByTenor(q: string, limit: number = 20, guildId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const communityStore = useCommunityStore();
+
+    const response = await fetchWithAuth<TenorEmojiResult>(
+      `/guilds/${guildId}/emojis/search?q=${q}&limit=${limit}`,
+      {
+        method: "GET",
+      }
+    );
+
+    communityStore.GuildEmojis.push(...response.results);
+
+    return response.results;
+  },
+
+  async fetchCommunityEmojis(communityId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const communityStore = useCommunityStore();
+
+    const response = await fetchWithAuth<GuildEmoji[]>(
+      `/guilds/${communityId}/emojis`,
+      {
+        method: "GET",
+      }
+    );
+
+    communityStore.GuildEmojis.push(...response);
+
+    return response;
+  },
+
+  async createCommunityEmoji(
+    communityId: string,
+    dto: {
+      name: string;
+      url: string;
+      animated?: boolean;
+    }
+  ) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const communityStore = useCommunityStore();
+
+    const response = await fetchWithAuth<GuildEmoji>(
+      `/guilds/${communityId}/emojis`,
+      {
+        method: "POST",
+        body: JSON.stringify(dto),
+      }
+    );
+
+    communityStore.GuildEmojis.push(response);
+
+    return response;
+  },
+
+  async deleteCommunityEmoji(communityId: string, emojiId: string) {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const communityStore = useCommunityStore();
+
+    const response = await fetchWithAuth<{ message: string }>(
+      `/guilds/${communityId}/emojis/${emojiId}`,
+      {
+        method: "DELETE",
+      }
+    );
+
+    communityStore.GuildEmojis = communityStore.GuildEmojis.filter(
+      (emoji) => emoji.id !== emojiId
+    );
+
+    return response;
   },
 };

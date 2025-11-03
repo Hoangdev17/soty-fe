@@ -1,3 +1,4 @@
+import type { User } from "../auth/auth.type";
 import type { Channel } from "../channels/channel.type";
 import type { Role } from "../roles/role.type";
 
@@ -48,9 +49,65 @@ export interface Community {
   premiumTier: number;
   premiumSubscriptionCount: number;
   visibility: "PUBLIC" | "PRIVATE" | string;
+  GuildSticker?: GuildSticker[];
+  GuildEmoji?: GuildEmoji[];
 
   // Field client-side (không có trong BE response)
   isJoined?: boolean; // Optional vì BE không trả về
+}
+
+export interface GuildSticker {
+  id: string;
+  guildId: string;
+  guild: Community;
+  name: string;
+  description?: string | null;
+  tags: string;
+  type?: number;
+  format: number;
+  createdAt: Date;
+  available: boolean;
+  deletable: boolean;
+  url?: string;
+  partial: boolean;
+  sortValue?: number;
+  authorId?: string;
+  author: User;
+}
+
+export interface TenorEmojiResult {
+  next: string;
+  results: {
+    id: string;
+    animated: boolean;
+    name: string;
+    url: string;
+    authorId?: string;
+    author?: User;
+    available: boolean;
+    createdAt: Date;
+    deletable: boolean;
+    guildId: string;
+    guild: Community;
+    managed: boolean;
+    requireColons: boolean;
+  }[];
+}
+
+export interface GuildEmoji {
+  id: string;
+  animated: boolean;
+  name: string;
+  url: string;
+  authorId?: string;
+  author?: User;
+  available: boolean;
+  createdAt: Date;
+  deletable: boolean;
+  guildId: string;
+  guild: Community;
+  managed: boolean;
+  requireColons: boolean;
 }
 
 export interface CommunityMember {
