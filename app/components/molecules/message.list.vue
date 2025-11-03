@@ -76,6 +76,11 @@ const downloadImage = async () => {
 const listContainer = ref<HTMLElement | null>(null);
 
 const getContextMenuItems = (message: any): ContextMenuItem[][] => {
+  // Disable context menu for deleted messages
+  if (message.deleted) {
+    return [];
+  }
+
   return [
     [
       {
@@ -404,8 +409,14 @@ const parseLinkMessage = (content: string) => {
             }}</span>
           </div>
           <div class="text-sm text-gray-300 line-clamp-2">
+            <template v-if="message.replyTo.deleted">
+              <div class="text-gray-500 italic text-xs">
+                <UIcon name="i-lucide-trash-2" class="w-3 h-3 inline mr-1" />
+                Đã xóa tin nhắn
+              </div>
+            </template>
             <template
-              v-if="
+              v-else-if="
                 /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(
                   String(message.replyTo.content)
                 )
@@ -488,42 +499,53 @@ const parseLinkMessage = (content: string) => {
               </div>
             </div>
             <div class="message-content">
-              <template
-                v-if="
-                  message.type === 'image' ||
-                  message.type === 'img' ||
-                  /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(
-                    String(message.content)
-                  )
-                "
-              >
-                <img
-                  :src="message.content"
-                  alt="image"
-                  loading="lazy"
-                  :class="[
-                    'rounded-md object-contain cursor-zoom-in',
-                    /\.(jpe?g|png)$/i.test(String(message.content))
-                      ? 'message-image'
-                      : 'message-emoji-sticker',
-                  ]"
-                  @click="openImageViewer(message.content)"
-                />
+              <!-- Deleted message display -->
+              <template v-if="message.deleted">
+                <div class="text-gray-500 italic text-sm">
+                  <UIcon name="i-lucide-trash-2" class="w-4 h-4 inline mr-1" />
+                  Đã xóa tin nhắn
+                </div>
               </template>
+              <!-- Regular message content -->
               <template v-else>
-                <div
-                  v-html="
-                    parseLinkMessage(
-                      parseMessageContent(message.content, message.replyTo)
+                <template
+                  v-if="
+                    message.type === 'image' ||
+                    message.type === 'img' ||
+                    /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(
+                      String(message.content)
                     )
                   "
-                ></div>
+                >
+                  <img
+                    :src="message.content"
+                    alt="image"
+                    loading="lazy"
+                    :class="[
+                      'rounded-md object-contain cursor-zoom-in',
+                      /\.(jpe?g|png)$/i.test(String(message.content))
+                        ? 'message-image'
+                        : 'message-emoji-sticker',
+                    ]"
+                    @click="openImageViewer(message.content)"
+                  />
+                </template>
+                <template v-else>
+                  <div
+                    v-html="
+                      parseLinkMessage(
+                        parseMessageContent(message.content, message.replyTo)
+                      )
+                    "
+                  ></div>
+                </template>
               </template>
             </div>
           </div>
 
           <!-- Message actions (visible on hover) -->
           <div
+            v-if="!message.deleted"
             class="absolute right-3 top-3 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1"
           >
             <UButton
