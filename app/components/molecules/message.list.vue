@@ -414,7 +414,12 @@ const parseLinkMessage = (content: string) => {
               <img
                 :src="message.replyTo.content"
                 alt="reply-thumb"
-                class="w-20 h-12 object-cover rounded"
+                :class="[
+                  'object-cover rounded',
+                  /\.(jpe?g|png|webp)$/i.test(String(message.replyTo.content))
+                    ? 'w-20 h-12'
+                    : 'w-8 h-8',
+                ]"
               />
             </template>
             <template v-else>
@@ -496,7 +501,12 @@ const parseLinkMessage = (content: string) => {
                   :src="message.content"
                   alt="image"
                   loading="lazy"
-                  class="message-image rounded-md object-contain cursor-zoom-in"
+                  :class="[
+                    'rounded-md object-contain cursor-zoom-in',
+                    /\.(jpe?g|png)$/i.test(String(message.content))
+                      ? 'message-image'
+                      : 'message-emoji-sticker',
+                  ]"
                   @click="openImageViewer(message.content)"
                 />
               </template>
@@ -755,10 +765,23 @@ const parseLinkMessage = (content: string) => {
   max-height: 300px;
 }
 
+/* Emoji and sticker sizing (GIF, SVG, BMP) */
+.message-emoji-sticker {
+  width: 80px;
+  height: 80px;
+  max-height: 80px;
+}
+
 @media (max-width: 640px) {
   .message-image {
     width: 120px !important;
     max-height: 180px !important;
+  }
+
+  .message-emoji-sticker {
+    width: 60px !important;
+    height: 60px !important;
+    max-height: 60px !important;
   }
 }
 
@@ -766,6 +789,12 @@ const parseLinkMessage = (content: string) => {
   .message-image {
     width: 400px;
     max-height: 400px;
+  }
+
+  .message-emoji-sticker {
+    width: 100px;
+    height: 100px;
+    max-height: 100px;
   }
 }
 </style>

@@ -33,6 +33,11 @@ const communityStore = useCommunityStore();
 const { currentCommunity } = storeToRefs(communityStore);
 const members = computed(() => currentCommunity.value?.members ?? []);
 
+// Get guild ID from route or current community
+const guildId = computed(() => {
+  return (route.params.guild_id as string) || currentCommunity.value?.id || "";
+});
+
 // --- Mention state ---
 const showMentionDropdown = ref(false);
 const mentionQuery = ref("");
@@ -59,6 +64,8 @@ const filteredMembers = computed(() => {
 const messageText = ref("");
 const inlineImagePreviews = ref<string[]>([]);
 const showMarkdownHelp = ref(false);
+const showEmojiPicker = ref(false);
+const showStickerPicker = ref(false);
 
 const effectiveChannelId = computed(() => {
   return (
@@ -558,6 +565,57 @@ const removePreview = (url: string) => {
 
 const handleFocus = () => emit("user-active");
 
+// --- Emoji handling ---
+const handleEmojiSelect = async (emojiUrl: string) => {
+  const channelId = effectiveChannelId.value;
+  if (!channelId) return;
+
+  try {
+    // Send emoji as message immediately
+    if (props.replyTo) {
+      await replyToMessage(
+        channelId,
+        emojiUrl,
+        props.replyTo.id,
+        props.mentionAuthor ?? true
+      );
+      emit("reply-sent");
+    } else {
+      await sendMessage(channelId, emojiUrl, "image");
+    }
+
+    // Close picker
+    showEmojiPicker.value = false;
+  } catch (error) {
+    console.error("Failed to send emoji:", error);
+  }
+};
+
+const handleStickerSelect = async (stickerUrl: string) => {
+  const channelId = effectiveChannelId.value;
+  if (!channelId) return;
+
+  try {
+    // Send sticker as image
+    if (props.replyTo) {
+      await replyToMessage(
+        channelId,
+        stickerUrl,
+        props.replyTo.id,
+        props.mentionAuthor ?? true
+      );
+      emit("reply-sent");
+    } else {
+      await sendMessage(channelId, stickerUrl, "image");
+    }
+
+    // Close picker
+    showStickerPicker.value = false;
+  } catch (error) {
+    console.error("Failed to send sticker:", error);
+  }
+};
+
 // --- Gửi tin nhắn ---
 const handleSendMessage = async () => {
   const channelId = effectiveChannelId.value;
@@ -753,6 +811,43 @@ const cancelReply = () => emit("reply-cancelled");
       ></div>
 
       <div class="input-actions flex items-center space-x-2 ml-3">
+        <!-- Emoji Picker with Popover -->
+        <UPopover v-if="guildId" v-model:open="showEmojiPicker">
+          <UButton
+            variant="ghost"
+            size="sm"
+            class="text-[#b9bbbe] hover:text-white"
+            type="button"
+            title="Emoji"
+          >
+            <UIcon name="i-lucide-smile" class="w-5 h-5" />
+          </UButton>
+
+          <template #content>
+            <AtomsEmojiPicker :guild-id="guildId" @select="handleEmojiSelect" />
+          </template>
+        </UPopover>
+
+        <!-- Sticker Picker with Popover -->
+        <UPopover v-if="guildId" v-model:open="showStickerPicker">
+          <UButton
+            variant="ghost"
+            size="sm"
+            class="text-[#b9bbbe] hover:text-white"
+            type="button"
+            title="Sticker/GIF"
+          >
+            <UIcon name="i-lucide-sticker" class="w-5 h-5" />
+          </UButton>
+
+          <template #content>
+            <AtomsStickerPicker
+              :guild-id="guildId"
+              @select="handleStickerSelect"
+            />
+          </template>
+        </UPopover>
+
         <UButton
           variant="ghost"
           size="sm"
