@@ -16,6 +16,7 @@ export type WEBSOCKET_EVENTS = {
   // Messaging events
   SEND_MESSAGE: "send_message";
   MESSAGE: "message";
+  MESSAGE_DELETED: "message_deleted";
 
   // User events
   USER_ONLINE: "user_online";

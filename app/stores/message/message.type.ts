@@ -18,6 +18,9 @@ export interface Message {
     username: string;
     avatar?: string;
   };
+  // Deletion tracking
+  deleted?: boolean;
+  deletedAt?: Date;
   // Reply functionality - matches backend response
   replyTo?: {
     id: string;
@@ -27,6 +30,8 @@ export interface Message {
       username: string;
       avatar?: string;
     };
+    deleted?: boolean;
+    deletedAt?: Date;
   };
   // Pin functionality
   pinned?: boolean;

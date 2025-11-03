@@ -677,5 +677,28 @@ export const useMessageStore = defineStore("message", {
         throw error;
       }
     },
+
+    // Mark message as deleted locally
+    deleteMessage(channelId: string, messageId: string) {
+      if (!this.messages[channelId]) return;
+
+      const messages = this.messages[channelId]!;
+      const messageIndex = messages.findIndex((msg) => msg.id === messageId);
+
+      if (messageIndex !== -1) {
+        messages[messageIndex] = {
+          ...messages[messageIndex]!,
+          deleted: true,
+          deletedAt: new Date(),
+        };
+      }
+
+      // Remove from pinned messages if it was pinned
+      if (this.pinnedMessages[channelId]) {
+        this.pinnedMessages[channelId] = this.pinnedMessages[channelId].filter(
+          (msg) => msg.id !== messageId
+        );
+      }
+    },
   },
 });

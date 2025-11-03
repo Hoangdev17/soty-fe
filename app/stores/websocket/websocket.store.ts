@@ -441,6 +441,26 @@ export const useWebSocketStore = defineStore("websocket", {
           }
         );
 
+        // Handle message deletion
+        this.connection.on(
+          "message_deleted",
+          (data: {
+            messageId: string;
+            channelId: string;
+            guildId: string;
+            deletedBy: string;
+            reason: string;
+          }) => {
+            const messageStore = useMessageStore();
+
+            // Use message store action to handle deletion
+            messageStore.deleteMessage(data.channelId, data.messageId);
+
+            // Remove from unread messages
+            this.removeFromUnread(data.channelId, data.messageId);
+          }
+        );
+
         this.connection.on("read_update", (data: any) => {
           const { channelId, userId, lastReadMessageId, lastRead, system } =
             data;
@@ -999,6 +1019,25 @@ export const useWebSocketStore = defineStore("websocket", {
 
       // Trigger reactivity update
       this.unreadByChannel = { ...this.unreadByChannel };
+    },
+
+    removeFromUnread(channelId: string, messageId: string) {
+      if (!channelId || !messageId) return;
+
+      const unreadSet = this.unreadByChannel[channelId];
+      if (unreadSet && unreadSet.has(messageId)) {
+        unreadSet.delete(messageId);
+        delete this.messageTimestamps[String(messageId)];
+
+        // Trigger reactivity update
+        this.unreadByChannel = { ...this.unreadByChannel };
+
+        // Clear community cache to trigger refresh
+        const communityId = this.channelToCommunity[channelId];
+        if (communityId) {
+          this.clearUnreadCache(communityId);
+        }
+      }
     },
 
     clearUnread(channelId: string) {
