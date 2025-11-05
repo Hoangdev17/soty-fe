@@ -148,7 +148,11 @@ export interface ChannelCreatedData {
     type: ChannelType;
     viewAble: boolean;
     rateLimitPerUser: number | null;
-    recipients?: string[];
+    recipients?: {
+      id: string;
+      username: string;
+      avatar: string | null;
+    }[];
     maxMembers: number | null;
     createdAt: Date;
     updatedAt: Date;

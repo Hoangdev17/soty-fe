@@ -36,7 +36,7 @@ function getMenuItems(friendId: string): DropdownMenuItem[][] {
 
 async function handleGoToDmMessage(id: string) {
   const channel = channelStore.channelDM.find((c) =>
-    c.recipients?.some((a) => a === id)
+    c.recipients?.some((a) => a.id === id)
   );
   navigateTo(`/@me/${channel?.id}`);
 }

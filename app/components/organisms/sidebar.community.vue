@@ -198,11 +198,6 @@ onMounted(async () => {
       const unreadData = await getCommunityChannelsUnreadCount(
         communityStore.currentCommunity.id
       );
-
-      // Sync unread counts with WebSocket store
-      if (unreadData.channels) {
-        wsStore.syncUnreadCountsFromAPI(unreadData.channels);
-      }
     } catch (error) {}
   }
 
@@ -216,42 +211,6 @@ onMounted(async () => {
     });
     expandedCategories.value = new Set(expandedCategories.value);
   }
-
-  setTimeout(() => {
-    // Ensure unread state is restored
-    wsStore.restoreUnreadState();
-
-    // Flag to track if unread state has been restored
-    let unreadStateRestored = false;
-
-    // Watch for message store changes to restore unread state
-    watch(
-      () => messageStore.messages,
-      (newMessages) => {
-        if (
-          newMessages &&
-          Object.keys(newMessages).length > 0 &&
-          !unreadStateRestored
-        ) {
-          wsStore.restoreUnreadState();
-          unreadStateRestored = true;
-        }
-      },
-      { immediate: true, deep: true }
-    );
-
-    // Also try to restore immediately in case messages are already loaded
-    setTimeout(() => {
-      if (
-        messageStore.messages &&
-        Object.keys(messageStore.messages).length > 0 &&
-        !unreadStateRestored
-      ) {
-        wsStore.restoreUnreadState();
-        unreadStateRestored = true;
-      }
-    }, 1000);
-  }, 500);
 });
 
 const toggleCategory = (categoryId: string) => {
@@ -308,7 +267,6 @@ const handleClickOutside = (event: MouseEvent) => {
   const dropdownContainer = target.closest(".relative");
   const header = target.closest("header");
 
-  // Nếu click không phải trong dropdown container hoặc header thì đóng dropdown
   if (!dropdownContainer && !header) {
     showDropdown.value = false;
   }

@@ -167,13 +167,23 @@ export const channelActions = {
     return channels;
   },
 
-  async createChannelDm(userIds: string[]) {
+  async createChannelDm(userIds: string[], icon?: string, groupName?: string) {
     const { fetchWithAuth } = useFetchWithAuth();
     const channelStore = useChannelStore();
 
+    const body: any = { userIds };
+
+    // Add icon and groupName only if provided (for group DM)
+    if (icon) {
+      body.icon = icon;
+    }
+    if (groupName) {
+      body.groupName = groupName;
+    }
+
     const channelDM = await fetchWithAuth<Channel>(`/dm/channels`, {
       method: "POST",
-      body: JSON.stringify({ userIds }),
+      body: JSON.stringify(body),
     });
 
     channelStore.channelDM.push(channelDM);
