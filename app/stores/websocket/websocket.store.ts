@@ -273,13 +273,6 @@ export const useWebSocketStore = defineStore("websocket", {
 
           // Only add to unread if message is not from current user
           if (channelId && message.author?.id !== currentUserId) {
-            this.addUnread(
-              channelId,
-              message.id,
-              message.createdAt?.getTime() || Date.now(),
-              communityId
-            );
-
             // Only show toast once per message and if user is not in the current channel
             if (!this.toastShownForMessages.has(message.id)) {
               this.toastShownForMessages.add(message.id);
@@ -455,9 +448,6 @@ export const useWebSocketStore = defineStore("websocket", {
 
             // Use message store action to handle deletion
             messageStore.deleteMessage(data.channelId, data.messageId);
-
-            // Remove from unread messages
-            this.removeFromUnread(data.channelId, data.messageId);
           }
         );
 
@@ -487,14 +477,6 @@ export const useWebSocketStore = defineStore("websocket", {
               return;
             }
           }
-
-          // Relevant to this client -> clear unread + caches and persist lastRead
-          this.clearUnread(targetChannelId);
-          const communityId = this.channelToCommunity[targetChannelId];
-          if (communityId) {
-            this.clearUnreadCache(communityId);
-          }
-          this.clearUnreadCache(targetChannelId);
 
           if (lastReadMessageId) {
             try {
@@ -994,167 +976,6 @@ export const useWebSocketStore = defineStore("websocket", {
       this.messages = [];
     },
 
-    // Unread messages methods
-    addUnread(
-      channelId: string,
-      messageId: string,
-      timestamp?: number,
-      communityId?: string
-    ) {
-      if (!channelId || !messageId) return;
-      if (communityId) {
-        this.channelToCommunity[String(channelId)] = String(communityId);
-      }
-      if (!this.unreadByChannel[channelId])
-        this.unreadByChannel[channelId] = new Set();
-      this.unreadByChannel[channelId].add(messageId);
-      if (timestamp) {
-        this.messageTimestamps[String(messageId)] = timestamp;
-      }
-
-      // Clear community cache to trigger refresh when new message added
-      if (communityId) {
-        this.clearUnreadCache(communityId);
-      }
-
-      // Trigger reactivity update
-      this.unreadByChannel = { ...this.unreadByChannel };
-    },
-
-    removeFromUnread(channelId: string, messageId: string) {
-      if (!channelId || !messageId) return;
-
-      const unreadSet = this.unreadByChannel[channelId];
-      if (unreadSet && unreadSet.has(messageId)) {
-        unreadSet.delete(messageId);
-        delete this.messageTimestamps[String(messageId)];
-
-        // Trigger reactivity update
-        this.unreadByChannel = { ...this.unreadByChannel };
-
-        // Clear community cache to trigger refresh
-        const communityId = this.channelToCommunity[channelId];
-        if (communityId) {
-          this.clearUnreadCache(communityId);
-        }
-      }
-    },
-
-    clearUnread(channelId: string) {
-      if (!channelId) return;
-      const oldCount = this.unreadByChannel[channelId]?.size || 0;
-
-      // Get community ID before clearing
-      const communityId = this.channelToCommunity[channelId];
-
-      // remove timestamps for removed message ids
-      const set = this.unreadByChannel[channelId];
-      if (set) {
-        for (const mid of set) {
-          delete this.messageTimestamps[String(mid)];
-        }
-      }
-      delete this.unreadByChannel[channelId];
-      this.unreadByChannel[channelId] = new Set();
-      this.clearUnreadFromStorage(channelId);
-
-      // Clear community cache to trigger refresh
-      if (communityId && oldCount > 0) {
-        this.clearUnreadCache(communityId);
-      }
-
-      // Trigger reactivity update by modifying the object reference
-      this.unreadByChannel = { ...this.unreadByChannel };
-    },
-
-    getUnreadCount(channelId: string) {
-      const s = this.unreadByChannel[channelId];
-      const count = s ? s.size : 0;
-      return count;
-    },
-
-    // Helper để lấy tổng unread của community (local state)
-    getUnreadCountForCommunity(communityId: string) {
-      const result = Object.keys(this.unreadByChannel).reduce((acc, chId) => {
-        if (
-          this.channelToCommunity[chId] &&
-          String(this.channelToCommunity[chId]) === String(communityId)
-        ) {
-          return acc + (this.unreadByChannel[chId]?.size || 0);
-        }
-        return acc;
-      }, 0);
-
-      return result;
-    },
-
-    // Fetch unread count từ API cho community với cache
-    async fetchCommunityUnreadCount(communityId: string, forceRefresh = false) {
-      // Always fetch from backend, ignore cache
-      try {
-        const { getCommunityUnreadCount } = await import(
-          "../message/message.action"
-        );
-        const response = await getCommunityUnreadCount(communityId);
-
-        return response.totalUnreadCount;
-      } catch (error) {
-        // Return 0 on error instead of fallback to local state
-        return 0;
-      }
-    },
-
-    // Fetch unread count từ API cho channel với cache
-    async fetchChannelUnreadCount(channelId: string, forceRefresh = false) {
-      // Always fetch from backend, ignore cache
-      try {
-        const { getUnreadCount } = await import("../message/message.action");
-        const response = await getUnreadCount(channelId);
-
-        return response.unreadCount;
-      } catch (error) {
-        // Return 0 on error instead of fallback to local state
-        return 0;
-      }
-    },
-
-    // Initialize unread state - chỉ gọi 1 lần
-    async initializeUnreadState(communityIds: string[] = []) {
-      if (this.isUnreadInitialized) {
-        return;
-      }
-
-      try {
-        // Fetch unread counts for all communities
-        const promises = communityIds.map(async (communityId) => {
-          try {
-            const count = await this.fetchCommunityUnreadCount(
-              communityId,
-              true
-            );
-            return { communityId, count };
-          } catch (error) {
-            return { communityId, count: 0 };
-          }
-        });
-
-        await Promise.all(promises);
-
-        this.isUnreadInitialized = true;
-      } catch (error) {}
-    },
-
-    // Clear cache khi cần fresh data
-    clearUnreadCache(target?: string) {
-      if (target) {
-        delete this.unreadCacheByChannel[target];
-        delete this.unreadCacheByCommunity[target];
-      } else {
-        this.unreadCacheByChannel = {};
-        this.unreadCacheByCommunity = {};
-      }
-    },
-
     // Method để set channel to community mapping
     setChannelToCommunityMapping(channelId: string, communityId: string) {
       if (channelId && communityId) {
@@ -1167,36 +988,6 @@ export const useWebSocketStore = defineStore("websocket", {
       Object.entries(mappings).forEach(([channelId, communityId]) => {
         this.setChannelToCommunityMapping(channelId, communityId);
       });
-    },
-
-    // Sync unread counts from API data
-    syncUnreadCountsFromAPI(
-      channelUnreadData: Array<{ channelId: string; unreadCount: number }>
-    ) {
-      // Disabled: Do not sync from API to local state
-      // Always fetch fresh data from backend when needed
-      return;
-    },
-
-    loadUnreadFromStorage(channelId: string): Set<string> {
-      // Disabled: Do not load unread messages from localStorage
-      return new Set();
-    },
-
-    clearUnreadFromStorage(channelId: string) {
-      // Still clear localStorage to clean up old data
-      if (!channelId) return;
-      try {
-        localStorage.removeItem(`unreadMessages_${channelId}`);
-      } catch (error) {}
-    },
-
-    // Restore unread state from localStorage
-    restoreUnreadState() {
-      // Disabled: Do not restore from localStorage
-      // Always fetch fresh data from backend
-      this.isUnreadStateRestored = true;
-      return;
     },
 
     // Send read receipt with optimistic updates - prioritize socket over API for performance
@@ -1215,18 +1006,6 @@ export const useWebSocketStore = defineStore("websocket", {
 
       if (!lastReadMessageId) {
         return;
-      }
-
-      // Clear unread immediately (optimistic update)
-      this.clearUnread(validId);
-
-      // Clear cache to force fresh data on next request
-      this.clearUnreadCache(validId);
-
-      // Clear community cache if this channel belongs to a community
-      const communityId = this.channelToCommunity[validId];
-      if (communityId) {
-        this.clearUnreadCache(communityId);
       }
 
       // Persist lastRead locally
@@ -1292,14 +1071,6 @@ export const useWebSocketStore = defineStore("websocket", {
       channelsWithUnread.forEach((channelId) => {
         const roomName = `channel_${channelId}`;
         this.ensureRoomJoined(roomName);
-      });
-    },
-
-    // Force refresh unread counts (useful after reconnecting)
-    forceRefreshUnreadCounts() {
-      // Trigger reactivity update for all channels
-      Object.keys(this.unreadByChannel).forEach((channelId) => {
-        const count = this.getUnreadCount(channelId);
       });
     },
   },

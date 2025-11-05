@@ -120,7 +120,6 @@ const messageStore = useMessageStore();
 const wsStore = useWebSocketStore();
 
 // Expose unread count for template
-const unreadCount = computed(() => wsStore.getUnreadCount(props.channelId));
 
 // Reply state
 const replyToMessage = ref(null);
@@ -183,10 +182,6 @@ const lastMessageId = computed(() => {
   return latestMessage?.id || null;
 });
 
-onMounted(() => {
-  wsStore.restoreUnreadState();
-});
-
 // Function to send read receipt when opening channel
 const sendReadReceiptForChannel = async () => {
   // Get last read message from localStorage first, then fallback to latest message
@@ -207,11 +202,6 @@ const channelId = computed(() => props.channelId);
 onMounted(async () => {
   sendReadReceiptForChannel();
   await joinRoom(`channel_${channelId}`);
-
-  // If there are unread messages, also clear them immediately
-  if (unreadCount.value > 0) {
-    wsStore.clearUnread(props.channelId);
-  }
 });
 
 // Handle scrolled to bottom from message list

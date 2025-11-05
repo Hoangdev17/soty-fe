@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { useChannelStore } from "~/stores/channels/channel.store";
 import { useInitializeForDM } from "~/composables/useInitializeForDM";
+import { ChannelType } from "~/stores/channels/channel.type";
 
 definePageMeta({
   layout: "main",
@@ -56,7 +57,12 @@ onMounted(async () => {
 
     <!-- Main content -->
     <main class="flex-1 overflow-hidden">
-      <OrganismsDmMessage v-if="currentChannel?.type === 'DM'" />
+      <OrganismsDmMessage
+        v-if="
+          currentChannel?.type === ChannelType.DM ||
+          currentChannel?.type === ChannelType.GROUP_DM
+        "
+      />
     </main>
   </div>
 </template>

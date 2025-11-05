@@ -4,6 +4,7 @@ import { useChannelStore } from "~/stores/channels/channel.store";
 import { useAuthStore } from "~/stores/auth/auth.store";
 import { useRoute } from "vue-router";
 import { useMessageStore } from "~/stores/message/message.store";
+import { ChannelType } from "~/stores/channels/channel.type";
 
 const messageStore = useMessageStore();
 
@@ -23,6 +24,22 @@ const dmRecipient = computed(() => {
   if (!recipients?.length) return null;
 
   return recipients.find((r) => r.id !== authStore.user?.id) || null;
+});
+
+// Get display avatar - use channel icon for GROUP_DM, otherwise use recipient avatar
+const displayAvatar = computed(() => {
+  if (currentChannel.value?.type === ChannelType.GROUP_DM) {
+    return (currentChannel.value as any).icon || null;
+  }
+  return dmRecipient.value?.avatar || null;
+});
+
+// Get display name - use channel name for GROUP_DM, otherwise use recipient username
+const displayName = computed(() => {
+  if (currentChannel.value?.type === ChannelType.GROUP_DM) {
+    return currentChannel.value?.name || "Group Chat";
+  }
+  return dmRecipient.value?.username || "User";
 });
 
 const hasMessages = computed(() => {
@@ -85,16 +102,22 @@ onMounted(async () => {
       >
         <div class="flex items-center space-x-3">
           <UAvatar
-            :src="dmRecipient?.avatar!"
-            :alt="dmRecipient?.username || 'User'"
+            :src="displayAvatar!"
+            :alt="displayName"
             size="sm"
             class="flex-shrink-0"
           />
           <div class="flex flex-col">
             <h1 class="text-white font-semibold truncate">
-              {{ dmRecipient?.username || "Direct Message" }}
+              {{ displayName }}
             </h1>
-            <span class="text-xs text-gray-400"> Direct Message </span>
+            <span class="text-xs text-gray-400">
+              {{
+                currentChannel?.type === ChannelType.GROUP_DM
+                  ? "Group Chat"
+                  : "Direct Message"
+              }}
+            </span>
           </div>
         </div>
         <div class="ml-auto flex items-center space-x-3">
@@ -118,18 +141,25 @@ onMounted(async () => {
         >
           <div class="flex items-center mb-4">
             <UAvatar
-              :src="dmRecipient?.avatar!"
-              :alt="dmRecipient?.username || 'User'"
+              :src="displayAvatar!"
+              :alt="displayName"
               size="lg"
               class="mr-3"
             />
           </div>
           <h2 class="text-white text-xl font-bold">
-            Đây là cuộc trò chuyện với {{ dmRecipient?.username }}
+            {{
+              currentChannel?.type === ChannelType.GROUP_DM
+                ? `Chào mừng đến với ${displayName}`
+                : `Đây là cuộc trò chuyện với ${displayName}`
+            }}
           </h2>
           <p class="text-[#72767d] text-base mb-4">
-            Đây là nơi bắt đầu cuộc trò chuyện trực tiếp của bạn với
-            {{ dmRecipient?.username }}.
+            {{
+              currentChannel?.type === ChannelType.GROUP_DM
+                ? "Đây là nơi bắt đầu cuộc trò chuyện nhóm của bạn."
+                : `Đây là nơi bắt đầu cuộc trò chuyện trực tiếp của bạn với ${displayName}.`
+            }}
           </p>
         </div>
 
