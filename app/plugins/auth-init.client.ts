@@ -16,24 +16,12 @@ export default defineNuxtPlugin(async () => {
       // Sau khi auth xong, khởi tạo unread state cho communities
       if (authStore.isAuthenticated) {
         try {
-          const { useUnreadManager } = await import(
-            "~/composables/useUnreadManager"
-          );
-          const { initializeUnreadForCommunities } = useUnreadManager();
-
           // Get user's communities
           const communityStore = useCommunityStore();
           const communities = await communityStore.fetchCommunities();
           const communityIds = communities.map((c) => c.id);
-
-          // Initialize unread state for all communities once
-          if (communityIds.length > 0) {
-            await initializeUnreadForCommunities(communityIds);
-          }
-        } catch (unreadError) {
-        }
+        } catch (unreadError) {}
       }
-    } catch (error) {
-    }
+    } catch (error) {}
   });
 });

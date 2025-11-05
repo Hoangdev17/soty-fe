@@ -3,7 +3,6 @@ import { useRoute } from "vue-router";
 import { useCommunityStore } from "~/stores/community/community.store";
 import CreateGuildForm from "../molecules/create.guild.form.vue";
 import { useWebSocketStore } from "~/stores/websocket/websocket.store";
-import { useUnreadManager } from "~/composables/useUnreadManager";
 import ThemeToggle from "../atoms/theme.toggle.vue";
 const toast = useToast();
 
@@ -72,142 +71,11 @@ const NAV_ITEMS = computed(() => {
     avatar: community.avatar,
     to: `/community/introduce/${community.id}`,
     metadata: { prefix: `/community/@${community.id}`, id: community.id },
-    notifications: getCommunityUnreadCount(community.id),
     customBg: null,
     customText: community.name.charAt(0).toUpperCase(),
   }));
 
   return [...STATIC_NAV_ITEMS, ...communityNavItems];
-});
-
-// Reactive unread counts cho mỗi community với caching tối ưu
-const communityUnreadCounts = ref<Record<string, number>>({});
-
-// Sử dụng unread manager cho tối ưu performance
-const { getCachedCommunityUnreadCount, initializeUnreadForCommunities } =
-  useUnreadManager();
-
-// Function to get total unread count for a community (use cache for performance)
-const getCommunityUnreadCount = (communityId: string) => {
-  // Return cached count for performance, fallback to reactive state
-  return (
-    communityUnreadCounts.value[communityId] ||
-    getCachedCommunityUnreadCount(communityId)
-  );
-};
-
-// Function to fetch unread count với caching
-const fetchCommunityUnreadCount = async (communityId: string) => {
-  try {
-    const count = await wsStore.fetchCommunityUnreadCount(communityId);
-    communityUnreadCounts.value[communityId] = count;
-  } catch (error) {
-    
-    // Fallback to cached local state
-    const localCount = getCachedCommunityUnreadCount(communityId);
-    communityUnreadCounts.value[communityId] = localCount;
-  }
-};
-
-// Manual refresh function với debouncing để tránh quá nhiều calls
-let refreshTimeout: NodeJS.Timeout | null = null;
-const refreshAllCommunityUnreadCounts = async () => {
-  if (refreshTimeout) {
-    clearTimeout(refreshTimeout);
-  }
-
-  refreshTimeout = setTimeout(async () => {
-    const promises = userCommunity.value.map((community) =>
-      fetchCommunityUnreadCount(community.id)
-    );
-    await Promise.all(promises);
-    refreshTimeout = null;
-  }, 300); // Debounce 300ms
-};
-
-// Expose refresh function to global scope for debugging
-if (process.dev) {
-  (window as any).refreshSidebarCounts = refreshAllCommunityUnreadCounts;
-}
-
-// Fetch unread counts for all communities when they change - với throttling
-const lastFetchTime = ref<Record<string, number>>({});
-watch(
-  userCommunity,
-  async (newCommunities) => {
-    if (newCommunities && newCommunities.length > 0) {
-      const now = Date.now();
-      const promises = [];
-
-      for (const community of newCommunities) {
-        // Chỉ fetch nếu chưa fetch trong 10 giây gần đây
-        const lastFetch = lastFetchTime.value[community.id] || 0;
-        if (now - lastFetch > 10000) {
-          lastFetchTime.value[community.id] = now;
-          promises.push(fetchCommunityUnreadCount(community.id));
-        } else {
-          // Dùng cached value
-          const cachedCount = getCachedCommunityUnreadCount(community.id);
-          communityUnreadCounts.value[community.id] = cachedCount;
-        }
-      }
-
-      if (promises.length > 0) {
-        await Promise.all(promises);
-      }
-    }
-  },
-  { immediate: true }
-);
-
-// Watch for changes in WebSocket unread state to update sidebar counts
-watch(
-  () => wsStore.unreadByChannel,
-  () => {
-    // Recalculate unread counts for all communities when any channel's unread changes
-    for (const community of userCommunity.value) {
-      const localCount = wsStore.getUnreadCountForCommunity(community.id);
-      communityUnreadCounts.value[community.id] = localCount;
-    }
-  },
-  { deep: true }
-);
-
-// Watch route changes to refresh counts when switching communities
-watch(
-  () => route.path,
-  async (newPath, oldPath) => {
-    if (newPath !== oldPath) {
-      // Small delay to ensure community data is loaded
-      setTimeout(async () => {
-        await refreshAllCommunityUnreadCounts();
-      }, 500);
-    }
-  }
-);
-
-// Tối ưu: Chỉ refresh khi thay đổi community và interval dài hơn
-onMounted(() => {
-  const refreshInterval = setInterval(async () => {
-    // Chỉ refresh communities có hoạt động gần đây (có unread > 0)
-    const activeCommunities = userCommunity.value.filter(
-      (community) => getCommunityUnreadCount(community.id) > 0
-    );
-
-    if (activeCommunities.length > 0) {
-      const promises = activeCommunities.map((community) =>
-        fetchCommunityUnreadCount(community.id)
-      );
-      await Promise.all(promises);
-    }
-  }, 60000); // Tăng lên 60 giây thay vì 30 giây
-
-  onUnmounted(() => {
-    clearInterval(refreshInterval);
-    if (refreshTimeout) {
-      clearTimeout(refreshTimeout);
-    }
-  });
 });
 
 const isActiveNav = (nav: any) => {
@@ -231,7 +99,6 @@ const isLoading = ref(false);
 async function createGuild() {
   try {
     isLoading.value = true;
-    // ✅ Kiểm tra dữ liệu trước khi gửi
     if (!createState.value.name.trim()) {
       toast.add({
         title: "Tên máy chủ không được để trống",
@@ -243,7 +110,6 @@ async function createGuild() {
 
     await communityStore.createCommunity(createState.value);
 
-    // ✅ Reset lại state sau khi tạo thành công
     createState.value = {
       name: "",
       description: "",
@@ -271,13 +137,8 @@ async function createGuild() {
       class="relative group w-full flex justify-center"
     >
       <NuxtLink :to="nav.to" class="relative flex items-center">
-        <!-- Unread indicator bar -->
-        <div
-          v-if="nav.notifications > 0"
-          class="w-1 h-4 bg-white rounded-full flex-shrink-0 mr-2"
-        ></div>
         <!-- Spacer when no unread -->
-        <div v-else class="w-1 flex-shrink-0 mr-2"></div>
+        <div class="w-1 flex-shrink-0 mr-2"></div>
 
         <div
           :class="[

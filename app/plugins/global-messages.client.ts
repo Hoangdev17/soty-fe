@@ -10,9 +10,6 @@ export default defineNuxtPlugin(() => {
       (window as any).debugWebSocketStore = wsStore;
     }
 
-    // Restore unread state from localStorage first
-    wsStore.restoreUnreadState();
-
     // Ensure we have joined rooms for any restored unread channels
     (async () => {
       try {
@@ -29,8 +26,7 @@ export default defineNuxtPlugin(() => {
         setTimeout(() => {
           wsStore.syncUnreadState();
         }, 1000);
-      } catch (e) {
-      }
+      } catch (e) {}
     })();
   }
 });
