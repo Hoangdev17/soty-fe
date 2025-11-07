@@ -3,6 +3,7 @@ import { useAuthStore } from "~/stores/auth/auth.store";
 
 const authStore = useAuthStore();
 const { friendRequest } = storeToRefs(useAuthStore());
+const { getUserDisplayName } = useDisplayName();
 async function fetchFriendList() {
   await authStore.getUserFriendRequestList();
 }
@@ -34,12 +35,14 @@ async function handleRejectRequest(requestId: string) {
       <div class="flex items-center">
         <UAvatar
           :src="friend.sender.avatar || ''"
-          :alt="friend.sender.username"
+          :alt="getUserDisplayName(friend.sender)"
           class="mt-1"
           size="lg"
         />
         <div class="flex flex-col ml-3">
-          <span class="text-md font-medium">{{ friend.sender.username }}</span>
+          <span class="text-md font-medium">{{
+            getUserDisplayName(friend.sender)
+          }}</span>
           <span class="text-sm text-gray-500">Offline</span>
         </div>
       </div>

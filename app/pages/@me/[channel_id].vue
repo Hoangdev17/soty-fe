@@ -57,11 +57,12 @@ onMounted(async () => {
 
     <!-- Main content -->
     <main class="flex-1 overflow-hidden">
-      <OrganismsDmMessage
-        v-if="
-          currentChannel?.type === ChannelType.DM ||
-          currentChannel?.type === ChannelType.GROUP_DM
-        "
+      <!-- DM Channel -->
+      <OrganismsDmMessage v-if="currentChannel?.type === ChannelType.DM" />
+
+      <!-- Group DM Channel -->
+      <OrganismsGroupDmMessage
+        v-else-if="currentChannel?.type === ChannelType.GROUP_DM"
       />
     </main>
   </div>

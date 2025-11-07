@@ -155,13 +155,7 @@ const isOpenSlideoverMember = ref(false);
 
 <template>
   <ChannelLoading v-if="isPageLoading" />
-  <DmChannel
-    v-else-if="currentChannel?.type === ChannelType.DM"
-    :channelId="channelId || ''"
-    :currentChannel="currentChannel"
-    :hasMessages="hasMessages"
-    :messageLoading="messageLoading"
-  />
+
   <TextChannel
     v-else-if="currentChannel?.type === ChannelType.GUILD_TEXT && !isMobile"
     :channelId="channelId || ''"

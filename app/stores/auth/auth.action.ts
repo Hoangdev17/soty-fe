@@ -1,5 +1,6 @@
 import type {
   Decorations,
+  Device,
   FriendPayload,
   getRequestSentPayload,
   getUserDecorationInterface,
@@ -337,7 +338,7 @@ export const authActions = {
     } catch (e) {
       const channelStore = useChannelStore();
       const channel = channelStore.channelDM.find((c) =>
-        c.recipients?.some((a) => a === receiverId)
+        c.recipients?.some((a) => a.id === receiverId)
       );
       navigateTo(`/@me/${channel?.id}`);
     }
@@ -414,6 +415,24 @@ export const authActions = {
     const res = await fetchWithAuth<User>(`/users/findById?userId=${userId}`, {
       method: "GET",
     });
+
+    return res;
+  },
+
+  async getDeviceHistory() {
+    const { fetchWithAuth } = useFetchWithAuth();
+    const authStore = useAuthStore();
+
+    const res = await fetchWithAuth<{
+      total: number;
+      devices: Device[];
+    }>("/auth/devices", {
+      method: "GET",
+    });
+
+    if (authStore.user) {
+      authStore.user.devices = res.devices;
+    }
 
     return res;
   },

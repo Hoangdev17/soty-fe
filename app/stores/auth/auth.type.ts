@@ -38,6 +38,13 @@ enum Platform {
 export type Device = {
   platform: Platform;
   ip: String | null;
+  browser: String | null; // Chrome, Firefox, Safari, Edge, etc.
+  browserVersion: String | null; // Version của browser
+  os: String | null; // Windows, macOS, Linux, Android, iOS
+  osVersion: String | null; // Version của OS
+  deviceModel: String | null; // Model thiết bị (iPhone 13, Galaxy S21, etc.)
+  deviceVendor: String | null; // Apple, Samsung, Google, etc.
+  userAgent: String | null;
   lastActiveAt: Date | null;
   pushToken: String | null;
 };
