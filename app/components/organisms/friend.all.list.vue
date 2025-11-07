@@ -2,10 +2,12 @@
 import type { DropdownMenuItem } from "@nuxt/ui";
 import { useAuthStore } from "~/stores/auth/auth.store";
 import { useChannelStore } from "~/stores/channels/channel.store";
+import { ChannelType } from "~/stores/channels/channel.type";
 
 const authStore = useAuthStore();
 const channelStore = useChannelStore();
 const { friends } = storeToRefs(authStore);
+const { getUserDisplayName } = useDisplayName();
 
 onMounted(() => {
   authStore.getUserFriendList();
@@ -35,10 +37,16 @@ function getMenuItems(friendId: string): DropdownMenuItem[][] {
 }
 
 async function handleGoToDmMessage(id: string) {
-  const channel = channelStore.channelDM.find((c) =>
-    c.recipients?.some((a) => a.id === id)
-  );
-  navigateTo(`/@me/${channel?.id}`);
+  try {
+    const channel = channelStore.channelDM.find(
+      (c) => c.type === ChannelType.DM && c.recipients?.some((a) => a.id === id)
+    );
+
+    navigateTo(`/@me/${channel?.id}`);
+  } catch (error) {
+    const channelDM = await channelStore.createChannelDm([id]);
+    navigateTo(`/@me/${channelDM.id}`);
+  }
 }
 </script>
 
@@ -60,7 +68,9 @@ async function handleGoToDmMessage(id: string) {
           :alt="friend.username"
         />
         <div class="flex flex-col ml-3">
-          <span class="text-md font-medium">{{ friend.username }}</span>
+          <span class="text-md font-medium">{{
+            getUserDisplayName(friend)
+          }}</span>
           <span v-if="friend.presence?.status === `ONLINE`">
             <UBadge variant="soft">Online</UBadge>
           </span>

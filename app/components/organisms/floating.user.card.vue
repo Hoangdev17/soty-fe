@@ -2,6 +2,7 @@
 import { useAuthStore } from "~/stores/auth/auth.store";
 
 const authStore = useAuthStore();
+const { getUserDisplayName } = useDisplayName();
 
 // Sử dụng reactive user từ auth store thay vì useUserClientStore
 const user = computed(() => authStore.userInfo);
@@ -130,7 +131,7 @@ const onClickSettings = () => {
         <!-- Avatar -->
         <UAvatar
           :src="user?.avatar || undefined"
-          :alt="user?.username || 'avatar'"
+          :alt="getUserDisplayName(user)"
           class="w-10 h-10 rounded-full border-2 border-gray-700 relative z-10"
         />
 
@@ -146,7 +147,7 @@ const onClickSettings = () => {
       <div>
         <!-- Username (không cần nameplate riêng vì đã có background) -->
         <h3 class="font-semibold text-sm text-white drop-shadow-lg">
-          {{ user?.username }}
+          {{ getUserDisplayName(user) }}
         </h3>
         <UBadge v-if="user.presence?.status === `ONLINE`" variant="soft">
           Online

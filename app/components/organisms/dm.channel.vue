@@ -1,8 +1,7 @@
 <script setup lang="ts">
-import { ref } from "vue";
-import { useRoute } from "vue-router";
-import { useMemberStore } from "~/stores/member/member.store";
+import { ref, computed, onMounted, watch } from "vue";
 import { useAuthStore } from "~/stores/auth/auth.store";
+import { useDisplayName } from "~/composables/useDisplayName";
 import type { Channel } from "~/stores/channels/channel.type";
 
 interface Props {
@@ -14,9 +13,8 @@ interface Props {
 
 const props = defineProps<Props>();
 
-const memberStore = useMemberStore();
 const authStore = useAuthStore();
-const route = useRoute();
+const { getUserDisplayName } = useDisplayName();
 
 // Reply state
 const replyToMessage = ref(null);
@@ -35,18 +33,45 @@ const handleReplyCancelled = () => {
   replyToMessage.value = null;
 };
 
-// Get recipient info for DM
-const getRecipient = () => {
-  if (!props.currentChannel?.recipients?.length) return null;
-  // For DM, recipients array contains user IDs
-  // In a real app, you'd fetch user data, but for now we'll show placeholder
-  return {
-    username: `User ${props.currentChannel.recipients[0]}`,
-    avatar: null,
-  };
-};
+onMounted(() => {
+  console.log("DM Channel Props:", {
+    channelId: props.channelId,
+    currentChannel: props.currentChannel,
+    recipients: props.currentChannel?.recipients,
+    hasMessages: props.hasMessages,
+    messageLoading: props.messageLoading,
+  });
+});
 
-const recipient = getRecipient();
+// Watch currentChannel changes
+watch(
+  () => props.currentChannel,
+  (newChannel) => {
+    console.log("Current Channel Changed:", newChannel);
+    console.log("Recipients:", newChannel?.recipients);
+  },
+  { immediate: true }
+);
+
+// Get recipient info for DM (excluding current user)
+const recipient = computed(() => {
+  if (!props.currentChannel?.recipients?.length) {
+    console.log("No recipients found");
+    return null;
+  }
+
+  const currentUserId = authStore.user?.id;
+  console.log("Current User ID:", currentUserId);
+  console.log("All Recipients:", props.currentChannel.recipients);
+
+  const recipientUser = props.currentChannel.recipients.find(
+    (r) => r.id !== currentUserId
+  );
+
+  console.log("Found Recipient:", recipientUser);
+
+  return recipientUser || props.currentChannel.recipients[0];
+});
 </script>
 
 <template>
@@ -60,12 +85,12 @@ const recipient = getRecipient();
         <div class="flex items-center space-x-2">
           <UAvatar
             :src="recipient?.avatar!"
-            :alt="recipient?.username"
+            :alt="getUserDisplayName(recipient)"
             size="sm"
             class="rounded-full"
           />
           <h1 class="text-white font-semibold truncate">
-            {{ recipient?.username || "Direct Message" }}
+            {{ getUserDisplayName(recipient) || "Direct Message" }}
           </h1>
         </div>
         <div class="ml-auto flex items-center space-x-3">
@@ -101,16 +126,17 @@ const recipient = getRecipient();
           <div class="flex items-center mb-4">
             <UAvatar
               :src="recipient?.avatar!"
-              :alt="recipient?.username"
+              :alt="getUserDisplayName(recipient)"
               size="lg"
               class="rounded-full mr-3"
             />
           </div>
           <h2 class="text-white text-xl font-bold">
-            Đây là nơi bắt đầu cuộc trò chuyện với {{ recipient?.username }}!
+            Đây là nơi bắt đầu cuộc trò chuyện với
+            {{ getUserDisplayName(recipient) }}!
           </h2>
           <p class="text-[#72767d] text-base mb-4">
-            Học cách sử dụng Discord với {{ recipient?.username }}.
+            Học cách sử dụng Discord với {{ getUserDisplayName(recipient) }}.
           </p>
         </div>
 

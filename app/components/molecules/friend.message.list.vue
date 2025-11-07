@@ -4,6 +4,7 @@ import { useChannelStore } from "~/stores/channels/channel.store";
 import { useWebSocketStore } from "~/stores/websocket/websocket.store";
 import { useMessageStore } from "~/stores/message/message.store";
 import { useAuthStore } from "~/stores/auth/auth.store";
+import { useDisplayName } from "~/composables/useDisplayName";
 import { navigateTo } from "#app";
 import { storeToRefs } from "pinia";
 import type { Channel } from "~/stores/channels/channel.type";
@@ -12,6 +13,7 @@ import { ChannelType } from "~/stores/channels/channel.type";
 const channelStore = useChannelStore();
 const wsStore = useWebSocketStore();
 const authStore = useAuthStore();
+const { getUserDisplayName } = useDisplayName();
 const { channelDM } = storeToRefs(channelStore);
 const route = useRoute();
 
@@ -32,9 +34,10 @@ const state = ref({
 
 const filteredUsers = computed(() => {
   if (!state.value.search) return state.value.users;
-  return state.value.users.filter((user) =>
-    user.username.toLowerCase().includes(state.value.search.toLowerCase())
-  );
+  return state.value.users.filter((user) => {
+    const displayName = getUserDisplayName(user);
+    return displayName.toLowerCase().includes(state.value.search.toLowerCase());
+  });
 });
 
 // Fetch friends when opening modal
@@ -171,12 +174,33 @@ const getDisplayAvatar = (channel: Channel) => {
   return getRecipient(channel)?.avatar || null;
 };
 
-// Helper function to get display name - use channel name for GROUP_DM, otherwise use recipient username
+// Helper function to get display name - use channel name for GROUP_DM, otherwise use recipient display name (globalName or username)
 const getDisplayName = (channel: Channel) => {
   if (channel.type === ChannelType.GROUP_DM) {
     return channel.name || "Group Chat";
   }
-  return getRecipient(channel)?.username || "DM Channel";
+  const recipient = getRecipient(channel);
+  return getUserDisplayName(recipient) || "DM Channel";
+};
+
+// Helper function to get avatar effect URL for channel recipient
+const getChannelAvatarEffectUrl = (channel: Channel) => {
+  if (channel.type === ChannelType.GROUP_DM) {
+    return null; // Group DM uses channel icon, no effect
+  }
+
+  const recipient = getRecipient(channel);
+  if (!recipient) return null;
+
+  // Find full user data from friends list
+  const friendData = authStore.friends?.find((f) => f.id === recipient.id);
+  if (!friendData?.avatarEffectId) return null;
+
+  const avatarEffect = authStore.decoration.find(
+    (d) => d.id === friendData.avatarEffectId
+  );
+
+  return avatarEffect?.metadata?.link || null;
 };
 </script>
 
@@ -209,11 +233,21 @@ const getDisplayName = (channel: Channel) => {
           <!-- Spacer when no unread -->
           <div v-else class="w-1 flex-shrink-0"></div>
 
-          <UAvatar
-            :src="getDisplayAvatar(channel)!"
-            :alt="getDisplayName(channel)"
-            size="sm"
-          />
+          <!-- Avatar with effect -->
+          <div class="relative flex-shrink-0">
+            <UAvatar
+              :src="getDisplayAvatar(channel)!"
+              :alt="getDisplayName(channel)"
+              size="sm"
+            />
+            <!-- Avatar Effect Overlay -->
+            <img
+              v-if="getChannelAvatarEffectUrl(channel)"
+              :src="getChannelAvatarEffectUrl(channel)!"
+              alt="Avatar Effect"
+              class="absolute inset-0 w-full h-full object-cover pointer-events-none"
+            />
+          </div>
           <span class="text-sm font-medium">
             {{ getDisplayName(channel) }}
           </span>
@@ -242,8 +276,12 @@ const getDisplayName = (channel: Channel) => {
               class="flex items-center justify-between p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded cursor-pointer gap-2"
             >
               <div class="flex items-center gap-2">
-                <UAvatar :src="user.avatar" :alt="user.username" size="sm" />
-                <span>{{ user.username }}</span>
+                <UAvatar
+                  :src="user.avatar"
+                  :alt="getUserDisplayName(user)"
+                  size="sm"
+                />
+                <span>{{ getUserDisplayName(user) }}</span>
               </div>
               <UButton
                 size="xs"
@@ -262,8 +300,12 @@ const getDisplayName = (channel: Channel) => {
                 :key="user.id"
                 class="flex items-center gap-2 bg-gray-200 dark:bg-gray-700 px-3 py-1 rounded-full"
               >
-                <UAvatar :src="user.avatar" :alt="user.username" size="xs" />
-                <span class="text-sm">{{ user.username }}</span>
+                <UAvatar
+                  :src="user.avatar"
+                  :alt="getUserDisplayName(user)"
+                  size="xs"
+                />
+                <span class="text-sm">{{ getUserDisplayName(user) }}</span>
                 <UButton
                   size="xs"
                   color="error"

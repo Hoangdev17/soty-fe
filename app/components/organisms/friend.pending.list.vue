@@ -3,6 +3,7 @@ import { useAuthStore } from "~/stores/auth/auth.store";
 
 const authStore = useAuthStore();
 const { friendRequestSent } = storeToRefs(authStore);
+const { getUserDisplayName } = useDisplayName();
 
 onMounted(() => {
   authStore.getUserFriendRequestListSent();
@@ -29,13 +30,13 @@ async function handleRemoveFriendRequest(requestId: string) {
       <div class="flex items-center">
         <UAvatar
           :src="friend.receiver.avatar || ''"
-          :alt="friend.receiver.username"
+          :alt="getUserDisplayName(friend.receiver)"
           class="mt-1"
           size="lg"
         />
         <div class="flex flex-col ml-3">
           <span class="text-md font-medium">{{
-            friend.receiver.username
+            getUserDisplayName(friend.receiver)
           }}</span>
           <span class="text-sm text-gray-500">Offline</span>
         </div>

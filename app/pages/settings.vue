@@ -83,7 +83,7 @@ const items = computed<MenuItem[][]>(() => [
     {
       label: "Devices",
       icon: "lucide-tablet",
-      to: "/apps/settings/devices",
+      to: "/settings/devices",
       active: section.value === "devices" || route.path.includes("/devices"),
     },
     {
@@ -92,6 +92,7 @@ const items = computed<MenuItem[][]>(() => [
       to: "/apps/settings/connections",
       active:
         section.value === "connections" || route.path.includes("/connections"),
+      disabled: true,
     },
   ],
   [
@@ -100,14 +101,7 @@ const items = computed<MenuItem[][]>(() => [
       class: "font-bold text-sm",
       type: "label",
     },
-    {
-      label: "Register",
-      icon: "lucide-scan-face",
-      to: "/apps/settings/subscriptions",
-      active:
-        section.value === "subscriptions" ||
-        route.path.includes("/subscriptions"),
-    },
+
     {
       label: "Nitro",
       icon: "lucide-credit-card",
@@ -136,6 +130,7 @@ const items = computed<MenuItem[][]>(() => [
       to: "/apps/settings/languages",
       active:
         section.value === "languages" || route.path.includes("/languages"),
+      disabled: true,
     },
   ],
   [

@@ -848,17 +848,6 @@ const cancelReply = () => emit("reply-cancelled");
           </template>
         </UPopover>
 
-        <UButton
-          variant="ghost"
-          size="sm"
-          class="text-[#b9bbbe] hover:text-white"
-          type="button"
-          @click="showMarkdownHelp = !showMarkdownHelp"
-          title="Markdown help"
-        >
-          <UIcon name="i-lucide-info" class="w-5 h-5" />
-        </UButton>
-
         <div class="mr-1">
           <UploadButton
             variant="ghost"

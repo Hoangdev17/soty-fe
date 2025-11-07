@@ -3,6 +3,7 @@ import { ref, watch } from "vue";
 import { storeToRefs } from "pinia";
 import { useAuthStore } from "~/stores/auth/auth.store";
 import { useNewFeedStore } from "~/stores/newfeed/newfeed.store";
+import { useDisplayName } from "~/composables/useDisplayName";
 import type { NewFeeds } from "~/stores/newfeed/newfeed.type";
 
 interface Props {
@@ -14,6 +15,7 @@ const modelValue = defineModel<boolean>("open", { required: true });
 
 const newFeedStore = useNewFeedStore();
 const authStore = useAuthStore();
+const { getUserDisplayName } = useDisplayName();
 const { currentPost } = storeToRefs(newFeedStore);
 const { user } = storeToRefs(authStore);
 
@@ -206,7 +208,7 @@ async function handleAddComment(postId: string, content: string) {
                 <div class="bg-gray-800 rounded-lg px-3 py-2 w-full">
                   <div class="flex justify-between items-center">
                     <span class="font-semibold text-gray-100 text-sm">
-                      {{ comment.user.username }}
+                      {{ getUserDisplayName(comment.user) }}
                     </span>
                     <span class="text-xs text-gray-500">
                       {{ new Date(comment.createdAt).toLocaleString("vi-VN") }}

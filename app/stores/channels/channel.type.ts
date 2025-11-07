@@ -1,3 +1,5 @@
+import type { User } from "../auth/auth.type";
+
 export enum ChannelType {
   GUILD_TEXT = "GUILD_TEXT",
   DM = "DM",
@@ -30,11 +32,7 @@ export type Channel = {
   isPrivate: boolean;
   rateLimitPerUser: number | null;
 
-  recipients?: {
-    id: string;
-    username: string;
-    avatar: string | null;
-  }[];
+  recipients?: User[];
 
   maxMembers: number | null;
 

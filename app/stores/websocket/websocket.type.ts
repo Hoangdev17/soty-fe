@@ -1,6 +1,7 @@
 import type { Socket } from "socket.io-client";
 import type { Member } from "../member/member.type";
 import type { ChannelType } from "../channels/channel.type";
+import type { User } from "../auth/auth.type";
 
 export type WEBSOCKET_EVENTS = {
   // Connection events
@@ -148,11 +149,7 @@ export interface ChannelCreatedData {
     type: ChannelType;
     viewAble: boolean;
     rateLimitPerUser: number | null;
-    recipients?: {
-      id: string;
-      username: string;
-      avatar: string | null;
-    }[];
+    recipients?: User[];
     maxMembers: number | null;
     createdAt: Date;
     updatedAt: Date;
