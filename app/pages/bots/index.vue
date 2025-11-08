@@ -87,7 +87,7 @@ const inviteBot = (bot: Bot) => {
 };
 
 const handleBotInvited = (data: { botId: string; communityId: string }) => {
-  console.log("Bot invited successfully:", data);
+  "Bot invited successfully:", data;
 };
 
 const viewDetails = (bot: Bot) => {

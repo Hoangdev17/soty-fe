@@ -34,6 +34,17 @@ export type WEBSOCKET_EVENTS = {
   //CHANNEL
   CREATE_CHANNEL: "create_channel";
 
+  // Voice Channel events (LiveKit)
+  JOIN_VOICE_CHANNEL: "join_voice_channel";
+  LEAVE_VOICE_CHANNEL: "leave_voice_channel";
+  VOICE_TOKEN_GENERATED: "voice_token_generated";
+  VOICE_CHANNEL_JOINED: "voice_channel_joined";
+  VOICE_CHANNEL_LEFT: "voice_channel_left";
+  VOICE_PARTICIPANT_JOINED: "voice_participant_joined";
+  VOICE_PARTICIPANT_LEFT: "voice_participant_left";
+  VOICE_PARTICIPANT_MUTED: "voice_participant_muted";
+  VOICE_PARTICIPANT_UNMUTED: "voice_participant_unmuted";
+
   // Notification events
   NOTIFICATION: "notification";
 
@@ -157,4 +168,35 @@ export interface ChannelCreatedData {
   communityId: string;
   createdBy: string;
   timestamp: Date;
+}
+
+// Voice Channel types (LiveKit)
+export interface JoinVoiceChannelPayload {
+  channelId: string;
+  username?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface LeaveVoiceChannelPayload {
+  channelId: string;
+}
+
+export interface VoiceTokenGeneratedData {
+  token: string;
+  livekitUrl: string;
+  roomName: string;
+}
+
+export interface VoiceChannelJoinedData {
+  channelId: string;
+  roomName: string;
+  participantId: string;
+  username: string;
+}
+
+export interface VoiceChannelLeftData {
+  channelId: string;
+  roomName: string;
+  participantId: string;
+  username: string;
 }
