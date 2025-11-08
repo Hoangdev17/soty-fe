@@ -351,6 +351,25 @@ export function useVoiceChannelLiveKit() {
       }
     );
 
+    // Handle local track published (for screen share)
+    room.value.on(RoomEvent.LocalTrackPublished, (publication: any) => {
+      if (
+        publication.source === Track.Source.ScreenShare &&
+        publication.track
+      ) {
+        localScreenTrack.value = publication.track as LocalTrack;
+        isScreenSharing.value = true;
+      }
+    });
+
+    // Handle local track unpublished (for screen share)
+    room.value.on(RoomEvent.LocalTrackUnpublished, (publication: any) => {
+      if (publication.source === Track.Source.ScreenShare) {
+        localScreenTrack.value = null;
+        isScreenSharing.value = false;
+      }
+    });
+
     // Handle disconnection
     room.value.on(RoomEvent.Disconnected, () => {
       cleanup();
@@ -890,75 +909,15 @@ export function useVoiceChannelLiveKit() {
    */
   const toggleScreenShare = async () => {
     if (!room.value) {
-      console.warn("Room not initialized");
       return;
     }
 
-    const previousState = isScreenSharing.value;
-
     try {
-      if (!isScreenSharing.value) {
-        // Start screen sharing
-
-        // Get screen share track using getDisplayMedia
-        const stream = await navigator.mediaDevices.getDisplayMedia({
-          video: {
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-            frameRate: { ideal: 30 },
-          },
-          audio: false, // Can enable screen audio if needed
-        });
-
-        const videoTrack = stream.getVideoTracks()[0];
-        if (videoTrack) {
-          // Create LocalVideoTrack from MediaStreamTrack
-          const { LocalVideoTrack } = await import("livekit-client");
-          localScreenTrack.value = new LocalVideoTrack(
-            videoTrack,
-            undefined,
-            false
-          );
-
-          // Publish screen share track using mediaStreamTrack
-          await room.value.localParticipant.publishTrack(
-            localScreenTrack.value.mediaStreamTrack,
-            {
-              source: Track.Source.ScreenShare,
-              name: "screen",
-            }
-          );
-
-          isScreenSharing.value = true;
-
-          // Listen for screen share stop (user clicks browser stop button)
-          videoTrack.addEventListener("ended", async () => {
-            if (isScreenSharing.value) {
-              await toggleScreenShare();
-            }
-          });
-        }
-      } else {
-        // Stop screen sharing
-
-        if (localScreenTrack.value) {
-          // Unpublish screen track
-          await room.value.localParticipant.unpublishTrack(
-            localScreenTrack.value.mediaStreamTrack
-          );
-
-          // Stop the track
-          localScreenTrack.value.stop();
-          localScreenTrack.value = null;
-        }
-
-        isScreenSharing.value = false;
-      }
+      // LiveKit handles everything - events will update localScreenTrack and isScreenSharing
+      await room.value.localParticipant.setScreenShareEnabled(
+        !isScreenSharing.value
+      );
     } catch (error: any) {
-      console.error("❌ Error toggling screen share:", error);
-      // Revert state on error
-      isScreenSharing.value = previousState;
-
       // If user cancels screen share, don't show error
       if (error?.name === "NotAllowedError" || error?.name === "AbortError") {
         return;
@@ -966,7 +925,7 @@ export function useVoiceChannelLiveKit() {
 
       throw new Error(
         `Failed to ${
-          isScreenSharing.value ? "start" : "stop"
+          isScreenSharing.value ? "stop" : "start"
         } screen sharing: ${error?.message || "Unknown error"}`
       );
     }
@@ -1051,6 +1010,7 @@ export function useVoiceChannelLiveKit() {
     webSocketListenersSetup = false;
     isConnected.value = false;
     isConnecting.value = false;
+    isScreenSharing.value = false;
   };
 
   return {

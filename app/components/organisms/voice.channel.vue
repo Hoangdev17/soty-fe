@@ -56,6 +56,7 @@ const remoteVideoRefs = ref<{ [key: string]: HTMLVideoElement }>({});
 const remoteScreenRefs = ref<{ [key: string]: HTMLVideoElement }>({});
 
 const pinnedScreen = ref<string | null>(null);
+const showThumbnailsWhenPinned = ref<boolean>(true); // Show/hide thumbnails when pinned
 
 const { currentChannel } = storeToRefs(useChannelStore());
 const { currentCommunity } = storeToRefs(useCommunityStore());
@@ -64,6 +65,90 @@ const channelId = currentChannel.value?.id as string;
 const participantsInChannel = computed(() => {
   return voiceParticipantsByChannel.value[channelId] || [];
 });
+
+// Calculate grid layout based on number of items
+const getGridClass = () => {
+  let totalItems = 1; // Local video
+  totalItems += Object.keys(remoteStreams.value).length; // Remote videos
+  if (isScreenSharing.value) totalItems++; // Local screen
+  totalItems += Object.keys(remoteScreenStreams.value).length; // Remote screens
+
+  // Remove pinned item from count
+  if (pinnedScreen.value) totalItems--;
+
+  // Limit size for 1-2 people with max-width constraint, centered
+  if (totalItems === 1)
+    return "grid-cols-1 place-items-center max-w-md mx-auto";
+  if (totalItems === 2)
+    return "grid-cols-2 gap-5 max-w-3xl mx-auto place-items-center";
+  // 3 people: 2 rows (2 on top, 1 on bottom centered)
+  if (totalItems === 3) return "grid-cols-2 gap-3 auto-rows-fr";
+  // 4 people: 2x2 grid
+  if (totalItems === 4) return "grid-cols-2 gap-3 auto-rows-fr";
+  // 5-6 people: 3x2 grid
+  if (totalItems <= 6) return "grid-cols-3 gap-3 auto-rows-fr";
+  // 7-9 people: 3x3 grid
+  if (totalItems <= 9) return "grid-cols-3 gap-3 auto-rows-fr";
+  // 10+ people: 4 columns
+  return "grid-cols-4 gap-3 auto-rows-fr";
+};
+
+// Get total visible items count
+const getTotalItems = () => {
+  let totalItems = 1; // Local video
+  totalItems += Object.keys(remoteStreams.value).length;
+  if (isScreenSharing.value) totalItems++;
+  totalItems += Object.keys(remoteScreenStreams.value).length;
+  if (pinnedScreen.value) totalItems--;
+  return totalItems;
+};
+
+// Get item class based on position (for centering 3rd item when total is 3)
+const getItemClass = (
+  isLocalVideo: boolean,
+  remoteId?: string,
+  isLocalScreen?: boolean,
+  remoteScreenId?: string
+) => {
+  const totalItems = getTotalItems();
+
+  // Calculate current index
+  let index = 0;
+  if (
+    isLocalVideo &&
+    (!pinnedScreen.value || pinnedScreen.value !== "local-video")
+  ) {
+    index = 0;
+  } else if (remoteId) {
+    index = 1; // Local video takes 0
+    const remoteIds = Object.keys(remoteStreams.value);
+    const remoteIndex = remoteIds.indexOf(remoteId);
+    if (remoteIndex >= 0) {
+      index += remoteIndex;
+    }
+  } else if (isLocalScreen) {
+    index = 1 + Object.keys(remoteStreams.value).length;
+  } else if (remoteScreenId) {
+    index = 1 + Object.keys(remoteStreams.value).length;
+    if (isScreenSharing.value) index += 1;
+    const remoteScreenIds = Object.keys(remoteScreenStreams.value);
+    const screenIndex = remoteScreenIds.indexOf(remoteScreenId);
+    if (screenIndex >= 0) {
+      index += screenIndex;
+    }
+  }
+
+  const baseClass = getGridClass().includes("max-w")
+    ? "w-full aspect-video"
+    : "w-full h-full";
+
+  // For 3 items, make the 3rd item (index 2) span 2 columns and center it
+  if (totalItems === 3 && index === 2) {
+    return `${baseClass} col-span-2 max-w-md mx-auto`;
+  }
+
+  return baseClass;
+};
 
 async function startCall() {
   if (!isConnected.value && !isConnecting.value) {
@@ -130,30 +215,66 @@ watch(isScreenSharing, (isSharing) => {
 });
 
 // Watch for local screen track changes and attach to video element
+watchEffect(() => {
+  if (localScreenTrack.value && localScreenVideo.value) {
+    nextTick(() => {
+      if (localScreenVideo.value && localScreenTrack.value) {
+        const stream = new MediaStream([
+          localScreenTrack.value.mediaStreamTrack,
+        ]);
+        localScreenVideo.value.srcObject = stream;
+
+        // Force video properties
+        localScreenVideo.value.autoplay = true;
+        localScreenVideo.value.muted = true;
+        localScreenVideo.value.playsInline = true;
+
+        localScreenVideo.value.play().catch(() => {});
+      }
+    });
+  } else if (localScreenVideo.value && !localScreenTrack.value) {
+    localScreenVideo.value.srcObject = null;
+  }
+});
+
+// Re-attach stream when pinning/unpinning local screen
 watch(
-  localScreenTrack,
-  (newTrack) => {
-    if (newTrack) {
+  () => pinnedScreen.value,
+  () => {
+    if (
+      localScreenTrack.value &&
+      (pinnedScreen.value === "local-screen" || isScreenSharing.value)
+    ) {
       nextTick(() => {
         if (localScreenVideo.value) {
-          const stream = new MediaStream([newTrack.mediaStreamTrack]);
+          const stream = new MediaStream([
+            localScreenTrack.value!.mediaStreamTrack,
+          ]);
           localScreenVideo.value.srcObject = stream;
-
-          localScreenVideo.value.play().catch((err) => {
-            if (err.name !== "AbortError") {
-              console.warn("⚠️ Local screen video play error:", err);
-            }
-          });
-        } else {
-          console.warn("⚠️ localScreenVideo ref not found");
+          localScreenVideo.value.play().catch(() => {});
         }
       });
-    } else if (localScreenVideo.value) {
-      // Clear when stopped
-      localScreenVideo.value.srcObject = null;
     }
-  },
-  { immediate: true }
+  }
+);
+
+// Re-attach remote screen stream when pinning/unpinning remote screen
+watch(
+  () => pinnedScreen.value,
+  () => {
+    if (pinnedScreen.value && pinnedScreen.value.startsWith("screen-")) {
+      const participantId = pinnedScreen.value.replace("screen-", "");
+      const stream = remoteScreenStreams.value[participantId];
+      const videoEl = remoteScreenRefs.value[participantId];
+
+      if (stream && videoEl) {
+        nextTick(() => {
+          videoEl.srcObject = stream;
+          videoEl.play().catch(() => {});
+        });
+      }
+    }
+  }
 );
 
 const localScreenStream = computed(() => {
@@ -255,6 +376,27 @@ watch(
   { deep: true }
 );
 
+// Automatically attach remote screen streams when refs or streams change
+watchEffect(() => {
+  Object.entries(remoteScreenStreams.value).forEach(
+    ([participantId, stream]) => {
+      const videoEl = remoteScreenRefs.value[participantId];
+      if (
+        videoEl &&
+        stream &&
+        (!videoEl.srcObject || videoEl.srcObject !== stream)
+      ) {
+        nextTick(() => {
+          if (videoEl && stream) {
+            videoEl.srcObject = stream;
+            videoEl.play().catch(() => {});
+          }
+        });
+      }
+    }
+  );
+});
+
 async function handleLeave(channelId: string) {
   await leave(channelId);
 }
@@ -284,6 +426,19 @@ function setRemoteScreenRef(participantId: string) {
     }
   };
 }
+
+// Function to set remote screen ref for pinned screen
+function setPinnedRemoteScreenRef(el: any) {
+  if (el && pinnedScreen.value && pinnedScreen.value.startsWith("screen-")) {
+    const participantId = pinnedScreen.value.replace("screen-", "");
+    const stream = remoteScreenStreams.value[participantId];
+    if (stream) {
+      el.srcObject = stream;
+      el.play().catch(() => {});
+    }
+    remoteScreenRefs.value[participantId] = el as HTMLVideoElement;
+  }
+}
 </script>
 
 <template>
@@ -305,7 +460,7 @@ function setRemoteScreenRef(participantId: string) {
 
     <!-- video call container -->
     <div
-      class="relative min-h-screen bg-gradient-to-br from-blue-500 to-blue-700 flex flex-col items-center justify-center p-5"
+      class="relative flex-1 bg-gradient-to-br from-blue-500 to-blue-700 flex flex-col items-center justify-center p-5 overflow-hidden"
     >
       <!-- Loading state -->
       <div v-if="isConnecting" class="text-center text-white">
@@ -315,42 +470,35 @@ function setRemoteScreenRef(participantId: string) {
         <p class="text-lg">Đang kết nối...</p>
       </div>
 
-      <!-- Connected: Videos grid -->
-      <div v-else-if="isConnected" class="flex flex-col gap-5 w-full max-w-7xl">
-        <!-- Videos grid -->
-        <div
-          class="grid gap-5 w-full grid-cols-1 md:grid-cols-2 lg:grid-cols-3 max-w-6xl mx-auto"
-        >
-          <!-- Local video -->
+      <!-- Connected: Videos layout -->
+      <div v-else-if="isConnected" class="flex flex-col w-full h-full">
+        <!-- When something is pinned: Show pinned screen + thumbnails -->
+        <div v-if="pinnedScreen" class="flex flex-col w-full h-full">
+          <!-- Pinned screen (full width on top) -->
           <div
-            :class="[
-              'relative bg-gray-800 rounded-lg overflow-hidden transition-all duration-300',
-              pinnedScreen === 'local-video'
-                ? 'col-span-full row-span-2 h-[60vh]'
-                : 'aspect-video hover:scale-105 hover:shadow-2xl',
-            ]"
+            class="w-full flex-1 bg-gray-900 rounded-lg overflow-hidden relative group mb-4"
           >
-            <!-- Luôn render video, nhưng ẩn nếu tắt -->
+            <!-- Local video pinned -->
             <video
+              v-if="pinnedScreen === 'local-video'"
               ref="localVideo"
               autoplay
               muted
               :class="[
-                'w-full h-full object-cover scale-x-[-1]',
-                { 'opacity-0': !isVideoEnabled }, // Ẩn video nếu tắt
+                'w-full h-full scale-x-[-1]',
+                isVideoEnabled ? 'object-cover' : 'hidden',
               ]"
             ></video>
-            <!-- Hiển thị avatar overlay nếu video tắt -->
             <div
-              v-if="!isVideoEnabled"
+              v-if="pinnedScreen === 'local-video' && !isVideoEnabled"
               class="absolute inset-0 flex items-center justify-center bg-gray-700"
             >
               <div class="relative">
                 <UAvatar
                   :src="user?.avatar || ''"
                   :alt="user?.username || 'User Avatar'"
-                  size="lg"
-                  class="border-4 border-gray-600 w-24 h-24 object-cover rounded-full"
+                  size="3xl"
+                  class="border-4 border-gray-600"
                 />
                 <img
                   v-if="getAvatarEffectUrl(user)"
@@ -360,151 +508,395 @@ function setRemoteScreenRef(participantId: string) {
                 />
               </div>
             </div>
-            <span
-              class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs z-20"
-              >You</span
-            >
-          </div>
 
-          <!-- Remote videos -->
-          <div
-            v-for="(stream, id) in remoteStreams"
-            :key="id"
-            :class="[
-              'relative bg-gray-800 rounded-lg overflow-hidden transition-all duration-300',
-              pinnedScreen === `video-${id}`
-                ? 'col-span-full row-span-2 h-[60vh]'
-                : 'aspect-video hover:scale-105 hover:shadow-2xl',
-            ]"
-          >
-            <!-- Video với proper ref và attributes -->
+            <!-- Remote video pinned -->
             <video
-              :ref="setRemoteVideoRef(id as string)"
+              v-else-if="pinnedScreen && pinnedScreen.startsWith('video-')"
+              :ref="setRemoteVideoRef(pinnedScreen.replace('video-', ''))"
               autoplay
               playsinline
               :muted="false"
-              width="1280"
-              height="720"
               :class="[
                 'w-full h-full object-cover',
                 {
-                  'opacity-0': !usersInfo[id]?.isVideoEnabled,
-                  'z-0': !usersInfo[id]?.isVideoEnabled,
+                  hidden:
+                    !usersInfo[pinnedScreen.replace('video-', '')]
+                      ?.isVideoEnabled,
                 },
               ]"
             ></video>
-            <!-- Hiển thị avatar overlay nếu video tắt (z-index cao hơn) -->
             <div
-              v-if="!usersInfo[id]?.isVideoEnabled"
-              class="absolute inset-0 flex items-center justify-center bg-gray-700 z-10"
+              v-if="
+                pinnedScreen &&
+                pinnedScreen.startsWith('video-') &&
+                !usersInfo[pinnedScreen.replace('video-', '')]?.isVideoEnabled
+              "
+              class="absolute inset-0 flex items-center justify-center bg-gray-700"
             >
               <div class="relative">
                 <UAvatar
-                  :src="usersInfo[id]?.avatar || ''"
-                  :alt="usersInfo[id]?.username || 'Remote User'"
-                  size="lg"
-                  class="border-4 border-gray-600 w-24 h-24 object-cover rounded-full"
+                  :src="
+                    usersInfo[pinnedScreen.replace('video-', '')]?.avatar || ''
+                  "
+                  :alt="
+                    usersInfo[pinnedScreen.replace('video-', '')]?.username ||
+                    'Remote User'
+                  "
+                  size="3xl"
+                  class="border-4 border-gray-600"
                 />
                 <img
-                  v-if="getAvatarEffectUrl(usersInfo[id])"
-                  :src="getAvatarEffectUrl(usersInfo[id])"
+                  v-if="
+                    getAvatarEffectUrl(
+                      usersInfo[pinnedScreen.replace('video-', '')]
+                    )
+                  "
+                  :src="
+                    getAvatarEffectUrl(
+                      usersInfo[pinnedScreen.replace('video-', '')]
+                    )
+                  "
                   alt="avatar-effect"
                   class="absolute inset-0 w-full h-full object-contain pointer-events-none rounded-full"
                 />
               </div>
             </div>
-            <span
-              class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-xs z-20"
-              >{{ usersInfo[id]?.username || "Unknown" }}</span
-            >
-          </div>
 
-          <!-- Local screen share -->
-          <div
-            v-if="isScreenSharing"
-            :class="[
-              'relative bg-gray-900 rounded-lg overflow-hidden cursor-pointer group transition-all duration-300',
-              pinnedScreen === 'local-screen'
-                ? 'col-span-full row-span-2 h-[60vh]'
-                : 'aspect-video hover:scale-105 hover:shadow-2xl',
-            ]"
-            @click="togglePinScreen('local-screen')"
-          >
+            <!-- Local screen pinned -->
             <video
-              ref="localScreenVideo"
+              v-else-if="pinnedScreen === 'local-screen'"
+              :ref="(el) => { if (el) localScreenVideo = el as HTMLVideoElement }"
               autoplay
               muted
-              class="w-full h-full object-contain"
+              playsinline
+              class="w-full h-full object-cover bg-black"
             ></video>
-            <div
-              class="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-3 py-1 rounded flex items-center gap-2 z-20"
-            >
-              <UIcon name="i-lucide-monitor" class="w-4 h-4 text-green-500" />
-              <span class="text-sm">Your Screen</span>
-            </div>
-            <!-- Pin/Unpin button overlay on hover -->
-            <div
-              v-if="pinnedScreen !== 'local-screen'"
-              class="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <div class="bg-black/60 p-3 rounded-full">
-                <UIcon name="i-lucide-pin" class="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <!-- Unpin button when pinned -->
-            <button
-              v-if="pinnedScreen === 'local-screen'"
-              @click.stop="togglePinScreen('local-screen')"
-              class="absolute top-3 right-3 bg-black/70 hover:bg-black/90 p-2.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100 z-20"
-            >
-              <UIcon name="i-lucide-pin-off" class="w-5 h-5 text-white" />
-            </button>
-          </div>
 
-          <!-- Remote screen shares -->
-          <div
-            v-for="(stream, id) in remoteScreenStreams"
-            :key="`screen-${id}`"
-            :class="[
-              'relative bg-gray-900 rounded-lg overflow-hidden cursor-pointer group transition-all duration-300',
-              pinnedScreen === `screen-${id}`
-                ? 'col-span-full row-span-2 h-[60vh]'
-                : 'aspect-video hover:scale-105 hover:shadow-2xl',
-            ]"
-            @click="togglePinScreen(`screen-${id}`)"
-          >
+            <!-- Remote screen pinned -->
             <video
-              :ref="setRemoteScreenRef(id as string)"
+              v-else-if="pinnedScreen && pinnedScreen.startsWith('screen-')"
+              :ref="setPinnedRemoteScreenRef"
               autoplay
               playsinline
               :muted="false"
-              class="w-full h-full object-contain"
+              class="w-full h-full object-cover bg-black"
             ></video>
-            <div
-              class="absolute top-2 left-2 bg-black bg-opacity-70 text-white px-3 py-1 rounded flex items-center gap-2 z-20"
-            >
-              <UIcon name="i-lucide-monitor" class="w-4 h-4 text-blue-400" />
-              <span class="text-sm"
-                >{{ usersInfo[id]?.username || "Unknown" }}'s Screen</span
-              >
-            </div>
-            <!-- Pin button overlay on hover -->
-            <div
-              v-if="pinnedScreen !== `screen-${id}`"
-              class="absolute inset-0 bg-black/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-            >
-              <div class="bg-black/60 p-3 rounded-full">
-                <UIcon name="i-lucide-pin" class="w-6 h-6 text-white" />
-              </div>
-            </div>
-            <!-- Unpin button when pinned -->
+
+            <!-- Unpin button only -->
             <button
-              v-if="pinnedScreen === `screen-${id}`"
-              @click.stop="togglePinScreen(`screen-${id}`)"
+              @click="togglePinScreen(pinnedScreen)"
               class="absolute top-3 right-3 bg-black/70 hover:bg-black/90 p-2.5 rounded-lg transition-colors opacity-0 group-hover:opacity-100 z-20"
             >
-              <UIcon name="i-lucide-pin-off" class="w-5 h-5 text-white" />
+              <UIcon name="i-lucide-x" class="w-5 h-5 text-white" />
             </button>
+          </div>
+
+          <!-- Bottom section: Video grid with slide animation -->
+          <div
+            class="flex-shrink-0 relative transition-all duration-300 overflow-visible"
+            :class="showThumbnailsWhenPinned ? 'h-32' : 'h-0'"
+          >
+            <!-- Grid layout for videos -->
+            <div
+              class="grid gap-2 w-full h-full px-5 py-2 grid-cols-6 auto-rows-fr"
+            >
+              <!-- Local video -->
+              <div
+                v-if="!pinnedScreen || pinnedScreen !== 'local-video'"
+                class="relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-200 w-full h-full"
+                @click="togglePinScreen('local-video')"
+              >
+                <video
+                  ref="localVideo"
+                  autoplay
+                  muted
+                  :class="[
+                    'w-full h-full object-cover scale-x-[-1]',
+                    { 'opacity-0': !isVideoEnabled },
+                  ]"
+                ></video>
+                <div
+                  v-if="!isVideoEnabled"
+                  class="absolute inset-0 flex items-center justify-center bg-gray-700"
+                >
+                  <div class="relative">
+                    <UAvatar
+                      :src="user?.avatar || ''"
+                      :alt="user?.username || 'User Avatar'"
+                      size="sm"
+                      class="border-2 border-gray-600"
+                    />
+                    <img
+                      v-if="getAvatarEffectUrl(user)"
+                      :src="getAvatarEffectUrl(user)"
+                      alt="avatar-effect"
+                      class="absolute inset-0 w-full h-full object-contain pointer-events-none rounded-full"
+                    />
+                  </div>
+                </div>
+                <span
+                  class="absolute bottom-1 left-1 bg-black/60 text-white px-1.5 py-0.5 rounded text-[10px] z-20"
+                  >You</span
+                >
+              </div>
+
+              <!-- Remote videos -->
+              <div
+                v-for="(stream, id) in remoteStreams"
+                :key="id"
+                v-show="!pinnedScreen || pinnedScreen !== `video-${id}`"
+                class="relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-200 w-full h-full"
+                @click="togglePinScreen(`video-${id}`)"
+              >
+                <video
+                  :ref="setRemoteVideoRef(id as string)"
+                  autoplay
+                  playsinline
+                  :muted="false"
+                  :class="[
+                    'w-full h-full object-cover',
+                    {
+                      'opacity-0': !usersInfo[id]?.isVideoEnabled,
+                      'z-0': !usersInfo[id]?.isVideoEnabled,
+                    },
+                  ]"
+                ></video>
+                <div
+                  v-if="!usersInfo[id]?.isVideoEnabled"
+                  class="absolute inset-0 flex items-center justify-center bg-gray-700 z-10"
+                >
+                  <div class="relative">
+                    <UAvatar
+                      :src="usersInfo[id]?.avatar || ''"
+                      :alt="usersInfo[id]?.username || 'Remote User'"
+                      size="sm"
+                      class="border-2 border-gray-600"
+                    />
+                    <img
+                      v-if="getAvatarEffectUrl(usersInfo[id])"
+                      :src="getAvatarEffectUrl(usersInfo[id])"
+                      alt="avatar-effect"
+                      class="absolute inset-0 w-full h-full object-contain pointer-events-none rounded-full"
+                    />
+                  </div>
+                </div>
+                <span
+                  class="absolute bottom-1 left-1 bg-black/60 text-white px-1.5 py-0.5 rounded text-[10px] z-20"
+                  >{{ usersInfo[id]?.username || "Unknown" }}</span
+                >
+              </div>
+
+              <!-- local screen stream -->
+              <div
+                v-if="
+                  isScreenSharing &&
+                  (!pinnedScreen || pinnedScreen !== 'local-screen')
+                "
+                class="relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-200 w-full h-full"
+                @click="togglePinScreen('local-screen')"
+              >
+                <video
+                  :ref="(el) => { if (el) localScreenVideo = el as HTMLVideoElement }"
+                  autoplay
+                  muted
+                  playsinline
+                  class="w-full h-full object-cover bg-black"
+                ></video>
+                <div
+                  class="absolute top-1 left-1 bg-black/70 text-white px-1.5 py-0.5 rounded flex items-center gap-1 z-20"
+                >
+                  <UIcon
+                    name="i-lucide-monitor"
+                    class="w-2.5 h-2.5 text-green-500"
+                  />
+                  <span class="text-[10px]">Your Screen</span>
+                </div>
+              </div>
+
+              <!-- Remote screen shares -->
+              <div
+                v-for="(stream, id) in remoteScreenStreams"
+                :key="`screen-${id}`"
+                v-show="!pinnedScreen || pinnedScreen !== `screen-${id}`"
+                class="relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-200 w-full h-full"
+                @click="togglePinScreen(`screen-${id}`)"
+              >
+                <video
+                  :ref="setRemoteScreenRef(id as string)"
+                  autoplay
+                  playsinline
+                  :muted="false"
+                  class="w-full h-full object-cover bg-black"
+                ></video>
+                <div
+                  class="absolute top-1 left-1 bg-black/70 text-white px-1.5 py-0.5 rounded flex items-center gap-1 z-20"
+                >
+                  <UIcon
+                    name="i-lucide-monitor"
+                    class="w-2.5 h-2.5 text-blue-400"
+                  />
+                  <span class="text-[10px]"
+                    >{{ usersInfo[id]?.username || "Unknown" }}'s Screen</span
+                  >
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Bottom section when NOT pinned -->
+        <div v-else class="flex-1 flex items-center justify-center">
+          <!-- Grid layout for videos -->
+          <div class="grid gap-3 w-full h-full px-5" :class="getGridClass()">
+            <!-- Local video -->
+            <div
+              v-if="!pinnedScreen || pinnedScreen !== 'local-video'"
+              class="relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-200"
+              :class="getItemClass(true)"
+              @click="togglePinScreen('local-video')"
+            >
+              <video
+                ref="localVideo"
+                autoplay
+                muted
+                :class="[
+                  'w-full h-full object-cover scale-x-[-1]',
+                  { 'opacity-0': !isVideoEnabled },
+                ]"
+              ></video>
+              <div
+                v-if="!isVideoEnabled"
+                class="absolute inset-0 flex items-center justify-center bg-gray-700"
+              >
+                <div class="relative">
+                  <UAvatar
+                    :src="user?.avatar || ''"
+                    :alt="user?.username || 'User Avatar'"
+                    size="2xl"
+                    class="border-4 border-gray-600"
+                  />
+                  <img
+                    v-if="getAvatarEffectUrl(user)"
+                    :src="getAvatarEffectUrl(user)"
+                    alt="avatar-effect"
+                    class="absolute inset-0 w-full h-full object-contain pointer-events-none rounded-full"
+                  />
+                </div>
+              </div>
+              <span
+                class="absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded text-xs z-20"
+                >You</span
+              >
+            </div>
+
+            <!-- Remote videos -->
+            <div
+              v-for="(stream, id) in remoteStreams"
+              :key="id"
+              v-show="!pinnedScreen || pinnedScreen !== `video-${id}`"
+              class="relative bg-gray-800 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-200"
+              :class="getItemClass(false, id as string)"
+              @click="togglePinScreen(`video-${id}`)"
+            >
+              <video
+                :ref="setRemoteVideoRef(id as string)"
+                autoplay
+                playsinline
+                :muted="false"
+                :class="[
+                  'w-full h-full object-cover',
+                  {
+                    'opacity-0': !usersInfo[id]?.isVideoEnabled,
+                    'z-0': !usersInfo[id]?.isVideoEnabled,
+                  },
+                ]"
+              ></video>
+              <div
+                v-if="!usersInfo[id]?.isVideoEnabled"
+                class="absolute inset-0 flex items-center justify-center bg-gray-700 z-10"
+              >
+                <div class="relative">
+                  <UAvatar
+                    :src="usersInfo[id]?.avatar || ''"
+                    :alt="usersInfo[id]?.username || 'Remote User'"
+                    size="2xl"
+                    class="border-4 border-gray-600"
+                  />
+                  <img
+                    v-if="getAvatarEffectUrl(usersInfo[id])"
+                    :src="getAvatarEffectUrl(usersInfo[id])"
+                    alt="avatar-effect"
+                    class="absolute inset-0 w-full h-full object-contain pointer-events-none rounded-full"
+                  />
+                </div>
+              </div>
+              <span
+                class="absolute bottom-2 left-2 bg-black/60 text-white px-2 py-1 rounded text-xs z-20"
+                >{{ usersInfo[id]?.username || "Unknown" }}</span
+              >
+            </div>
+
+            <!-- Local screen share -->
+            <div
+              v-if="
+                isScreenSharing &&
+                (!pinnedScreen || pinnedScreen !== 'local-screen') &&
+                (!pinnedScreen || !pinnedScreen.startsWith('video-'))
+              "
+              class="relative bg-gray-900 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-200"
+              :class="getItemClass(false, undefined, true)"
+              @click="togglePinScreen('local-screen')"
+            >
+              <video
+                :ref="(el) => { if (el) localScreenVideo = el as HTMLVideoElement }"
+                autoplay
+                muted
+                playsinline
+                class="w-full h-full object-cover bg-black"
+              ></video>
+              <div
+                class="absolute top-1 left-1 bg-black/70 text-white px-1.5 py-0.5 rounded flex items-center gap-1 z-20"
+              >
+                <UIcon
+                  name="i-lucide-monitor"
+                  class="w-2.5 h-2.5 text-green-500"
+                />
+                <span class="text-[10px]">Your Screen</span>
+              </div>
+            </div>
+
+            <!-- Remote screen shares -->
+            <div
+              v-for="(stream, id) in remoteScreenStreams"
+              :key="`screen-${id}`"
+              v-show="
+                !pinnedScreen ||
+                (pinnedScreen !== `screen-${id}` &&
+                  !pinnedScreen.startsWith('video-'))
+              "
+              class="relative bg-gray-900 rounded-lg overflow-hidden cursor-pointer hover:scale-105 transition-transform duration-200"
+              :class="getItemClass(false, undefined, false, id as string)"
+              @click="togglePinScreen(`screen-${id}`)"
+            >
+              <video
+                :ref="setRemoteScreenRef(id as string)"
+                autoplay
+                playsinline
+                :muted="false"
+                class="w-full h-full object-cover bg-black"
+              ></video>
+              <div
+                class="absolute top-1 left-1 bg-black/70 text-white px-1.5 py-0.5 rounded flex items-center gap-1 z-20"
+              >
+                <UIcon
+                  name="i-lucide-monitor"
+                  class="w-2.5 h-2.5 text-blue-400"
+                />
+                <span class="text-[10px]"
+                  >{{ usersInfo[id]?.username || "Unknown" }}'s Screen</span
+                >
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -554,6 +946,25 @@ function setRemoteScreenRef(participantId: string) {
         </UButton>
       </div>
     </div>
+
+    <!-- Toggle button (always visible, floats above controls) -->
+    <button
+      v-if="isConnected && pinnedScreen"
+      @click="showThumbnailsWhenPinned = !showThumbnailsWhenPinned"
+      class="fixed bottom-20 left-1/2 -translate-x-1/2 bg-gray-800 hover:bg-gray-700 p-2 rounded-lg transition-colors z-50 flex items-center gap-2 px-4 shadow-lg ml-40"
+    >
+      <UIcon
+        :name="
+          showThumbnailsWhenPinned
+            ? 'i-lucide-chevron-down'
+            : 'i-lucide-chevron-up'
+        "
+        class="w-4 h-4 text-white"
+      />
+      <span class="text-white text-xs font-medium">
+        {{ showThumbnailsWhenPinned ? "Ẩn" : "Hiện" }}
+      </span>
+    </button>
 
     <!-- Controls bar -->
     <div
