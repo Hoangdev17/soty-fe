@@ -77,7 +77,6 @@ function removeUser(userId: string) {
 
 // Handle icon upload
 function handleIconUpload(url: string) {
-  console.log("Uploaded icon URL:", url);
   state.value.groupIcon = url;
 }
 

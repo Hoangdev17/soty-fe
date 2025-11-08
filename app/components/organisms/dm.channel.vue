@@ -34,21 +34,22 @@ const handleReplyCancelled = () => {
 };
 
 onMounted(() => {
-  console.log("DM Channel Props:", {
-    channelId: props.channelId,
-    currentChannel: props.currentChannel,
-    recipients: props.currentChannel?.recipients,
-    hasMessages: props.hasMessages,
-    messageLoading: props.messageLoading,
-  });
+  "DM Channel Props:",
+    {
+      channelId: props.channelId,
+      currentChannel: props.currentChannel,
+      recipients: props.currentChannel?.recipients,
+      hasMessages: props.hasMessages,
+      messageLoading: props.messageLoading,
+    };
 });
 
 // Watch currentChannel changes
 watch(
   () => props.currentChannel,
   (newChannel) => {
-    console.log("Current Channel Changed:", newChannel);
-    console.log("Recipients:", newChannel?.recipients);
+    "Current Channel Changed:", newChannel;
+    "Recipients:", newChannel?.recipients;
   },
   { immediate: true }
 );
@@ -56,19 +57,19 @@ watch(
 // Get recipient info for DM (excluding current user)
 const recipient = computed(() => {
   if (!props.currentChannel?.recipients?.length) {
-    console.log("No recipients found");
+    ("No recipients found");
     return null;
   }
 
   const currentUserId = authStore.user?.id;
-  console.log("Current User ID:", currentUserId);
-  console.log("All Recipients:", props.currentChannel.recipients);
+  "Current User ID:", currentUserId;
+  "All Recipients:", props.currentChannel.recipients;
 
   const recipientUser = props.currentChannel.recipients.find(
     (r) => r.id !== currentUserId
   );
 
-  console.log("Found Recipient:", recipientUser);
+  "Found Recipient:", recipientUser;
 
   return recipientUser || props.currentChannel.recipients[0];
 });

@@ -13,6 +13,8 @@ import type { Member } from "~/stores/member/member.type";
 import { useWebSocketStore } from "~/stores/websocket/websocket.store";
 import ModalEventCommunity from "./modal.event.community.vue";
 import { GuildPermissions } from "~/stores/roles/role.type";
+import { useCommunityVoice } from "~/composables/useCommunityVoice";
+import VoiceParticipantsList from "~/components/molecules/voice.participants.list.vue";
 
 const route = useRoute();
 const communityStore = useCommunityStore();
@@ -23,7 +25,14 @@ const memberStore = useMemberStore();
 const messageStore = useMessageStore();
 const wsStore = useWebSocketStore();
 
-const guildId = ref(route.params.guild_id as string | undefined);
+// Voice participants
+const {
+  voiceParticipantsByChannel,
+  getChannelParticipants,
+  fetchCommunityVoiceParticipants,
+  setupVoiceParticipantListeners,
+} = useCommunityVoice();
+
 const { currentCommunity } = storeToRefs(communityStore);
 
 const isInviteModalOpen = ref(false);
@@ -716,6 +725,26 @@ watch(
   },
   { immediate: true }
 );
+
+// Setup voice participants listeners
+onMounted(() => {
+  setupVoiceParticipantListeners();
+
+  // Fetch voice participants when community is available
+  if (currentCommunity.value?.id) {
+    fetchCommunityVoiceParticipants(currentCommunity.value.id);
+  }
+});
+
+// Refetch when community changes
+watch(
+  () => currentCommunity.value?.id,
+  (newCommunityId) => {
+    if (newCommunityId) {
+      fetchCommunityVoiceParticipants(newCommunityId);
+    }
+  }
+);
 </script>
 
 <template>
@@ -883,40 +912,52 @@ watch(
                 v-for="channel in getChannelsInCategory(category.id)"
                 :key="channel.id"
               >
-                <div
-                  v-show="isCategoryExpanded(category.id)"
-                  class="relative flex items-center gap-2 px-6 py-1 rounded hover:bg-gray-600/30 cursor-pointer group transition-colors ml-2"
-                  :class="{
-                    'bg-white/10 text-white': currentChannelId === channel.id,
-                  }"
-                  @click="navigateToChannel(channel)"
-                >
-                  <!-- Unread indicator bar -->
+                <div v-show="isCategoryExpanded(category.id)">
+                  <!-- Channel row -->
                   <div
-                    v-if="getUnreadCount(channel.id) > 0"
-                    class="w-1 h-4 bg-white rounded-full flex-shrink-0"
-                  ></div>
-                  <!-- Spacer when no unread -->
-                  <div v-else class="w-1 flex-shrink-0"></div>
+                    class="relative flex items-center gap-2 px-6 py-1 rounded hover:bg-gray-600/30 cursor-pointer group transition-colors ml-2"
+                    :class="{
+                      'bg-white/10 text-white': currentChannelId === channel.id,
+                    }"
+                    @click="navigateToChannel(channel)"
+                  >
+                    <!-- Unread indicator bar -->
+                    <div
+                      v-if="getUnreadCount(channel.id) > 0"
+                      class="w-1 h-4 bg-white rounded-full flex-shrink-0"
+                    ></div>
+                    <!-- Spacer when no unread -->
+                    <div v-else class="w-1 flex-shrink-0"></div>
 
-                  <UIcon
-                    :name="getChannelIcon(channel.type)"
-                    class="w-4 h-4 text-gray-400"
-                    :class="{ 'text-white': currentChannelId === channel.id }"
+                    <UIcon
+                      :name="getChannelIcon(channel.type)"
+                      class="w-4 h-4 text-gray-400"
+                      :class="{ 'text-white': currentChannelId === channel.id }"
+                    />
+                    <span
+                      class="text-gray-200 text-sm truncate"
+                      :class="{ 'text-white': currentChannelId === channel.id }"
+                      >{{ channel.name }}</span
+                    >
+                    <button
+                      v-if="canManageServer"
+                      @click="openChannelSettings(channel)"
+                      class="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-gray-400 hover:text-white pointer-events-none group-hover:pointer-events-auto"
+                      title="Channel settings"
+                    >
+                      <UIcon name="i-lucide-settings" class="w-4 h-4 mt-1" />
+                    </button>
+                  </div>
+
+                  <!-- Voice participants list (only for voice channels) -->
+                  <VoiceParticipantsList
+                    v-if="
+                      channel.type === 'GUILD_VOICE' ||
+                      channel.type === 'GUILD_STAGE_VOICE'
+                    "
+                    :channel-id="channel.id"
+                    :participants="voiceParticipantsByChannel[channel.id] || []"
                   />
-                  <span
-                    class="text-gray-200 text-sm truncate"
-                    :class="{ 'text-white': currentChannelId === channel.id }"
-                    >{{ channel.name }}</span
-                  >
-                  <button
-                    v-if="canManageServer"
-                    @click="openChannelSettings(channel)"
-                    class="absolute right-3 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-150 text-gray-400 hover:text-white pointer-events-none group-hover:pointer-events-auto"
-                    title="Channel settings"
-                  >
-                    <UIcon name="i-lucide-settings" class="w-4 h-4 mt-1" />
-                  </button>
                 </div>
               </template>
             </div>
